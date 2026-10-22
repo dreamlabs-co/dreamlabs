@@ -1,0 +1,246 @@
+# Example config for a bimanual YAM station driven by a Dream-1 policy through DreamAPI.
+#
+# One file, one source of truth: this is what `python -m robots.station --config` (the station
+# agent) and `python -m robots.run --config` (one shot) load (see `robots.config.load`) and what
+# builds the arms, the cameras, the dream client and the loop.
+# Every key without a default below is required; a missing one fails at load with ConfigError
+# naming the key, and so does an unknown key at the top level, in follower_* or in a cameras
+# entry. `policy` is checked by `robots.run` against what dream 2.0 accepts (see below). Copy
+# this file per station and replace the placeholders (api_key, camera device paths or
+# RealSense serials, host, checkpoint, task).
+
+# --- Follower arms (i2rt) ------------------------------------------------------------------
+# `can_channel` is the SocketCAN interface the arm is on (`ip link` lists them); `gripper` is an
+# i2rt GripperType name. Only the `[hardware]` extra needs these; tests never touch them.
+#
+# The remaining keys default to what a YAM station runs with, so a station config needs none
+# of them:
+#   ee_mass_kg (0.62, or null): end-effector mass for i2rt's gravity model; 0.62 kg is the
+#     measured linear_4310 gripper. null keeps i2rt's own default.
+#   gripper (linear_4310): the gripper type; anvil_gripper for the gripper an OpenYAM is sold with, which the
+#     station opens with i2rt's linear_4310 settings (the same drivetrain, a shorter stroke).
+#   gravity_comp_factor (1.0, or null): one scalar multiplied into the gravity torque on every
+#     joint (it replaces i2rt's per-joint array); null keeps i2rt's per-joint defaults.
+#   sdk_gripper_force_limit (false): keep i2rt's motor-level 50 N gripper force limiter. Off,
+#     because it fights the loop-side grip_force_cap below (jittery grasp); worth true only on a
+#     station running grip_force_cap: 0.
+#   temp_export (true): i2rt puts per-motor temperatures in its observations.
+follower_l:
+  can_channel: can_follower_l
+  gripper: linear_4310
+
+follower_r:
+  can_channel: can_follower_r
+  gripper: linear_4310
+
+# --- Cameras --------------------------------------------------------------------------------
+# `name` is the camera role the serve reads: exactly `top`, `left` or `right` (the key after
+# `image_window.` in the observation). Any other name fails at startup. Each entry names its
+# camera in exactly one of two ways:
+#
+# OpenCV (any V4L2 webcam): `device` is an int index or a /dev path; use the /dev/v4l/by-path
+# symlinks (`ls -l /dev/v4l/by-path`) so a reboot cannot swap cameras. The placeholder paths
+# below will not exist on your machine.
+#
+# RealSense as an OpenCV device: a D405 exposes several V4L2 nodes per camera; the depth node
+# (`...-video-index0`) cv2 cannot open, but the colour node, `...-video-index2` of the same by-path
+# entry, it can. `ls -l /dev/v4l/by-path | grep video-index2` lists exactly one per RealSense;
+# this is what a YAM station runs with, no pyrealsense2 needed:
+#
+#   - name: top
+#     device: /dev/v4l/by-path/pci-0000:05:00.4-usb-0:2:1.0-video-index2
+#     width: 1280
+#     height: 720
+#     fps: 30
+#
+# RealSense by serial: the alternative is librealsense (`pip install pyrealsense2`) with the camera
+# named by serial (`rs-enumerate-devices | grep Serial`). Quote the serial: unquoted, YAML reads it
+# as a number. Setting `device` and `serial` together, or neither, fails at load. A YAM station
+# captures 1280x720 at 30 fps, which needs a USB3 link per
+# camera (on USB2 a D405 will not stream 720p30; use 640x360 there) and cameras spread across
+# USB controllers so three 720p streams do not saturate one. A D405 entry looks like this:
+#
+#   - name: top
+#     serial: "260322275394"
+#     width: 1280
+#     height: 720
+#     fps: 30
+#
+# Frames are captured at width x height and `rotate` (0/90/180/270) is applied before the frame
+# is published; what the policy sees is downscaled to `policy_image_size` (below) and JPEG-encoded
+# at quality 85 on the capture thread, so the capture size is the camera's business and the wire
+# size the checkpoint's. `fps` and `rotate` default to 30 and 0; `fps` also sets the window
+# stride (see `obs_fps`), so it should be what the camera actually delivers.
+cameras:
+  - name: top
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:1:1.0-video-index0
+    width: 1280
+    height: 720
+    fps: 30
+    rotate: 0
+  - name: left
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:2:1.0-video-index0
+    width: 1280
+    height: 720
+    fps: 30
+    rotate: 0
+  - name: right
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:3:1.0-video-index0
+    width: 1280
+    height: 720
+    fps: 30
+    rotate: 0
+
+# --- Task -----------------------------------------------------------------------------------
+# The language prompt sent with every observation (`prompt` on the serve wire). One episode,
+# one task; change it here between runs. Optional for `robots.station`: without it, send the
+# task with the Start (`dreamcli setup` writes no task).
+task: "pick up the cup and place it on the plate"
+
+# --- The account and the model are not in this file -----------------------------------------
+# Where DreamAPI is (DREAM_GATEWAY_URL), where the platform is (DREAM_API_URL) and the key for
+# both (DREAM_API_KEY) are the credentials file, ~/.dreamlabs/credentials, which dream reads
+# (dream.credentials); the platform's setup card prints the three lines for its environment.
+# The model is robots.run.DEFAULT_CHECKPOINT ("dreamlabs/dream-1-beta") unless a run names
+# another over the live view. A file that still carries `policy`,
+# `api_key` or `live.url` fails at load naming where each went.
+
+# --- Loop -----------------------------------------------------------------------------------
+# Tick rate. Arms are read and commanded once per tick; the policy is called once per chunk. The package
+# default is 20: the checkpoint's rows are 30 Hz actions, so 20 Hz plays every plan at two thirds speed,
+# the safer pace on a wide-area link and around people. Name it here only to run another rate.
+control_hz: 20
+
+# Rows in every action chunk the checkpoint returns (the model's data config's action_horizon;
+# 48 for our base model's config; not the serve's execution_horizon, which is a refill knob).
+# Declared here so the embodiment is known before the first call; a chunk of any other length
+# is rejected by name.
+action_horizon: 48
+
+# A refill started at t0 is late once now - t0 > action_timeout_s. An empty buffer waits at most
+# until that deadline; a chunk that lands later is discarded and a fresh refill starts on the
+# next due tick. This only bounds how long the loop waits; dream's own timeout_ms bounds the
+# call itself. The package default is 3.0, a wide-area round trip (about 0.6 s) and
+# its jitter with room for a slow reply.
+action_timeout_s: 3.0
+
+# A camera frame older than this at the tick fails the tick (hold, log once per burst).
+stale_after_s: 0.2
+
+# Consecutive ticks the buffer may stay empty (holding the last command) before the loop stops.
+# Counted only once the first chunk has landed; see first_chunk_timeout_s for the time before it.
+max_stall_ticks: 240
+
+# Seconds after the first tick by which the first chunk must have landed. A cold DreamAPI pool
+# refuses with a retryable DA-2000 and a retry hint while its serve boots (about a minute); the
+# loop holds the arms, asks again no sooner than the hint says, and counts no stall, because
+# nothing is at stake before motion. Past this deadline it stops with ControlLoopError.
+first_chunk_timeout_s: 120.0
+
+# There is no refill key. The dream client paces the loop (dream.pacing): while get_action takes
+# up to 900 ms (async; the median of the last five, and what 48 rows at 20 Hz carry past the
+# execution horizon; 1000 ms with System 0, a YAM's default) it asks for the next chunk so it lands as 30 rows of the current
+# one have run at control_hz; past it (sync) the arms run the whole chunk (action_horizon rows) and
+# the next request goes out only once they have, the arms holding through the inference. A file
+# that still sets refill_at_remaining fails at load naming the key.
+
+# Start-up ramp. A Dream-1 policy's first targets sit near its home pose, so the first commands
+# after start, and after every new session (a server-side episode restart), are blended from the
+# arms' measured pose into the policy's targets over ramp_s seconds instead of sent as a step
+# change. ramp_max_rad_s caps the joint speed during that blend: the ramp lasts
+# max(ramp_s, largest joint delta / ramp_max_rad_s) seconds. Both have defaults a YAM ramps
+# safely with; the ramp is announced once at INFO with its duration and the largest delta.
+ramp_s: 2.0
+ramp_max_rad_s: 0.5
+
+# --- Chunk handoff ------------------------------------------------------------------------------
+# Every chunk arrives already blended into the previous one by the dream client (its seam smoothing,
+# always on, nothing to set here), and the loop commands its rows as they are: no seam, no filter.
+# max_ee_speed_m_s (required) caps how fast each
+# arm's END EFFECTOR may move from one command to the next, metres per second, through the arm's
+# forward kinematics (MuJoCo on the i2rt YAM model, `grasp_site`): a faster command is scaled back
+# along its joint delta to the cap, counted, and the first one of a run logged. 0.6 m/s is the
+# rule on a YAM station. A config that still carries max_joint_step_rad, a per-joint angular
+# step, fails at load naming this key: a joint step says nothing about how fast the hand moves
+# and throttles the policy on a third of its ticks. max_gripper_step bounds the gripper to one
+# step per tick in [0, 1] units. trace_path (optional) names a CSV the loop appends one
+# row per commanded tick to, for post-mortems (columns in the README). inference_log_path (optional)
+# names a JSON Lines file with one record per inference, error, stall and run boundary (format in
+# the README); `robots.station` writes ~/robots-inference.jsonl when it is unset, `robots.run` nothing.
+max_ee_speed_m_s: 0.6
+max_gripper_step: 0.05
+# grip_force_cap (0.65) is the gripper effort a grasp is held at, in i2rt's gripper_eff units
+# (motor torque, not newtons). A commanded close is backed off until the measured effort sits
+# there, so a grasp squeezes to a chosen force instead of to whatever the motor PD's leftover
+# position error implies. 0 turns the cap off and hands grip force back to the PD, which is when
+# sdk_gripper_force_limit above is worth turning on.
+grip_force_cap: 0.65
+# trace_path: /tmp/robots-trace.csv
+# inference_log_path: ~/robots-inference.jsonl
+
+# --- Policy frames --------------------------------------------------------------------------
+# What each observation carries per camera role under `image_window.<role>`: the last obs_window
+# frames, oldest first, sampled every round(fps / obs_fps) captures and downscaled to
+# policy_image_size before a quality-85 JPEG encode (all three are what a YAM station sends).
+# Each sampled frame is encoded once, on the capture thread; a policy request copies
+# strings. Until obs_window frames have been sampled the window is shorter, never empty.
+#
+# policy_image_size: WIDTHxHEIGHT the serve receives. The server resizes to the model's input
+#   anyway, so 640x360 loses the policy nothing and costs 3-4x less upload than 720p.
+# obs_window: the checkpoint's video_context_frames (9 for our base model's config).
+# obs_fps: the checkpoint's training video rate, dataset_fps / video_stride (30 / 6 = 5). With
+#   30 fps cameras that is every sixth capture; the stride is logged per camera at start.
+policy_image_size: 640x360
+obs_window: 9
+obs_fps: 5.0
+
+# face_blur: blur faces out of every frame at capture, before it is sent to DreamAPI (shared.faceblur, run on
+# each sampled frame). On by default; set false only to debug the detector or measure its cost, never on a
+# station whose camera can see people. A detector that cannot load stops the camera rather than send raw faces.
+face_blur: true
+
+# --- Exposure (RealSense only) ------------------------------------------------------------------
+# Managed colour exposure, the default: the firmware's auto-exposure is off and the capture thread
+# holds each frame's median grey level at target_median by steering exposure (up to 85% of the frame period, or
+# limit_us) and then gain, unwinding gain before exposure on the way down. The controller moves only between
+# runs: the station holds it for the length of a run, so no brightness change is written into an episode.
+# `managed: false` hands the cameras back to the firmware's own auto-exposure and
+# ignores the other keys. An OpenCV device ignores the section. The whole section is optional.
+exposure:
+  managed: true
+  target_median: 90        # grey level 0-255 the frame median is held at
+  limit_us: null           # ceiling on the exposure, microseconds; null = 85% of the frame period
+  seed_us: null            # where the controller starts; null = half the ceiling
+  smooth_idle: true        # between runs: settle once, then follow drift slowly (no flicker in the live view)
+
+# --- Command thread -------------------------------------------------------------------------------
+# The arms are written from a dedicated thread at command_hz, interpolating from the last written
+# command to each new row over the row cadence (at most command_interp_max_s). No filter sits
+# on this path; the rows arrive smoothed from the client.
+command_hz: 250
+command_interp_max_s: 0.10
+
+# --- Live view (optional) -----------------------------------------------------------------------
+# Live View: the station runs a dream.LiveViewClient, one outbound wss link from this station to the
+# platform over which the owner watches the cameras and runs the robot from the website's Live View
+# page. Needs the [live] extra (pip install "dream-robots[live]": PyAV for its VP8 encoder). The
+# section is optional: a station without it runs no Live View. The link and its credential
+# are the credentials' platform and key; the encoding (VP8, 640 px, 30 fps) is the client's own.
+#   robot_id: this station's robot on the platform (POST /v1/robots or the Playground's Add robot).
+#   cameras (all of them): the camera names above a viewer may subscribe to, in this order.
+# face_blur above blurs every frame Live View encodes. An older file's width_px, fps, bitrate_kbps,
+# encoder and record keys are ignored with one warning. The section is commented out here so a copied
+# file runs no Live View until the robot's id is filled in; `dreamcli setup` writes it with the id of
+# the robot it registers.
+# live:
+#   robot_id: rbt_REPLACE_ME
+
+# --- Rollouts -------------------------------------------------------------------------------------
+# Saves every run on this disk as a LeRobot v2.1 episode too (README: Your rollouts). Off by default: the
+# run's dream client records it on a platform that takes recordings. The section turns it on.
+#   enabled (false): true saves each run here.
+#   dir (~/.dreamlabs/rollouts): one folder per episode is written here.
+#   robot_name (this machine's hostname): written into each episode's rollout.json.
+# rollouts:
+#   enabled: true
+#   dir: ~/.dreamlabs/rollouts

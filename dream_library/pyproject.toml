@@ -1,0 +1,174 @@
+[project]
+name = "dreamlabs"
+version = "1.0.10"
+description = "The dream library: the robots package with its dreamcli station command, and the DreamAPI policy client (import dream, from dreamlabs-client), as one pip install."
+readme = "README.pypi.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD-PARTY-LICENSES.md"]
+# Python 3.11 to 3.13. Below 3.11 the shared contracts the robots package imports do not load (`enum.StrEnum`), so
+# dreamcli stops at its first import; from 3.14 the arm driver's pins (numpy 2.2.6, and dm-tree through dm-env, which
+# that numpy pin holds at 0.1.9) have no wheels, so pip would build them from source and fail. The client alone,
+# dream_client/, takes 3.10 on.
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "Dream Labs" }]
+keywords = ["dream", "dreamapi", "dreamcli", "policy", "robotics", "inference", "client", "yam"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+# Two distributions, built from this tree: `dreamlabs-client` (dream_client/, the `dream` package, with the parts of
+# the monorepo's `shared` package it imports, `shared.datasets` and `shared.faceblur`, the face blur of Live View and
+# of the cameras at capture) and this one, `dreamlabs`, which depends on it and adds six import packages: `robots`
+# (robots/, with the `dreamcli` script), the part of `shared` robots imports beyond the client's (`shared.contracts`,
+# the live-view wire; copied in at build time from ../shared), `i2rt`, the YAM arm driver, from vendor/i2rt (VENDOR.md
+# there says why it is a copy), and `dream_ik`, dream's IK that the client's `ik` key runs, with `pyroki` and `jaxls`, the libraries it solves
+# with (vendor/dream_ik/VENDOR.md). So `pip install dreamlabs` from PyPI is the whole install, and from a checkout it
+# is `pip install <this directory>/dream_client <this directory>` (both directories, so pip takes the client from here
+# rather than from an index); the client alone is `pip install dreamlabs-client`, or `pip install <this
+# directory>/dream_client`. No file is in both wheels: the client owns `shared/__init__.py`, `py.typed`,
+# `shared/datasets` and `shared/faceblur`, this one `shared/contracts`. The dependencies are the union of the
+# packages' own (tests/test_distribution.py holds them to the products' and the vendored pyproject files).
+# Everything a station runs, in the base list: `pip install dreamlabs` is the whole install, with no extras to know
+# about and no compiler to have. The arm driver's own runtime list (vendor/i2rt/pyproject.toml) is here verbatim
+# except four names nothing the station imports (VENDOR.md): ruckig and evdev, which ship no wheel, and pygame
+# (LGPL) and qpsolvers with its quadprog solver (LGPL and GPL), which only i2rt's own gamepad and debug panels use;
+# its visualiser's library, viser, is here for the vendored IK, whose pyroki imports it;
+# pyarrow and boto3 are the client's `datasets` extra (its dataset checks open parquets, its upload sends the zip to
+# S3), mujoco is the robots package's arm
+# model, PyAV and websockets its live view, and
+# pyrealsense2 the RealSense cameras, whose wheels are Linux-only and stop at Python 3.12, so a marker keeps it from
+# failing the install everywhere else. The lines marked `python_version >= '3.11'` are the vendored IK's runtime
+# requirements (its pyproject files, less what VENDOR.md leaves out): JAX at dream's pins, which have no release for
+# 3.10; requires-python starts at 3.11, so the markers always hold, and they stay as the IK's own requirements say.
+dependencies = [
+    "av>=15",
+    "boto3>=1.36",
+    "click<8.2.0",
+    "dm-env==1.6",
+    # The client, with what its dataset checks and its live view need; the same major as the gateway accepts.
+    "dreamlabs-client[datasets,live]>=1.0.5,<2",
+    "einops>=0.7 ; python_version >= '3.11'",
+    "jax==0.7.1 ; python_version >= '3.11'",
+    "jax-dataclasses==1.6.3 ; python_version >= '3.11'",
+    "jaxlib==0.7.1 ; python_version >= '3.11'",
+    "jaxlie==1.5.0 ; python_version >= '3.11'",
+    "jaxtyping ; python_version >= '3.11'",
+    "loguru ; python_version >= '3.11'",
+    "mink>=0.0.13",
+    "mujoco>=3.3.5",
+    "numpy==2.2.6",
+    "opencv-python-headless>=4.10",
+    # The yam-mujoco example (`dreamcli example yam-mujoco`, examples/yam_mujoco/): its JPEG frames and its task terminal.
+    "pillow>=10",
+    "prompt-toolkit>=3.0,<4",
+    "portal==3.7.3",
+    "pydantic>=2",
+    "pyarrow>=17",
+    "pyrealsense2>=2.55 ; sys_platform == 'linux' and python_version < '3.13'",
+    "python-can[serial]==4.5.0",
+    "pyyaml>=6.0",
+    "rich>=13.0.0 ; python_version >= '3.11'",
+    "scipy>=1.11 ; python_version >= '3.11'",
+    "termcolor ; python_version >= '3.11'",
+    "threadpoolctl==3.6.0",
+    "tqdm ; python_version >= '3.11'",
+    "trimesh ; python_version >= '3.11'",
+    "typing-extensions>=4.5.0 ; python_version >= '3.11'",
+    "tyro==0.9.26",
+    "viser>=0.2.0 ; python_version >= '3.11'",
+    "websockets>=13",
+    "yourdfpy==0.0.60 ; python_version >= '3.11'",
+]
+
+# `hardware`, `ui` and `live` are empty names, kept so that `pip install "dream[hardware,ui]"` still resolves: the
+# base list carries the driver and the live view, and there is no station page for `ui` to install. `record` is
+# likewise empty, so that `pip install "dream[record]"` still resolves: websockets, which `dream.experimental` records
+# with on every policy, is in the base list. `so101` is the robots
+# package's own: the SO-101's servo bus is LeRobot's, which needs Python 3.12 and brings torch, so only an SO-101
+# station installs it.
+[project.optional-dependencies]
+hardware = []
+ui = []
+live = []
+record = []
+so101 = ["lerobot[feetech]>=0.5 ; python_version >= '3.12'"]
+
+[project.scripts]
+dreamcli = "robots.cli:main"
+
+[project.urls]
+Repository = "https://github.com/dreamlabs-co/dreamlabs/tree/main/dream_library"
+Client = "https://github.com/dreamlabs-co/dreamlabs/tree/main/dream_library/dream_client"
+Robots = "https://github.com/dreamlabs-co/dreamlabs/tree/main/dream_library/robots"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+    # tests/test_distribution.py reads the pyproject files; tomllib is 3.11+.
+    "tomli>=2; python_version < '3.11'",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# The wheel is built from this source tree (a checkout, or the clone pip makes of a git URL), never from an sdist:
+# the shared paths reach outside this directory, so `uv build --wheel` and pip's path and VCS installs work, and an
+# sdist would not carry ../shared. In an editable install (`uv sync` here) the two products are live from their
+# source directories and the shared and vendored parts are a copy taken at install time.
+[tool.hatch.build.targets.wheel]
+packages = ["robots/src/robots", "vendor/i2rt/i2rt", "vendor/pyroki/src/pyroki", "vendor/jaxls/src/jaxls"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# The parts of `shared` robots imports; `shared/__init__.py`, `py.typed`, `shared/datasets` and `shared/faceblur` are
+# the client's. Of
+# `shared/contracts`, only the modules robots imports (the envelope, the live-view wire, the station's flags and their
+# reader): the rest of it, the servers' settings (`constants`) and their internal APIs, never ships.
+"../shared/contracts/__init__.py" = "shared/contracts/__init__.py"
+"../shared/contracts/env.py" = "shared/contracts/env.py"
+"../shared/contracts/envelope.py" = "shared/contracts/envelope.py"
+"../shared/contracts/live.py" = "shared/contracts/live.py"
+"../shared/contracts/station.py" = "shared/contracts/station.py"
+"vendor/i2rt/LICENSE" = "i2rt/LICENSE"
+# dream_ik as the dream-ik wheel lays it out (vendor/dream_ik/packages/dream_ik/pyproject.toml force-includes the same).
+"vendor/dream_ik/src/dream/ik" = "dream_ik"
+"vendor/pyroki/LICENSE" = "pyroki/LICENSE"
+"vendor/jaxls/LICENSE" = "jaxls/LICENSE"
+# The examples `dreamcli example` runs (robots.examples), here yam-mujoco, Dream YAM Sim: each example's scripts and
+# assets as a data directory, not a package; its tests and its asset tools stay in the repository.
+"examples/yam_mujoco/yam_mujoco.py" = "dream_examples/yam_mujoco/yam_mujoco.py"
+"examples/yam_mujoco/viewer_workspace.py" = "dream_examples/yam_mujoco/viewer_workspace.py"
+"examples/yam_mujoco/dream_control.py" = "dream_examples/yam_mujoco/dream_control.py"
+"examples/yam_mujoco/yam_env.py" = "dream_examples/yam_mujoco/yam_env.py"
+"examples/yam_mujoco/camera_panel.py" = "dream_examples/yam_mujoco/camera_panel.py"
+"examples/yam_mujoco/collision_view.py" = "dream_examples/yam_mujoco/collision_view.py"
+"examples/yam_mujoco/credentials.py" = "dream_examples/yam_mujoco/credentials.py"
+"examples/yam_mujoco/terminal_input.py" = "dream_examples/yam_mujoco/terminal_input.py"
+"examples/yam_mujoco/README.md" = "dream_examples/yam_mujoco/README.md"
+"examples/yam_mujoco/CALIBRATION.md" = "dream_examples/yam_mujoco/CALIBRATION.md"
+"examples/yam_mujoco/assets" = "dream_examples/yam_mujoco/assets"
+
+[tool.ruff]
+line-length = 119
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv]
+# Supply-chain cooldown: resolve only releases at least a week old.
+exclude-newer = "1 week"
+
+# The client from this tree, not from an index: the venv runs the code the two wheels are built from.
+[tool.uv.sources]
+dreamlabs-client = { path = "dream_client", editable = true }

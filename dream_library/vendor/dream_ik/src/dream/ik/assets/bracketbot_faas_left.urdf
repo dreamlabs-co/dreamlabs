@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!-- Bracketbot bracket_bot_manipulation.urdf (bb-sim manipulation.xml): base .. lj6_link only (7 movable joints; meshes and every other link
+     dropped), the FaaS EEF bake frame. Source sha256 15423aa5d35597541ec8bce67382616bffbb48dfaf69fb62c9279431a971dfaa. -->
+<robot name="bracketbot_faas_left">
+  <link name="base">
+    </link>
+  <link name="lj0_link">
+    </link>
+  <link name="lj1_link">
+    </link>
+  <link name="lj2_link">
+    </link>
+  <link name="lj3_link">
+    </link>
+  <link name="lj4_link">
+    </link>
+  <link name="lj5_link">
+    </link>
+  <link name="lj6_link">
+    </link>
+  <joint name="lj0" type="prismatic">
+    <origin xyz="-1.26968589e-06 0.0124960835 1.34851079" rpy="2.03920719e-06 5.30717509e-06 -1.57080265" />
+    <parent link="base" />
+    <child link="lj0_link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.03044" upper="0" effort="100" velocity="0" />
+  </joint>
+  <joint name="lj1" type="revolute">
+    <origin xyz="-0.1007622 -0.007941402 -0.14467" rpy="-4.86491234e-06 -1.30354574e-06 1.043757e-06" />
+    <parent link="lj0_link" />
+    <child link="lj1_link" />
+    <axis xyz="0.933012751 0.249999933 -0.258818931" />
+    <limit lower="-2.094395" upper="2.094395" effort="5" velocity="0" />
+  </joint>
+  <joint name="lj2" type="revolute">
+    <origin xyz="0.026392489 -0.0492306902 -0.0726042458" rpy="-0.011590924 -0.00309056087 0.00323253443" />
+    <parent link="lj1_link" />
+    <child link="lj2_link" />
+    <axis xyz="-0.25881896 0.965925849 -7.64449881e-08" />
+    <limit lower="-2.094395" upper="2.094395" effort="5" velocity="0" />
+  </joint>
+  <joint name="lj3" type="revolute">
+    <origin xyz="-0.0438706882 0.0612675039 -0.154751" rpy="0.471615163 0.0191345638 -4.88950632e-05" />
+    <parent link="lj2_link" />
+    <child link="lj3_link" />
+    <axis xyz="1 -2.85296e-07 1.97854e-08" />
+    <limit lower="-2.094395" upper="2.094395" effort="5" velocity="0" />
+  </joint>
+  <joint name="lj4" type="revolute">
+    <origin xyz="0.0305826923 -0.0647720528 -0.0843053818" rpy="-0.460035794 -7.45271366e-05 4.15091377e-05" />
+    <parent link="lj3_link" />
+    <child link="lj4_link" />
+    <axis xyz="-1.97854e-08 7.38402e-08 1" />
+    <limit lower="-2.094395" upper="2.094395" effort="5" velocity="0" />
+  </joint>
+  <joint name="lj5" type="revolute">
+    <origin xyz="-0.00018385403 0.0177248978 -0.0543985991" rpy="4.99393808e-11 2.9521771e-07 -0.00251208" />
+    <parent link="lj4_link" />
+    <child link="lj5_link" />
+    <axis xyz="6.55232003e-10 1 -7.38402e-08" />
+    <limit lower="-2.094395" upper="2.094395" effort="5" velocity="0" />
+  </joint>
+  <joint name="lj6" type="revolute">
+    <origin xyz="-0.0162467796 -0.01781503 -0.0453221368" rpy="-1.81795178e-11 -0.0150237 1.10950841e-09" />
+    <parent link="lj5_link" />
+    <child link="lj6_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="-2.094395" upper="2.094395" effort="5" velocity="0" />
+  </joint>
+</robot>

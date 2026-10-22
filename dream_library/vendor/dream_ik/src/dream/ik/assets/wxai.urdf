@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<!-- Trossen WidowX AI follower arm, base_link .. link_6 only (joint_0..5; carriage, camera, meshes dropped),
+     from TrossenRobotics/trossen_arm_description 21d8b360 urdf/generated/wxai/wxai_follower.urdf
+     (sha256 10176fc822f77783b2f46f2103d300740b80e8d1397b4d306d5aa0aea60e16bf). -->
+<robot name="wxai">
+  <link name="base_link">
+    </link>
+  <link name="link_1">
+    </link>
+  <joint name="joint_0" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0.05725" />
+    <parent link="base_link" />
+    <child link="link_1" />
+    <axis xyz="0 0 1" />
+    <limit effort="27.0" lower="-3.0543261909900767" upper="3.0543261909900767" velocity="3.375" />
+  </joint>
+  <link name="link_2">
+    </link>
+  <joint name="joint_1" type="revolute">
+    <origin rpy="0 0 0" xyz="0.02 0 0.04625" />
+    <parent link="link_1" />
+    <child link="link_2" />
+    <axis xyz="0 1 0" />
+    <limit effort="27.0" lower="0.0" upper="3.141592653589793" velocity="3.375" />
+  </joint>
+  <link name="link_3">
+    </link>
+  <joint name="joint_2" type="revolute">
+    <origin rpy="0 0 0" xyz="-0.264 0 0" />
+    <parent link="link_2" />
+    <child link="link_3" />
+    <axis xyz="0 -1 0" />
+    <limit effort="27.0" lower="0.0" upper="2.356194490192345" velocity="3.375" />
+  </joint>
+  <link name="link_4">
+    </link>
+  <joint name="joint_3" type="revolute">
+    <origin rpy="0 0 0" xyz="0.245 0 0.06" />
+    <parent link="link_3" />
+    <child link="link_4" />
+    <axis xyz="0 -1 0" />
+    <limit effort="7.0" lower="-1.5707963267948966" upper="1.5707963267948966" velocity="7.0" />
+  </joint>
+  <link name="link_5">
+    </link>
+  <joint name="joint_4" type="revolute">
+    <origin rpy="0 0 0" xyz="0.06775 0 0.0455" />
+    <parent link="link_4" />
+    <child link="link_5" />
+    <axis xyz="0 0 -1" />
+    <limit effort="7.0" lower="-1.5707963267948966" upper="1.5707963267948966" velocity="7.0" />
+  </joint>
+  <link name="link_6">
+    </link>
+  <joint name="joint_5" type="revolute">
+    <origin rpy="0 0 0" xyz="0.02895 0 -0.0455" />
+    <parent link="link_5" />
+    <child link="link_6" />
+    <axis xyz="1 0 0" />
+    <limit effort="7.0" lower="-3.141592653589793" upper="3.141592653589793" velocity="7.0" />
+  </joint>
+</robot>

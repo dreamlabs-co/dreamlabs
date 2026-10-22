@@ -1,0 +1,65 @@
+# Example config for a robot of your own, driven by your FaaS fine-tune through DreamAPI.
+#
+# The same loop, station and file format as configs/yam.example.yaml; this file shows only what differs, and every
+# key it leaves out means what that file says. `body: custom` runs your driver (src/robots/driver_template.py is the
+# commented starting point) under everything we share: the loop, the station, the safety caps, the dream client's
+# IK and the wire to your fine-tune.
+#
+# Try it first without moving anything: dreamcli robot run --config <this file> --task "..." --dry-run
+
+body: custom
+
+custom:
+  # Your driver: package.module:Class (importable in the Python that runs dreamcli), or file.py:Class, a path read
+  # from this file's directory. Class(arm_config, side) opens one arm. As set here, the template's arm in memory.
+  driver: robots.driver_template:TemplateArm
+  # dream's name for your arm's URDF, or an arm file of your own URDF (arms/my-arm.json, read from this file's
+  # directory; `dreamcli setup` writes one when you give it the URDF): the dream client solves the model's tool poses
+  # to joints with it, and the end-effector speed cap measures with it.
+  ik: makers
+  # The embodiment your fine-tune was trained on, <username>/<name> as `dream.DreamClient().get_embodiments()` lists
+  # it, or the one `dreamcli setup` registered for your URDF, which runs Dream Labs' base models. Its config is the
+  # wire: the state parts sent per arm (<side>_arm, <side>_grip, and <side>_gripper if your datasets record it) and
+  # the camera roles (its `video`).
+  embodiment: alice/my-arm
+  # Only when the embodiment records <side>_gripper: what it reads with the gripper fully open, in your datasets'
+  # own unit (80 for a gripper recorded as 0 to 80 mm).
+  # grip_scale: 80
+
+# --- Follower arms ----------------------------------------------------------------------------
+# `can_channel` is the device your driver opens (a CAN link, a serial port: use /dev/serial/by-id so a reboot cannot
+# swap the arms). `home` is required: one joint angle per joint in radians, where every run starts and where Home and
+# Stop move the arm; how many it lists is how many joints the arm has (1 to 16), and your driver reads and takes that
+# many. The dry run logs what the arm reads at rest.
+follower_l:
+  can_channel: /dev/serial/by-id/usb-my-arm-left
+  home: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+follower_r:
+  can_channel: /dev/serial/by-id/usb-my-arm-right
+  home: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# --- Cameras ----------------------------------------------------------------------------------
+# Name each camera after one of the embodiment's video roles; any other name fails at startup.
+cameras:
+  - name: scene
+    device: 0
+    width: 640
+    height: 480
+    fps: 30
+
+task: "pick up the cup and place it on the plate"
+
+# --- The model --------------------------------------------------------------------------------
+# A robot of your own has no default model: name your fine-tune with --checkpoint (or with each Start on the station
+# page).
+
+# --- Loop -------------------------------------------------------------------------------------
+# 20, every body's action rate: the fine-tune's 30 fps rows play at two thirds speed.
+control_hz: 20
+action_horizon: 48
+stale_after_s: 0.2
+max_stall_ticks: 240
+max_ee_speed_m_s: 0.6
+# The grip force cap reads a gripper effort, which the template does not report.
+grip_force_cap: 0

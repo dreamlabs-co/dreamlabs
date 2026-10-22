@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<!-- ROBO Robo-Tv2_dreamlabs.urdf (the vendor upload, robo/robo-t/urdf): L.ShoulderFixed .. L.Gripper only (7
+     movable joints; meshes and every other link dropped), the FaaS EEF bake frame. Axes turned over and limits
+     mirrored for L.Shoulder, L.ShoulderRotate, L.ArmRoll, L.WristPitch, then limits {"L.Elbow": [-0.1, 2.3562]}, as the training-side
+     robo_t_faas twin. Source sha256 b0b8a8ed00021042aa12b928a9e3e9b4e2233eb696a2d8a7cd873acb2a69f1d2. -->
+<robot name="robo_t_faas_left">
+  <link name="L.ShoulderFixed">
+    
+    </link>
+  <link name="L.Shoulder">
+    
+    </link>
+  <joint name="L.Shoulder" type="revolute">
+    <origin xyz="1.3596E-05 0.15683 0" rpy="0 0 0" />
+    <parent link="L.ShoulderFixed" />
+    <child link="L.Shoulder" />
+    <axis xyz="-0.0 1.0 -0.0" />
+    <limit lower="-2.3562" upper="2.5307" effort="0" velocity="0" />
+  </joint>
+  <link name="L.ShoulderRotate">
+    
+    </link>
+  <joint name="L.ShoulderRotate" type="revolute">
+    <origin xyz="-0.0301 0.06 0" rpy="0 0 0" />
+    <parent link="L.Shoulder" />
+    <child link="L.ShoulderRotate" />
+    <axis xyz="-1.0 -0.0 -0.0" />
+    <limit lower="-3.3161" upper="0.1745" effort="0" velocity="0" />
+  </joint>
+  <link name="L.ArmRoll">
+    
+    </link>
+  <joint name="L.ArmRoll" type="revolute">
+    <origin xyz="0.0301 0 -0.06625" rpy="0 0 0" />
+    <parent link="L.ShoulderRotate" />
+    <child link="L.ArmRoll" />
+    <axis xyz="-0.0 -0.0 -1.0" />
+    <limit lower="-1.5708" upper="1.5708" effort="0" velocity="0" />
+  </joint>
+  <link name="L.Elbow">
+    
+    </link>
+  <joint name="L.Elbow" type="revolute">
+    <origin xyz="0 -0.03155 -0.23971" rpy="0 0 0" />
+    <parent link="L.ArmRoll" />
+    <child link="L.Elbow" />
+    <axis xyz="0 -1 0" />
+    <limit lower="-0.1" upper="2.3562" effort="0" velocity="0" />
+  </joint>
+  <link name="L.WristRoll">
+    
+    </link>
+  <joint name="L.WristRoll" type="revolute">
+    <origin xyz="0 0.031499999999998 -0.22444" rpy="0 0 0" />
+    <parent link="L.Elbow" />
+    <child link="L.WristRoll" />
+    <axis xyz="0 0 -1" />
+    <limit lower="-1.5708" upper="1.5708" effort="0" velocity="0" />
+  </joint>
+  <link name="L.WristPitch">
+    
+    </link>
+  <joint name="L.WristPitch" type="revolute">
+    <origin xyz="0 0 -0.120500000000003" rpy="0 0 0" />
+    <parent link="L.WristRoll" />
+    <child link="L.WristPitch" />
+    <axis xyz="-0.0 -1.0 -0.0" />
+    <limit lower="-0.7854" upper="0.7854" effort="0" velocity="0" />
+  </joint>
+  <link name="L.WristYaw">
+    
+    </link>
+  <joint name="L.WristYaw" type="revolute">
+    <origin xyz="0.0204999999999999 0 0" rpy="0 0 0" />
+    <parent link="L.WristPitch" />
+    <child link="L.WristYaw" />
+    <axis xyz="1 0 0" />
+    <limit lower="-1.5708" upper="1.5708" effort="0" velocity="0" />
+  </joint>
+  <link name="L.Gripper">
+    </link>
+  <joint name="L.Gripper" type="fixed">
+    <origin xyz="-0.0205000000000064 0 -0.0955005000000014" rpy="0 0 0" />
+    <parent link="L.WristYaw" />
+    <child link="L.Gripper" />
+    <axis xyz="0 0 0" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+</robot>

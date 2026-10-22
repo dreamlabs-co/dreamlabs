@@ -1,0 +1,87 @@
+{
+ "arm": "yam",
+ "source": {
+  "repository": "https://github.com/i2rt-robotics/i2rt",
+  "commit": "4e462ecc435491a46f9bceb465237afb41d7b66f",
+  "urdf": "i2rt/robot_models/arm/yam/yam.urdf",
+  "urdf_sha256": "05ceb85f62805b8da89a2a6829755d9743778e8375c47535c90370f18fca4713",
+  "license": "MIT",
+  "gripper": "i2rt/robot_models/gripper/linear_4310/linear_4310.xml",
+  "gripper_sha256": "1ae64edff48e7a1d1de727d90c2a77a98aa519796b72233a26f2c1ab1bf66652"
+ },
+ "joints": {
+  "joint1": ["joint1", 1.0],
+  "joint2": ["joint2", 1.0],
+  "joint3": ["joint3", 1.0],
+  "joint4": ["joint4", 1.0],
+  "joint5": ["joint5", 1.0],
+  "joint6": ["joint6", 1.0]
+ },
+ "jaw": ["joint7", 0.0, 0.0475],
+ "parts": [
+  {
+   "link": "base_link",
+   "mesh": "base_link.stl",
+   "from": "base_link",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_1",
+   "mesh": "link_1.stl",
+   "from": "link_1",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_2",
+   "mesh": "link_2.stl",
+   "from": "link_2",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_3",
+   "mesh": "link_3.stl",
+   "from": "link_3",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_4",
+   "mesh": "link_4.stl",
+   "from": "link_4",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_5",
+   "mesh": "link_5.stl",
+   "from": "link_5",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_6",
+   "mesh": "link_6.stl",
+   "from": "link_6",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  }
+ ],
+ "jaws": [
+  {
+   "link": "link_6",
+   "mesh": "tip_left.stl",
+   "from": "tip_left",
+   "pose": [0.0, -0.7071068, -2.8e-06, 0.7071068, -0.0450619, 0.0238981, 0.0545599],
+   "move": "slide",
+   "axis": [1.0, 4e-06, 0.0],
+   "pivot": [-0.0450619, 0.0238981, 0.0545599],
+   "travel": 0.0475
+  },
+  {
+   "link": "link_6",
+   "mesh": "tip_right.stl",
+   "from": "tip_right",
+   "pose": [0.5000011, -0.4999989, 0.4999989, -0.5000011, 0.0450619, -0.0238981, 0.0545599],
+   "move": "slide",
+   "axis": [-1.0, 0.0, -4.3e-06],
+   "pivot": [0.0450619, -0.0238981, 0.0545599],
+   "travel": 0.0475
+  }
+ ]
+}

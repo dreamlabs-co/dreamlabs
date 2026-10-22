@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+frames/
+mock_results/
+collision_audit.json
+last_rejected_actions.json
+robot_surface_audit.json
+MUJOCO_LOG.TXT
+dream_task_results/

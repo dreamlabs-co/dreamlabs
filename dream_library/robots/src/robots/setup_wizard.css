@@ -1,0 +1,750 @@
+/* The setup pages' one stylesheet (setup_wizard.html, setup_wizard_v2.html). The platform's tokens (its greys,
+   accent and status hues, Inter and Schibsted Grotesk when the station has them), laid out after Apple's Human
+   Interface Guidelines: content first, one clear action per card, 44px touch targets, an 8px spacing grid, soft
+   depth, and explanations behind a disclosure until they are wanted. */
+:root {
+  --ink: #1b1b1b; --ink-2: #565250; --muted: #6b6766; --line: #e7e6e4; --line-strong: #d6d4d2; --paper: #f9f9f9;
+  --card: #ffffff; --fill: #f3f3f2; --fill-2: #e9e8e7; --field: #8f8c8c;
+  --accent: #a84e00; --accent-deep: #ffb87b;
+  --ok: #155d22; --ok-bg: #ecfaef; --ok-line: #25a43d; --warn: #803b00; --warn-bg: #fff5ec; --warn-line: #e66a00;
+  --err: #9e0508; --err-bg: #fff2f2; --err-line: #e64c50; --soft: rgba(27, 27, 27, 0.05);
+  --arm: #a6a3a3; --arm-lit: #e66a00; --arm-ghost: #25a43d;
+  --axis-x: #d6453d; --axis-y: #2f9e44; --axis-z: #3d6fd6;
+  --radius-sm: 8px; --radius: 12px; --radius-lg: 16px;
+  --shadow: 0 1px 2px rgba(16, 16, 16, 0.04), 0 2px 8px rgba(16, 16, 16, 0.04);
+  --shadow-lg: 0 12px 40px rgba(16, 16, 16, 0.16), 0 2px 6px rgba(16, 16, 16, 0.06);
+  --ease: 140ms cubic-bezier(0.2, 0, 0, 1);
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display: "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+
+/* ---- Base ---------------------------------------------------------------------------------------------------- */
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--card); color: var(--ink); font: 15px/1.55 var(--sans); -webkit-font-smoothing: antialiased; overflow-wrap: anywhere; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+[hidden], .hidden { display: none !important; }
+p { margin: 0; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: -0.015em; color: var(--ink); }
+h1 { margin: 0; font-size: 30px; line-height: 1.2; }
+/* The platform's weights: 600 for headings, medium (500) for controls, labels and names, 400 for body text. */
+code { font-family: var(--mono); font-size: 0.88em; padding: 2px 6px; border-radius: 6px; background: var(--fill); color: var(--ink); overflow-wrap: anywhere; }
+pre { margin: 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.65; overflow-x: auto; padding: 14px 64px 14px 16px; border-radius: var(--radius); background: var(--ink); color: #f4f4f5; }
+pre code { padding: 0; background: none; color: inherit; }
+a { color: var(--ink); text-underline-offset: 3px; }
+
+/* A disclosure: a row with a chevron that turns when open. `.more` is a quiet "learn more" under a step's content. */
+details > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; font-weight: 500; color: var(--ink); list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: ""; width: 16px; height: 16px; flex: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23565250' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 4l4 4-4 4'/%3E%3C/svg%3E") center / 16px no-repeat; transition: transform var(--ease); }
+details[open] > summary::before { transform: rotate(90deg); }
+details.more > summary { min-height: 32px; font-size: 14px; color: var(--ink-2); }
+details.more > summary:hover { color: var(--ink); }
+details.more > :not(summary) { margin: 4px 0 0 24px; }
+
+/* ---- Top bar: the platform's ---------------------------------------------------------------------------------- */
+header.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: stretch; height: 64px; border-bottom: 1px solid var(--line); background: rgba(255, 255, 255, 0.86); backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px); }
+header.top .brand { display: flex; align-items: center; flex: none; width: 208px; padding: 0 20px; border-right: 1px solid var(--line); transition: background var(--ease); }
+header.top .brand:hover { background: var(--soft); }
+header.top .brand svg { display: block; height: 20px; width: auto; }
+header.top .crumbs { display: flex; align-items: center; min-width: 0; padding: 0 32px; font-size: 14px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header.top .crumbs b { font-weight: 600; color: var(--ink); }
+header.top .crumbs .sep { margin: 0 6px; color: var(--muted); }
+/* The station this page sets up, a pill at the bar's right end. */
+
+/* ---- Layout: the steps across the top, under the bar, sticky; then one centred column of cards ------------------- */
+.layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 48px; max-width: 1180px; margin: 0 auto; padding: 32px 32px 40px; }
+main { min-width: 0; max-width: 860px; display: flex; flex-direction: column; gap: 24px; }
+/* The steps on the left, sticky, under the station's details; the current step's card alone on the right. */
+aside.side { position: sticky; top: 96px; align-self: start; max-height: calc(100vh - 120px); overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+nav.progress ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+/* Gated: a done step goes back, the current one is marked, a later one waits (disabled) until the ones above it are done. */
+nav.progress button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 12px; border: 1px solid transparent; border-radius: var(--radius); background: transparent; color: var(--ink); text-align: left; }
+nav.progress button:hover:not(:disabled) { background: var(--fill); }
+nav.progress button[aria-current="step"] { background: var(--card); border-color: var(--line); box-shadow: var(--shadow); cursor: default; }
+nav.progress button:disabled { opacity: 1; color: var(--muted); cursor: not-allowed; }
+nav.progress .dot { width: 28px; height: 28px; font-size: 13px; display: inline-flex; flex: none; align-items: center; justify-content: center; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--ink-2); font-family: var(--sans); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+nav.progress .name { font-size: 15px; font-weight: 500; line-height: 1.3; }
+nav.progress button[aria-current="step"] .dot { box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--field); color: var(--ink); }
+/* A step not done yet is a neutral circle with its number; a done one, green with a check in place of it. */
+nav.progress button.done .dot, section.card.done .step { background: #7de290 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23155d22' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3 3 7-7'/%3E%3C/svg%3E") center / 14px no-repeat; box-shadow: none; color: transparent; }
+nav.progress button.done .name { color: var(--ink-2); }
+.details { border-top: 1px solid var(--line); padding: 20px 12px 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.details h2 { margin: 0; font-size: 13px; }
+.details #account { display: flex; flex-direction: column; }
+.details code { font-size: 12px; }
+.station { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--ink-2); }
+.station.col { flex-direction: column; gap: 6px; align-items: flex-start; }
+.loaded { padding: 2px 8px; border-radius: 999px; background: var(--fill); font-size: 12px; }
+.sub { color: var(--ink-2); max-width: 70ch; }
+
+/* ---- A step's card. The script marks the one being done `open`, those before `done`, those after `later`; every card
+   stays open whichever step is current, so a step can be read, or done, before the ones above it. -------------- */
+#steps { display: flex; flex-direction: column; gap: 16px; }
+section.card, section.stepcard { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow); scroll-margin-top: 140px; transition: border-color var(--ease), box-shadow var(--ease); }
+section.card:not(.open) { display: none; }
+/* Step 1, Choose setup (setup_page.js): its card alone until Continue, then the script's cards. */
+#steps.choosing section.card, #steps:not(.choosing) #wayCard { display: none !important; }
+main.self-way section.card[data-step="0"], main.tcp-only section.card[data-step="0"] { display: block; }
+section.card > header, section.stepcard > header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-bottom: 20px; }
+section.card > header h2, section.stepcard > header h2 { margin: 0; font-size: 19px; line-height: 1.3; flex-grow: 1; }
+:is(section.card, section.stepcard) .step { width: 28px; height: 28px; font-size: 13px; display: inline-flex; flex: none; align-items: center; justify-content: center; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--ink-2); font-family: var(--sans); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+section.card .summary { display: none; color: var(--ink-2); padding-bottom: 16px; }
+section.card.done .summary { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+section.card .summary:empty { display: none; }
+.body { display: flex; flex-direction: column; gap: 20px; color: var(--ink-2); }
+.gated { opacity: 0.45; pointer-events: none; }
+.help { color: var(--ink-2); max-width: 70ch; }
+.lead { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 10px; }
+.note { font-size: 13px; color: var(--muted); line-height: 1.5; }
+p.note:empty, span.note:empty { display: none; }
+.err { color: var(--err); white-space: pre-wrap; font-size: 14px; }
+.err:empty { display: none; }
+.col { display: flex; flex-direction: column; gap: 10px; }
+.row { display: grid; gap: 12px; }
+.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* ---- Status: a pill for a state, a tinted panel with an icon for a message ------------------------------------- */
+.pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--fill); color: var(--ink-2); }
+.pill:empty { display: none; }
+.pill.good { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--err-bg); color: var(--err); }
+.banner { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px 14px 48px; border-radius: var(--radius); background: var(--warn-bg); color: var(--warn); }
+.banner::before { content: ""; position: absolute; left: 16px; top: 15px; width: 20px; height: 20px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23803b00' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='8'/%3E%3Cpath d='M10 6v5M10 14h.01'/%3E%3C/svg%3E") center / 20px no-repeat; }
+.banner.good { background: var(--ok-bg); color: var(--ok); }
+.banner.good::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23155d22' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='10' cy='10' r='8'/%3E%3Cpath d='M6.5 10.2l2.3 2.3 4.7-4.7'/%3E%3C/svg%3E"); }
+.banner.bad { background: var(--err-bg); color: var(--err); }
+.banner.bad::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%239e0508' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='8'/%3E%3Cpath d='M7.5 7.5l5 5M12.5 7.5l-5 5'/%3E%3C/svg%3E"); }
+.banner .title { font-family: var(--display); font-size: 15px; font-weight: 600; }
+.banner > span:not(.title) { color: var(--ink-2); }
+.banner pre { margin-top: 6px; }
+/* A question for the operator, a fix, and a failed check's one cause: what it is, what it does, and the fix. */
+.ask { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px; border-radius: var(--radius); background: var(--fill); }
+.fix { display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; border-radius: var(--radius); background: var(--warn-bg); }
+.fix .why { color: var(--ink); }
+.cause { display: flex; flex-direction: column; gap: 6px; padding: 16px 20px; border-radius: var(--radius); background: var(--err-bg); }
+.cause .impact { color: var(--err); }
+/* On a tinted panel a quiet button turns white, so it still reads as a button. */
+:is(.ask, .fix, .cause, .banner, .holdbar) button:not(.primary) { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); }
+:is(.ask, .fix, .cause, .banner, .holdbar) button:not(.primary):hover:not(:disabled) { background: var(--paper); }
+.cause .fix { padding: 0; background: none; display: block; color: var(--ink); }
+#causeGoOn { font-weight: 500; }
+#causeGoOn:empty, #skipGoOn:empty { display: none; }
+#skipGoOn { font-size: 15px; }
+.cause .where { margin: 0; color: var(--err); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.cause .where:empty { display: none; }
+.ok-line { display: flex; align-items: center; gap: 8px; color: var(--ok); font-weight: 500; }
+
+/* ---- Controls: 44px targets; ink for the one main action, a quiet fill for the rest ----------------------------- */
+button { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid transparent; background: var(--fill); color: var(--ink); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; transition: background var(--ease), transform var(--ease), box-shadow var(--ease); }
+button:hover:not(:disabled) { background: var(--fill-2); }
+button:active:not(:disabled) { transform: scale(0.98); }
+button.primary { background: var(--accent-deep); color: var(--ink); }
+button.primary:hover:not(:disabled) { background: #ffb06c; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+a.go { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 10px; background: var(--accent-deep); color: var(--ink); font-weight: 500; text-decoration: none; }
+a.go:hover { background: #ffb06c; }
+.actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+label.field { display: block; font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+input, select, textarea { width: 100%; min-height: 52px; font: inherit; font-size: 15px; padding: 12px 16px; border: 1px solid var(--field); border-radius: var(--radius); background: var(--card); color: var(--ink); transition: border-color var(--ease), box-shadow var(--ease); }
+input:hover, select:hover, textarea:hover { border-color: var(--field); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(27, 27, 27, 0.12); }
+/* A dropdown: tall, with its own chevron; disabled, it is grey and its one option says why. */
+select { appearance: none; -webkit-appearance: none; min-height: 52px; padding: 0 44px 0 16px; border-radius: var(--radius); background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23565250' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") right 16px center / 16px no-repeat; cursor: pointer; }
+select:disabled { background-color: var(--fill); border-color: var(--line); color: var(--muted); cursor: not-allowed; opacity: 1; }
+select.mono { font-family: var(--mono); font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.chips code { padding: 3px 10px; border-radius: 8px; font-size: 13px; }
+.chips:empty { display: none; }
+input[type="checkbox"] { width: 18px; height: 18px; min-height: 0; padding: 0; accent-color: var(--ink); }
+input[type="file"] { padding: 9px 12px; }
+input[type="range"] { min-height: 0; padding: 0; border: 0; }
+textarea { min-height: 112px; resize: vertical; font-family: var(--mono); font-size: 12.5px; }
+
+/* ---- Select robot: a card per robot, all in one row; the picked one carries a ring and a check ------------- */
+.robots { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+.robot { position: relative; min-height: 56px; text-align: left; padding: 12px 16px; display: flex; flex-direction: column; justify-content: center; gap: 2px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.robot:hover:not(:disabled) { background: var(--card); border-color: var(--field); }
+.robot b { font-family: var(--display); font-size: 15px; font-weight: 500; }
+.robot span { font-size: 12px; color: var(--muted); }
+.robot span:empty { display: none; }
+.robot.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.robot.on::after { content: ""; position: absolute; right: -7px; top: -7px; width: 20px; height: 20px; border-radius: 999px; box-shadow: 0 0 0 2px var(--card); background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8.5l2.5 2.5 5.5-5.5'/%3E%3C/svg%3E") center / 12px no-repeat; }
+
+/* ---- The arms: a grouped list of adapters, their joints live once the arms are let go; the one moved is marked -- */
+.devices { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.devices:empty { display: none; }
+.device { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 14px; align-items: center; min-height: 56px; padding: 12px 16px; border-left: 3px solid transparent; }
+.device + .device { border-top: 1px solid var(--line); }
+.device .name { font-family: var(--display); font-weight: 500; color: var(--ink); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.device .sub2 { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.device.moved { border-left-color: var(--ink); background: var(--fill); }
+.device.not-arm .name { color: var(--muted); }
+.jrow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.jrow span { font-size: 12px; font-variant-numeric: tabular-nums; padding: 1px 6px; border-radius: 6px; background: var(--fill); color: var(--ink-2); }
+body:has(#armCards) #devices .jrow { display: none; }
+.pulse { width: 10px; height: 10px; border-radius: 999px; background: var(--ink-2); flex: none; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+/* An arm's joint card (setup_page.js): a tile per joint, lit while it is more than 5 degrees from where the arm was
+   first read, so moving an arm by hand shows which one it is. */
+.armcards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.arm { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--card); }
+.arm.found { border-color: var(--ok-line); box-shadow: inset 0 0 0 1px var(--ok-line); }
+.arm .armhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.arm h3 { margin: 0; font-size: 16px; flex-grow: 1; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.tile { padding: 10px; border-radius: 10px; background: var(--fill); transition: background var(--ease), box-shadow var(--ease); cursor: help; }
+.tile.hot { background: #fff4c7; box-shadow: inset 0 0 0 1px #e6c84f; }
+.tile .jid { font-size: 12px; font-weight: 500; color: var(--ink-2); }
+.tile .jname { font-size: 12px; color: var(--muted); line-height: 1.3; min-height: 2.6em; }
+.tile .jval { font-size: 17px; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* The numbered actions of pinning the arms and of OpenYAM's motor mode. */
+.pin { display: flex; gap: 12px; align-items: flex-start; }
+.badge, ol.steps > li::before { width: 24px; height: 24px; font-size: 12px; display: inline-flex; flex: none; align-items: center; justify-content: center; border-radius: 999px; background: var(--fill); color: var(--ink); font-family: var(--sans); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; counter-reset: step; }
+ol.steps > li { display: flex; gap: 12px; align-items: flex-start; counter-increment: step; }
+ol.steps > li::before { content: counter(step); }
+
+/* ---- The cameras: a picture from each to give it a role, then per role the reference, yours and the model's ----- */
+.examples { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.examples svg { width: 100%; border-radius: var(--radius); display: block; }
+.examples .cap { font-weight: 500; font-size: 13px; color: var(--ink-2); }
+.frame { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #f3f0ec; display: grid; place-items: center; }
+.frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.frame .msg { font-size: 12px; color: var(--ink-2); padding: 10px; text-align: center; }
+.frame .tag { position: absolute; left: 8px; top: 8px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; background: rgba(27, 27, 27, 0.66); color: #ffffff; backdrop-filter: blur(6px); }
+.cap { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.stepper { display: flex; gap: 8px; align-items: center; margin-top: 6px; font-size: 13px; }
+.stepper button { min-height: 32px; padding: 0 10px; }
+
+/* ---- The 3D arms (setup_viewer.js) and the reach area, each arm from above with the painted area and the hand ---- */
+.view { position: relative; aspect-ratio: 4 / 3; border-radius: var(--radius); background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; touch-action: none; cursor: grab; }
+.view canvas { display: block; width: 100%; height: 100%; }
+.view .chip { position: absolute; left: 10px; top: 10px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--card); color: var(--ink-2); box-shadow: var(--shadow); pointer-events: none; }
+.reachhead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.reachhead b { font-family: var(--display); font-weight: 500; color: var(--ink); }
+.reachhead .note { margin-right: auto; }
+.reachmap { position: relative; aspect-ratio: 1; border-radius: var(--radius); background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.reachmap canvas { display: block; width: 100%; height: 100%; }
+.hand { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 999px; border: 2px solid var(--accent); pointer-events: none; animation: ring 1.4s ease-out infinite; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+ul.note { margin: 8px 0 0; padding-left: 20px; }
+
+/* ---- Under power: the safety sheet, Stop always in reach, and each check's result -------------------------------- */
+dialog { border: 0; border-radius: 20px; padding: 0; background: var(--card); color: var(--ink); width: min(520px, calc(100vw - 32px)); box-shadow: var(--shadow-lg); }
+dialog::backdrop { background: rgba(27, 27, 27, 0.4); backdrop-filter: blur(4px); }
+dialog .in { padding: 28px; display: flex; flex-direction: column; gap: 20px; }
+dialog h2 { margin: 0; font-size: 21px; }
+dialog ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+dialog .actions { justify-content: flex-end; }
+label.confirm { display: flex; align-items: center; gap: 12px; min-height: 52px; font-weight: 500; padding: 12px 16px; border-radius: var(--radius); background: var(--warn-bg); color: var(--warn); cursor: pointer; transition: background var(--ease); }
+label.confirm:has(input:checked) { background: var(--ok-bg); color: var(--ok); }
+.stopbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 14px max(32px, calc((100vw - 1180px) / 2 + 32px)); display: flex; justify-content: flex-end; align-items: center; gap: 16px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(16px); border-top: 1px solid var(--line); }
+.stopbar button { flex: none; white-space: nowrap; background: #c8261b; color: #ffffff; font-weight: 700; letter-spacing: .04em; }
+.stopbar button:hover:not(:disabled) { background: #a51f16; }
+.stopbar .phase { flex: 0 1 auto; min-width: 0; color: var(--ink-2); }
+/* The arms held, or gone: a bar at the bottom like Stop's, with the way to let them go. */
+.holdbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 14px 16px; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--warn-bg); color: var(--warn); border-top: 1px solid var(--warn-line); }
+/* Setup stopped on the station: a card like the Important note, on red, right under the top bar, pushing the page
+   down; as wide as the page's content. */
+.banner.gonecard { width: calc(100% - 64px); max-width: 1116px; margin: 24px auto 0; padding: 24px 28px; gap: 6px; border: 1px solid var(--err-line); border-radius: var(--radius-lg); background: var(--err-bg); color: var(--err); box-shadow: var(--shadow); }
+.banner.gonecard::before { display: none; }
+.banner.gonecard .title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.banner.gonecard .title::before { content: ""; width: 20px; height: 20px; flex: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%239e0508' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='8'/%3E%3Cpath d='M7.5 7.5l5 5M12.5 7.5l-5 5'/%3E%3C/svg%3E") center / 20px no-repeat; }
+/* Code to copy, as the platform's Code block shows it: a strip naming where it goes (Terminal, or a file with a file's
+   icon) and holding Copy, over the code; a command's first word in the platform's command colour. A command wraps,
+   a file scrolls. */
+.term { overflow: hidden; border-radius: 8px; background: var(--ink); }
+.banner .term { margin-top: 10px; }
+.termhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 6px 6px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.termlabel { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: #a6a3a3; }
+.termlabel::before, .term button.copy::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 11 2-2-2-2'/%3E%3Cpath d='M11 13h4'/%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 11 2-2-2-2'/%3E%3Cpath d='M11 13h4'/%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3C/svg%3E") center / contain no-repeat; }
+.termlabel.file::before { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/%3E%3Cpath d='M14 2v4a2 2 0 0 0 2 2h4'/%3E%3Cpath d='m10 13-2 2 2 2'/%3E%3Cpath d='m14 17 2-2-2-2'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/%3E%3Cpath d='M14 2v4a2 2 0 0 0 2 2h4'/%3E%3Cpath d='m10 13-2 2 2 2'/%3E%3Cpath d='m14 17 2-2-2-2'/%3E%3C/svg%3E"); }
+.term button.copy::before { width: 14px; height: 14px; -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='14' height='14' x='8' y='8' rx='2'/%3E%3Cpath d='M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'/%3E%3C/svg%3E"); }
+.term button.copy { display: inline-flex; min-height: 0; padding: 4px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; background: rgba(255, 255, 255, 0.05); box-shadow: none; color: #bebbbb; }
+.term button.copy:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); color: #ffffff; }
+.term pre { margin: 0; padding: 16px; border-radius: 0; font-size: 12px; color: #fafafa; }
+.term:has(.termlabel:not(.file)) pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tk-cmd { color: #9ccfd8; }
+.tk-comment { color: #908caa; }
+.results { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.results:empty { display: none; }
+.result { display: grid; grid-template-columns: 20px 110px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 10px 16px; }
+.result + .result { border-top: 1px solid var(--line); }
+.result .ok { color: var(--ok); font-weight: 700; }
+.result .no { color: var(--err); font-weight: 700; }
+.result .grp { font-size: 12px; font-weight: 500; color: var(--muted); }
+
+/* ---- Select robot's cards: the robot, zeroing the motors (an SO-101's file per arm), the embodiment ------------- */
+/* Each is a card of its own beside the step's header, not nested in the step's card: the step drops its frame. */
+section.card:has(> .body > .subcard) { background: none; border: 0; box-shadow: none; padding: 0; }
+.subcard { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+/* A step has no title card of its own: the page heading above names it (setup_page.js). */
+section.card > header, section.stepcard > header { display: none; }
+section.card:has(> .body > .subcard) > .body { gap: 16px; }
+.subcard { display: flex; flex-direction: column; gap: 14px; padding: 28px; }
+.subcard.hidden { display: none; }
+.subcard.reqblock { padding: 28px; border-radius: var(--radius-lg); }
+#custom, .selfway { display: flex; flex-direction: column; gap: 16px; }
+/* Where the arm model comes from: two halves of one control, the picked half raised. */
+.segmented { display: inline-flex; align-self: flex-start; gap: 4px; padding: 4px; border-radius: var(--radius); background: var(--fill); }
+.segmented button { min-height: 44px; padding: 0 20px; border-radius: 9px; background: transparent; }
+.segmented button.on, .segmented button[aria-checked="true"] { background: var(--card); box-shadow: 0 1px 3px rgba(16, 16, 16, 0.12); }
+.dropzone { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 24px; border: 1.5px dashed var(--line-strong); border-radius: var(--radius); }
+.dropzone.over { border-color: var(--ink); background: var(--fill); }
+.dropzone b { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--ink); }
+.dropzone .note { margin-bottom: 8px; }
+label.button { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); font-weight: 500; cursor: pointer; }
+label.button:hover { background: var(--fill); }
+/* The redesigned page's driver links, up front (setup_wizard_v2.html driverBox). */
+a.button { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); font-weight: 500; text-decoration: none; }
+a.button:hover { background: var(--fill); }
+.driverstart { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--radius); background: var(--fill); }
+.driverstart .actions { margin-top: 0; flex-wrap: wrap; }
+.driverstart-title { margin: 0; font-weight: 600; color: var(--ink); }
+/* cadNavigation()'s standard views, in a view's bottom right corner. */
+.view .viewnav { position: absolute; right: 8px; bottom: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.view .viewnav button { min-height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--card); color: var(--ink-2); box-shadow: var(--shadow); font-size: 12px; font-weight: 500; }
+.view .viewnav button:hover { color: var(--ink); }
+.view:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#driverChoose { display: inline-flex; align-items: center; gap: 10px; border-color: var(--line-strong); background: var(--card); }
+#driverChoose:hover:not(:disabled) { background: var(--fill); }
+.fileicon { width: 16px; height: 16px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%231b1b1b' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M4 1.5h5l3.5 3.5v9.5h-8.5z'/%3E%3Cpath d='M9 1.5v3.5h3.5'/%3E%3C/svg%3E") center / 16px no-repeat; }
+button.linkish.accent { color: var(--accent); font-size: inherit; }
+button.linkish.strong { color: var(--ink); font-weight: 600; text-decoration: none; padding: 0; }
+details.rule { border-top: 1px solid var(--line); padding-top: 8px; }
+details.rule > summary { color: var(--ink); font-weight: 600; }
+.lookbox { padding: 14px 18px; border-radius: var(--radius); background: var(--fill); color: var(--ink-2); }
+.lookbox button.linkish { padding: 0; min-height: 0; }
+/* Select robot's Continue sits on the right, apart from the last card; what it still needs reads on the left. */
+#pickActions { justify-content: space-between; margin-top: 16px; }
+#pickActions #pickRobot { order: 2; margin-left: auto; }
+.subcard > h3 { margin: 0; font-size: 16px; }
+/* Each Select robot card's heading has an icon on its left. */
+h3.ico { display: flex; align-items: center; gap: 10px; }
+h3.ico::before { content: ""; width: 20px; height: 20px; flex: none; background: var(--ink-2); -webkit-mask: var(--icon) center / 20px no-repeat; mask: var(--icon) center / 20px no-repeat; }
+.ico-robot { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='6' width='13' height='10' rx='2.5'/%3E%3Cpath d='M10 6V3.5'/%3E%3Ccircle cx='10' cy='2.75' r='0.75'/%3E%3Ccircle cx='7.5' cy='10.5' r='1'/%3E%3Ccircle cx='12.5' cy='10.5' r='1'/%3E%3Cpath d='M8 13.5h4M1.5 10v2.5M18.5 10v2.5'/%3E%3C/svg%3E"); }
+.ico-arm { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 2.5l6.5 3.75v7.5L10 17.5l-6.5-3.75v-7.5z'/%3E%3Cpath d='M3.5 6.25L10 10l6.5-3.75M10 10v7.5'/%3E%3C/svg%3E"); }
+.ico-driver { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 6l-4 4 4 4M13 6l4 4-4 4'/%3E%3C/svg%3E"); }
+.ico-calib { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='10' cy='10' r='7'/%3E%3Cpath d='M10 3v2M10 15v2M3 10h2M15 10h2'/%3E%3Ccircle cx='10' cy='10' r='1.5'/%3E%3C/svg%3E"); }
+.ico-embodiment { --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='5.5' width='11' height='9' rx='2'/%3E%3Cpath d='M13.5 9l4-2.5v7l-4-2.5'/%3E%3C/svg%3E"); }
+/* The page heading names the current step, with where it is in the list above it. */
+.stepof { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+.stepof:empty { display: none; }
+.subcard > .help { margin-top: -6px; }
+#so101 { display: flex; flex-direction: column; gap: 10px; }
+#so101.hidden { display: none; }
+.device.sidefile { grid-template-columns: minmax(0, 1fr) auto; }
+.sidepicks { display: flex; gap: 6px; padding: 3px; border-radius: 10px; background: var(--fill); }
+.sidepick { min-height: 34px; padding: 0 12px; font-size: 13px; border-radius: 8px; background: transparent; }
+.sidepick.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(16, 16, 16, 0.12); }
+
+/* ---- The two ways and the robot of your own: choices, the driver, typed addresses ---------------------------- */
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.choice { position: relative; min-height: 0; text-align: left; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); display: flex; flex-direction: column; gap: 4px; }
+.choice:hover:not(:disabled) { background: var(--card); border-color: var(--field); }
+.choice b { font-family: var(--display); font-size: 16px; font-weight: 500; color: var(--ink); }
+.choice span { font-size: 13px; color: var(--muted); }
+.choice.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+#custom, #urdfBox, #selfBox, #embodimentBox { display: flex; flex-direction: column; gap: 12px; }
+#custom.hidden, #urdfBox.hidden, #selfBox.hidden, #embodimentBox.hidden { display: none; }
+h3.q { font-size: 15px; margin: 8px 0 0; }
+.reqblock { border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 20px 16px; }
+.reqblock.done { border-color: var(--ok-line); box-shadow: inset 0 0 0 1px var(--ok-line); }
+.req { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--warn); background: var(--warn-bg); border-radius: 999px; padding: 2px 8px; vertical-align: 2px; margin-left: 6px; }
+.reqblock.done .req { color: var(--ok); background: var(--ok-bg); }
+.picked { margin: 8px 0 0; font-size: 14px; }
+.reqblock .picked { font-weight: 500; color: var(--ok); }
+.classes { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; padding: 10px 0 0; }
+.classes label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
+.typed { display: flex; gap: 8px; margin-top: 8px; max-width: 560px; }
+.typed button { flex: none; white-space: nowrap; }
+.files { border: 1px solid var(--line); border-radius: var(--radius); margin-top: 8px; overflow: hidden; }
+.filebar { display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: var(--fill); border-bottom: 1px solid var(--line); }
+.filebar button { flex: none; min-height: 32px; padding: 0 12px; font-size: 13px; background: var(--card); }
+.filebar code { background: none; padding: 0; color: var(--ink-2); min-width: 0; overflow-wrap: anywhere; }
+.filelist { max-height: 260px; overflow-y: auto; }
+.filelist button { display: block; width: 100%; min-height: 40px; text-align: left; border-radius: 0; background: var(--card); border-bottom: 1px solid var(--line); padding: 8px 14px; font-family: var(--mono); font-size: 13px; }
+.filelist button:hover:not(:disabled) { background: var(--fill); }
+.filelist button.on { background: var(--fill); font-weight: 600; }
+.filelist .empty { padding: 10px 14px; margin: 0; }
+/* A way the page does not advise (Skip calibration): a plain underlined line, not a button that invites a click. */
+button.quiet, button.linkish { min-height: 0; border: 0; background: none; padding: 4px 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
+button.linkish { color: var(--ink); font-size: inherit; }
+button.quiet:hover:not(:disabled), button.linkish:hover:not(:disabled) { background: none; color: var(--ink); }
+/* A gated button starts blocked rather than disabled, so a click outlines what it still needs. */
+button.blocked, button.primary.blocked, button.primary.next.blocked { opacity: 1; background: var(--fill); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.missing { outline: 1.5px solid color-mix(in srgb, var(--err-line) 45%, transparent); outline-offset: 3px; border-radius: var(--radius); }
+/* Inside a card, the whole card is outlined rather than the one part that is missing. */
+.subcard:has(.missing) { outline: 1.5px solid color-mix(in srgb, var(--err-line) 45%, transparent); outline-offset: -1px; }
+.subcard .missing { outline: none; }
+.subcard.missing { outline-offset: -1px; border-radius: var(--radius-lg); }
+.flash { animation: flash 1.8s ease-out 1; }
+@keyframes flash { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn-line) 60%, transparent); } 100% { box-shadow: 0 0 0 18px transparent; } }
+/* dreamcli tcp shows the URDF step alone; Set it up myself, step 0 alone. The step bar has nothing to show for the
+   first; for the second it keeps Choose setup method, ticked, so the operator can go back to the wizard. */
+main.self-way section.card:not([data-step="0"]) { display: none; }
+main.tcp-only section.card:not([data-step="0"]), main.tcp-only section.card[data-step="0"] header .step,
+main.tcp-only section.card[data-step="0"] .body > :not(#custom):not(.err), main.tcp-only #custom > :not(#armCard),
+main.tcp-only #armCard > :not(#urdfBox) { display: none; }
+body:has(main.tcp-only) nav.progress, body:has(main.tcp-only) .details { display: none; }
+
+/* ---- The URDF step: the operator's arm under a YAM, the end and the tool point marked on the drawing ------------ */
+.urdfask { margin: 8px 0 0; font-size: 16px; }
+.urdfviews { display: grid; gap: 12px; margin-top: 10px; }
+.urdfviews .view { width: 66.667%; max-height: calc(100vh - 160px); }
+.view.ref { background: var(--fill); box-shadow: inset 0 0 0 1px var(--line-strong); cursor: default; }
+.view.edit { box-shadow: inset 0 0 0 2px var(--ink-2); }
+.view.edit .chip { color: var(--ink); }
+.view.pick { cursor: pointer; }
+.view .hint { position: absolute; left: 10px; bottom: 10px; font-size: 12px; background: var(--card); color: var(--ink-2); border-radius: 999px; padding: 3px 10px; box-shadow: var(--shadow); pointer-events: none; }
+.view .typer { position: absolute; display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-2); background: var(--card); border-radius: 10px; padding: 6px 10px; box-shadow: var(--shadow-lg); }
+.view .typer input { width: 84px; min-height: 32px; padding: 4px 8px; font-size: 13px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 0; font-size: 14px; font-weight: 500; color: var(--ink); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 22px; height: 4px; border-radius: 2px; display: inline-block; }
+.legend .x { background: var(--axis-x); } .legend .y { background: var(--axis-y); } .legend .z { background: var(--axis-z); }
+.urdfpad { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
+.pad { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.pad .padlabel { width: 76px; font-size: 13px; color: var(--muted); }
+.pad button { min-width: 40px; min-height: 36px; padding: 0 10px; }
+.pad button.on { background: var(--ink); color: var(--card); }
+.pad input { width: 96px; min-height: 36px; padding: 6px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+.pad .unit { font-size: 13px; color: var(--muted); }
+/* The rotate button sits above a camera's picture. */
+.sub:empty { display: none; }
+
+/* ---- Narrow screens (WCAG 1.4.10, 320 CSS px). Under 900px the steps go above the card in a row that scrolls
+   sideways, only the current one named; under 700px everything takes one column. ------------------------------------------------ */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-top: 16px; }
+  aside.side { position: static; max-height: none; overflow: visible; }
+  nav.progress ol { flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+  nav.progress ol::-webkit-scrollbar { display: none; }
+  nav.progress button { width: auto; min-height: 40px; padding: 4px; }
+  nav.progress .name { display: none; }
+  nav.progress button[aria-current="step"] { padding-right: 12px; }
+  nav.progress button[aria-current="step"] .name { display: block; }
+}
+@media (max-width: 700px) {
+  header.top .brand { width: auto; }
+  header.top .crumbs { padding: 0 16px; }
+    .layout { padding: 16px 16px 32px; }
+  .details { grid-template-columns: minmax(0, 1fr); }
+  .details h2 { grid-row: auto; }
+  section.card, .subcard { padding: 20px; }
+  section.card:has(> .body > .subcard) { padding: 0; }
+  .c2, .c3, .compare, .pair, .armcards, .examples, .choices, .urdfpad { grid-template-columns: 1fr; }
+  .urdfviews .view { width: 100%; }
+  .c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .result { grid-template-columns: 20px minmax(0, 1fr); }
+  .result .grp { grid-column: 2; }
+  .stopbar { flex-direction: column; gap: 8px; }
+  .stopbar .phase { text-align: center; }
+  .stopbar button { padding: 0 32px; }
+}
+@media (prefers-reduced-motion: reduce) { .pulse, .hand { animation: none; } * { transition: none !important; } }
+
+/* Set it up myself: each card numbered in a circle, counting only the cards shown. */
+.selfway { counter-reset: selfstep; }
+.selfway > .subcard:not(.hidden) { counter-increment: selfstep; }
+h3.num { display: flex; align-items: center; gap: 12px; }
+h3.num::before { content: counter(selfstep); width: 28px; height: 28px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line-strong); font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink-2); }
+
+/* ---- Connect arms: the arms card, the adapters table, the advanced settings --------------------------------- */
+.armsbar { display: flex; align-items: center; justify-content: flex-start; gap: 12px; flex-wrap: wrap; }
+.seen { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); }
+.eyeicon, .swapicon { width: 18px; height: 18px; flex: none; background: currentColor; }
+.eyeicon { -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10z'/%3E%3Ccircle cx='10' cy='10' r='2.5'/%3E%3C/svg%3E") center / 18px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10z'/%3E%3Ccircle cx='10' cy='10' r='2.5'/%3E%3C/svg%3E") center / 18px no-repeat; }
+.swapicon { -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h12l-3-3M16 13H4l3 3'/%3E%3C/svg%3E") center / 18px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h12l-3-3M16 13H4l3 3'/%3E%3C/svg%3E") center / 18px no-repeat; }
+#swapSides { display: inline-flex; align-items: center; gap: 10px; background: var(--card); border-color: var(--line-strong); }
+#swapSides.hidden { display: none; }
+.release { display: flex; flex-direction: column; gap: 12px; }
+.arm h3 { font-size: 20px; }
+.armstate { font-size: 14px; font-weight: 600; color: var(--muted); }
+.arm.found { background: var(--ok-bg); border-color: color-mix(in srgb, var(--ok-line) 30%, var(--line)); }
+.arm.found .armstate { color: var(--ok); }
+.arm.check { background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn-line) 30%, var(--line)); }
+.arm.check .armstate { color: var(--warn); }
+.arm.bad .armstate { color: var(--err); }
+.armid { margin: 0; font-family: var(--mono); font-size: 14px; color: var(--ink); }
+.armid:empty { display: none; }
+.armsub { margin: 0; color: var(--ink-2); }
+.armsub:empty { display: none; }
+.arm .tile { background: color-mix(in srgb, var(--card) 70%, transparent); }
+.gripfix { padding: 16px; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--warn-line) 30%, var(--line)); background: var(--warn-bg); box-shadow: inset 0 0 0 1px var(--warn-line); display: flex; flex-direction: column; gap: 10px; }
+.gripfix[hidden] { display: none; }
+.gripfix ol.steps { gap: 6px; }
+.cardhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cardhead h3 { margin: 0; font-size: 16px; }
+.adapters { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+/* Find adapters: a checklist, one adapter per row, a click anywhere on the row ticking it. */
+.arow { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 18px; cursor: pointer; }
+.arow + .arow { border-top: 1px solid var(--line); }
+/* Don't see an arm?: a row of the checklist's box, under the adapters, on the box's grey, folded until opened. */
+.typedrow { display: flex; flex-direction: column; gap: 6px; padding: 12px 18px; background: var(--fill); }
+.typedrow[open] { padding-bottom: 16px; }
+.typedrow > summary { min-height: 0; }
+.typedrow > :not(summary) { margin-left: 24px; }
+#devices:not(:empty) + .typedrow { border-top: 1px solid var(--line); }
+.typedrow code { background: var(--card); }
+.typedrow .typed { margin-top: 4px; }
+.typedrow input, .typedrow button { background: var(--card); }
+.typedrow button { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.typedrow button:hover:not(:disabled) { background: var(--paper); }
+.arow .name { font-weight: 600; color: var(--ink); }
+.arow .path { font-family: var(--mono); font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.arow .sub2 { font-size: 13px; color: var(--muted); }
+.arow.off .name, .arow.off .path { color: var(--muted); }
+.arow.moved { background: var(--fill); }
+.arow input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
+.muted { color: var(--muted); }
+#armsActions { justify-content: flex-end; margin-top: 16px; }
+#armCards { align-items: start; }
+.gripfix code { white-space: nowrap; }
+/* Set up the station myself: the warning first, the values table, Close on the right. */
+/* The Important note is a card like the steps under it, on yellow, its icon in line with the title so the text lines up
+   with the card's left edge. */
+.banner.selfwarn { padding: 24px 28px; gap: 6px; border: 1px solid #f0dc9a; border-radius: var(--radius-lg); background: #fff8e1; box-shadow: var(--shadow); }
+.banner.selfwarn::before { display: none; }
+.banner.selfwarn .title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.banner.selfwarn .title::before { content: ""; width: 20px; height: 20px; flex: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23803b00' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='8'/%3E%3Cpath d='M10 6v5M10 14h.01'/%3E%3C/svg%3E") center / 20px no-repeat; }
+.selfwarn a { color: inherit; text-decoration: underline; }
+.valuetable { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; font-size: 14px; }
+.vrow { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 2.4fr); gap: 16px; padding: 10px 16px; color: var(--ink-2); }
+.vrow + .vrow { border-top: 1px solid var(--line); }
+.vrow.vhead { font-size: 13px; font-weight: 500; background: var(--fill); }
+.vrow.hidden { display: none; }
+.selfdone { justify-content: flex-end; margin-top: 8px; }
+ul.bullets { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-2); }
+/* In the station file: the keys to fill in, and their REPLACE_ values. */
+#selfYaml .yk { color: #ffd479; font-weight: 600; }
+#selfYaml .yr { color: #ffb87b; background: rgba(255, 184, 123, 0.14); border-radius: 4px; }
+/* The Important note heads Select robot on the Set up the station myself path only. */
+main:not(.self-way) #selfWarn { display: none; }
+
+/* Seen from behind the robot heads Find arms beside its title once the arm cards show; Swap's bar only when it shows. */
+#armsCard:has(#wiggle.hidden) .cardhead .seen { display: none; }
+.armsbar:not(:has(> button:not(.hidden))) { display: none; }
+.cardhead .seen { font-size: 14px; }
+#armsCard .cardhead { align-items: center; }
+/* A found arm: a green check before its name. */
+.arm .armhead h3 { display: flex; align-items: center; gap: 8px; }
+.arm.found .armhead h3::before { content: ""; width: 22px; height: 22px; flex: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='10' fill='%2325a43d'/%3E%3Cpath d='M6 10.2l2.6 2.6 5.2-5.2' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 22px no-repeat; }
+/* Find arms: the prompt's two lines, and an arm's name, serial and note, read as one block each. */
+#wiggleAsk { gap: 4px; }
+#armCards .armid, #armCards .armsub { margin-top: -8px; }
+#lookAgain, #udevScan { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); }
+#lookAgain:hover:not(:disabled), #udevScan:hover:not(:disabled) { background: var(--paper); }
+/* An arm card's joints fill its width, as many to a row as fit, wrapping on a narrow screen. */
+#armCards .tiles { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+/* Both arms found: the prompt's grey bar as before, its dot green and still. */
+#wiggleAsk .lead.found::before { content: ""; width: 10px; height: 10px; border-radius: 999px; flex: none; background: var(--ok-line); }
+#wiggleAsk .lead.warn::before { content: ""; width: 10px; height: 10px; border-radius: 999px; flex: none; background: #f5b400; }
+/* Give each arm a permanent connection name: room between its steps, the command kept with step 1. */
+#udev .term + .pin, #udev .pin + .pin { margin-top: 12px; }
+#wiggleAsk .lead.warn { font-family: inherit; font-weight: 400; }
+/* The Find arms bar: the fixes on the left, Start over on the right. */
+.armsbar #lookAgain { margin-left: auto; }
+.startover { display: flex; justify-content: flex-end; }
+#refCard .cardhead { align-items: center; }
+/* A camera's capture settings, condensed: four small fields in two rows, small labels. */
+.shotset details .row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; margin-top: 8px; max-width: 320px; }
+.shotset label.field { margin-bottom: 4px; font-size: 12px; font-weight: 500; color: var(--ink-2); }
+.shotset input { min-height: 34px; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
+/* The dataset folder and its button: one line, the button as tall as the field; the summary under them. */
+#datasetBox .typed { align-items: stretch; max-width: none; margin-top: 0; }
+#datasetBox .typed button { min-height: 52px; }
+#datasetNote { margin-top: 8px; }
+/* The live comparison card takes no room until Show live views fills it. */
+/* Connect arms numbers its two cards like the station-myself path. */
+#step-1 > .body { counter-reset: selfstep; }
+#step-1 .subcard:has(> .cardhead h3.num) { counter-increment: selfstep; }
+#adaptersCard .cardhead, #armsCard .cardhead { align-items: center; }
+#adaptersCard .cardhead h3, #armsCard .cardhead h3 { margin-right: auto; }
+#step-2 .cardhead { align-items: center; }
+.shotset { padding: 0 12px 12px; }
+.shotset .note { margin: 6px 0 0; }
+#camsActions { justify-content: flex-end; }
+#liveViews { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); }
+/* Choose setup method: Continue outside its card, on the right; gone with the card once a method is chosen. */
+#wayActions { justify-content: flex-end; }
+#steps:not(.choosing) #wayActions { display: none; }
+/* Move to home: "Set" in each arm drawing's top right once its home is saved; Continue outside the card. */
+.view .setchip { position: absolute; right: 10px; top: 10px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--ok-bg); color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok-line); }
+.view .setchip[hidden] { display: none; }
+#homeActions { justify-content: flex-end; }
+/* Test joints: each arm's checks under its drawing, the label column narrow enough for half the card. */
+#resultsLeft .result, #resultsRight .result { grid-template-columns: 16px 52px minmax(0, 1fr); gap: 8px; padding: 8px 12px; font-size: 13px; }
+/* The page fills the window, so the steps reach down to the fixed station footer. */
+body { min-height: 100vh; display: flex; flex-direction: column; }
+body > .layout { flex: 1 0 auto; width: 100%; }
+/* Every Continue: black with white text, apart from the orange buttons that act within a step. */
+button.primary.next { background: var(--ink); color: var(--card); }
+button.primary.next:hover:not(:disabled) { background: #383637; }
+/* Set up cameras: one row per camera, its picture, name and size, its role and a quarter turn. */
+#step-2 > .body { counter-reset: selfstep; }
+#step-2 h3.num { counter-increment: selfstep; }
+.camlist { border: 1px solid var(--line); border-radius: var(--radius); }
+.camlist:empty { display: none; }
+.camrow { display: grid; grid-template-columns: 140px minmax(0, 1fr) auto auto; gap: 16px; align-items: center; padding: 12px 16px; }
+.camrow + .camrow { border-top: 1px solid var(--line); }
+.thumb { aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--ink); display: grid; place-items: center; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb .msg { font-family: var(--mono); font-size: 11px; color: #bebbbb; padding: 6px; text-align: center; }
+.camname { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--ink); }
+.camsub { font-size: 13px; color: var(--ink-2); }
+.camrole { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+.camrole select { width: auto; min-width: 170px; min-height: 44px; padding: 8px 12px; }
+.camrow .turnicon { width: 44px; height: 44px; min-height: 0; padding: 0; display: grid; place-items: center; border-radius: 10px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line); font-size: 18px; }
+.camrow .turnicon:hover:not(:disabled) { background: var(--paper); }
+.shotset { padding: 0; }
+#shootActions { align-items: center; gap: 16px; }
+#camMissing { font-size: 14px; }
+@media (max-width: 720px) { .camrow { grid-template-columns: 100px minmax(0, 1fr); } }
+#shootAll:not(.primary) { background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); }
+#shootAll:not(.primary):hover:not(:disabled) { background: var(--paper); }
+#resultsLeft .armnote, #resultsRight .armnote { padding: 8px 12px; font-size: 12.5px; color: var(--ink-2); border-top: 1px solid var(--line); }
+#motionActions { align-items: center; }
+#motionNext { justify-content: flex-end; }
+#release.hidden { display: none !important; }
+/* Skip this step? lists each check that did not pass: the mark and the whole line, no label column. */
+#skipFailed .result { grid-template-columns: 20px minmax(0, 1fr); }
+#finishActions { justify-content: flex-end; }
+/* Select robot, SO-101: what the calibration check found, and each file's match. */
+.so101check { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; font-size: 14px; color: var(--ink-2); padding: 10px 14px; border-radius: var(--radius); background: var(--fill); }
+.sidefile .pill, .sidefile .muted { display: inline-block; margin-top: 6px; font-size: 12px; }
+.sidefile.off .name, .sidefile.off .sub2 { color: var(--muted); }
+/* Set up cameras, step 2: line up each camera with its reference. */
+#refCard .cardhead { flex-wrap: wrap; gap: 12px; }
+.refwarn { background: #fff4df; border: 1px solid #f0dc9a; border-radius: var(--radius-lg); padding: 18px 20px 18px 52px; }
+.refwarn > span:not(.title) { color: var(--warn); }
+.refwarn .actions { margin-top: 8px; align-items: center; }
+.refwarn button.dark { background: #6b3a00; color: #ffffff; }
+.refwarn button.dark:hover:not(:disabled) { background: #552e00; }
+.refwarn button:not(.dark):not(.linkish) { background: transparent; box-shadow: inset 0 0 0 1px #e8cf8e; color: var(--warn); }
+.refwarn .linkish { color: var(--warn); font-size: 15px; text-decoration: underline; }
+.refwarn pre { margin-top: 6px; white-space: pre-wrap; }
+.camtabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.camtab { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 22px; border-radius: 0; background: transparent; box-shadow: inset 0 -2px 0 transparent; }
+.camtab:hover:not(:disabled) { background: var(--paper); }
+.camtab[aria-selected="true"] { box-shadow: inset 0 -2px 0 var(--accent); }
+.camtab .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--line-strong); }
+.camtab.done .dot { background: var(--ok-line); }
+.camtab .tabstate { font-size: 13px; font-weight: 400; color: var(--muted); }
+.cmphead { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cmphead .help { margin: 0; flex: 1 1 320px; }
+.panehead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.livetag { display: inline-flex; align-items: center; gap: 6px; color: #c8261b; font-weight: 600; }
+.livetag .dot { width: 9px; height: 9px; border-radius: 999px; background: #c8261b; }
+#comparePane .frame { background: var(--ink); }
+.frame.overlay { position: relative; }
+.frame.overlay img { position: absolute; inset: 0; }
+.frame.overlay img[data-ref] { opacity: var(--ref-opacity, 0.5); }
+.refwarn::before { left: 20px; top: 19px; }
+/* Accessibility: a focus ring that shows on the dark code blocks (2.4.7); the hidden file input's label shows focus;
+   the camera rows reflow at 320px (1.4.10); a "missing" outline with enough contrast (1.4.11). */
+.term :focus-visible { outline-color: #ffffff; }
+label.button:has(+ input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+.subcard:has(.missing), .missing { outline-color: var(--err-line) !important; }
+@media (max-width: 720px) {
+  .camrow .camrole { grid-column: 1 / -1; }
+  .camrole select { min-width: 0; flex: 1; }
+}
+#title:focus { outline: none; }  /* focused only so the next step is announced, never typed into */
+/* A narrow window: the breadcrumb shrinks to "Setup wizard" and never pushes the page wider. */
+header.top .crumbs { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+@media (max-width: 480px) { header.top .crumbs b, header.top .crumbs .sep { display: none; } }
+@media (max-width: 900px) { nav.progress li { flex: none; } nav.progress button[aria-current="step"] .name { white-space: nowrap; overflow-wrap: normal; } }
+/* The version in a footer at the foot of the page, bottom left, in line with the step list; clear of the STOP and
+   hold bars. */
+.foot { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 44px 96px; }
+#version { margin: 0; font-size: 12px; color: var(--muted); }
+@media (max-width: 700px) { .foot { padding: 0 16px 96px; } }
+/* "Still needed" lines on the left, in line with the card, the blocked Continue on the right. */
+.actions > [id$="Need"] { order: -1; margin-right: auto; }
+/* Camera rows: the picture held at the row's top; one Advanced settings at the card's top right opens every camera's
+   size, rate and turn; the role a Head / Left / Right toggle. */
+.camrow { align-items: start; }
+.camrow .thumb { align-self: start; }
+.camrow .camrole, .camrow .turnicon { align-self: start; }
+.camlist:not(.adv) .shotset { display: none; }
+.shotset .row { grid-template-columns: repeat(4, minmax(0, 72px)); gap: 8px; margin-top: 8px; }
+.camrole .segmented { padding: 3px; }
+.camrole .segmented button { min-height: 38px; padding: 0 14px; font-size: 14px; }
+#camAdvanced { font-size: 14px; color: var(--ink-2); }
+#camAdvanced[aria-expanded="true"] { color: var(--ink); font-weight: 600; }
+@media (max-width: 720px) { .shotset .row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Every step's error shows as a card: red, with the error mark, like the other banners; small inline errors stay text. */
+div.err[role="alert"]:not(:empty) { position: relative; padding: 14px 16px 14px 48px; border-radius: var(--radius); background: var(--err-bg); border: 1px solid color-mix(in srgb, var(--err-line) 40%, var(--line)); color: var(--err); font-size: 14px; }
+div.err[role="alert"]:not(:empty)::before { content: ""; position: absolute; left: 16px; top: 15px; width: 20px; height: 20px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%239e0508' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='8'/%3E%3Cpath d='M7.5 7.5l5 5M12.5 7.5l-5 5'/%3E%3C/svg%3E") center / 20px no-repeat; }
+/* Station details: a divider between the station, where settings save, and the account. */
+.details .detail + .detail { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
+/* Assign a role: the cameras side by side in one row, each a card: its picture across the top with the turn button
+   on it, then its name, address and size, its Head / Left / Right toggle, and its settings when they are open. */
+.camlist { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; border: 0; border-radius: 0; }
+.camlist .camrow { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 0 0 14px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.camlist .camrow + .camrow { border-top: 1px solid var(--line); }
+.camlist .camrow .thumb { width: 100%; border-radius: 0; }
+.camlist .camrow .caminfo, .camlist .camrow .camrole { padding: 0 14px; }
+.camlist .camrow .camrole { flex-direction: column; align-items: stretch; gap: 6px; }
+.camlist .camrow .camrole > span { display: none; }
+.camlist .camrow .camrole .segmented { display: flex; }
+.camlist .camrow .camrole .segmented button { flex: 1; padding: 0 8px; }
+.camlist .camrow .turnicon { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 999px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 1px 3px rgba(16, 16, 16, 0.2); font-size: 16px; }
+.camlist .camrow .camsub { overflow-wrap: anywhere; }
+.camlist .shotset .row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 720px) { .camlist .camrow .camrole { grid-column: auto; } }
+.camlist .camrow .camrole .segmented { align-self: stretch; width: 100%; box-sizing: border-box; }
+.camlist .camrow .camrole .segmented button { white-space: nowrap; overflow-wrap: normal; min-width: 0; }
+/* One camera card: assigning roles, then lining up, under a divider. The overlay's reference opacity, a slider. */
+#refCard { border-top: 1px solid var(--line); padding-top: 22px; margin-top: 6px; }
+.opacity { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
+.opacity input[type="range"] { width: 140px; min-height: 0; accent-color: var(--ink); }
+#opacityValue { font-variant-numeric: tabular-nums; min-width: 3ch; }
+/* Set up each camera: one row per camera, its picture and its role's reference side by side on the left, its name,
+   turn, role, line-up check and settings on the right; the live views and the overlay take the same places. */
+.camtools { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.viewbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.camlist { display: flex; flex-direction: column; gap: 12px; }
+.camlist .camrow { position: static; display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); gap: 18px; align-items: start; padding: 14px; overflow: visible; }
+.campics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.campics .wide { grid-column: 1 / -1; }
+.campics .panehead { font-size: 12.5px; margin-bottom: 6px; }
+.campics .thumb, .campics .frame { width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; }
+.campics .frame { background: var(--ink); }
+.campics .frame.empty { background: var(--fill); }
+.campics .frame.empty .msg { color: var(--muted); }
+.camlist .camrow .caminfo { display: flex; flex-direction: column; gap: 10px; padding: 0; }
+.camtop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.camlist .camrow .turnicon { position: static; width: 36px; height: 36px; flex: none; }
+.camlist .camrow .camrole { padding: 0; }
+.camcheck { display: flex; flex-direction: column; gap: 8px; }
+.camcheck .note { margin: 0; }
+.camcheck button { align-self: flex-start; background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.camcheck button.checked { background: var(--ok-bg); color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok-line); opacity: 1; }
+@media (max-width: 720px) { .camlist .camrow { grid-template-columns: minmax(0, 1fr); } }
+.campics { display: block; }
+.campics .frame.overlay { background: var(--ink); }
+/* The turn button on the camera's picture, top right, over the reference too. */
+.campics .frame .turnicon { position: absolute; top: 8px; right: 8px; z-index: 2; width: 34px; height: 34px; min-height: 0; padding: 0; display: grid; place-items: center; border-radius: 999px; background: rgba(255, 255, 255, 0.92); box-shadow: 0 1px 3px rgba(16, 16, 16, 0.25); font-size: 16px; }
+.campics .frame .turnicon:hover:not(:disabled) { background: #ffffff; }
+/* "Still needed": on the Continue line, right beside the button, in black. */
+.actions > [id$="Need"] { order: -1; margin-right: 0; align-self: center; color: var(--ink); }
+#armsActions, #camsActions, #homeActions, #pickActions { align-items: center; }
+.actions > [id$="Need"] { flex: 0 1 auto; text-align: right; }
+/* The role toggle: full width of its column, larger buttons. */
+.camlist .camrow .camrole .segmented { display: flex; width: 100%; }
+.camlist .camrow .camrole .segmented button { flex: 1 1 0; min-height: 46px; padding: 0 12px; font-size: 15px; }
+.camlist .camrow .caminfo .camrole { align-self: stretch; }
+/* "Still needed": on the Continue line, but from the card's left edge, in black. */
+.actions > [id$="Need"] { order: -1; margin-right: auto; text-align: left; }
+.campics .opacity { display: flex; margin-top: 8px; }
+.campics .opacity input[type="range"] { flex: 1; width: auto; }
+.opacityvalue { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }

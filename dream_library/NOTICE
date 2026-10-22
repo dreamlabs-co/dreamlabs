@@ -1,0 +1,60 @@
+dreamlabs (the dream library: the robots package, dreamcli and the DreamAPI client)
+Copyright 2026 Dream Labs
+
+Licensed under the Apache License, Version 2.0 (LICENSE). This distribution also contains, or installs, work by
+others. The texts of their licenses are in THIRD-PARTY-LICENSES.md.
+
+Code copied into the wheel:
+
+- i2rt, the YAM arm driver (i2rt/, from https://github.com/i2rt-robotics/i2rt). MIT License, Copyright (c) I2RT
+  Robotics. Its i2rt/flow_base/flow_base_controller.py is modified from tidybot2 (https://github.com/jimmyyhwu/tidybot2),
+  MIT License, Copyright (c) 2024 Jimmy Wu.
+- pyroki, robot kinematics (pyroki/, from https://github.com/chungmin99/pyroki). MIT License, Copyright (c) 2025
+  Chung Min Kim.
+- jaxls, a least-squares solver (jaxls/, from https://github.com/brentyi/jaxls). MIT License, Copyright (c) 2025
+  Brent Yi.
+- robots/damiao.py is ported from LeRobot's Damiao motor bus (https://github.com/huggingface/lerobot), Copyright 2025
+  The HuggingFace Inc. team, Apache License 2.0; portions of it derive from DM_Control_Python
+  (https://github.com/cmjang/DM_Control_Python), MIT License, Copyright (c) 2024 cmjang.
+- robots/makers_hold.py and robots/metal_gripper.py are ported from MakerMods Lab's Metal arm control code, Copyright
+  2026 MakerMods contributors, Apache License 2.0.
+- shared/faceblur/models/face_detection_yunet_2026may.onnx, the YuNet face detector weights (from
+  https://github.com/opencv/opencv_zoo). MIT License, Copyright (c) 2020 Shiqi Yu.
+
+Robot descriptions and meshes copied into the wheel:
+
+- robots/setup_view/yam and dream_examples/yam_mujoco/assets: YAM meshes from i2rt, MIT License, Copyright (c) I2RT
+  Robotics.
+- robots/setup_view/metal: MakerMods Metal arm meshes, MIT License, Copyright (c) 2025 MakerMods.
+- robots/setup_view/makers: MakerMods Makers Arm meshes (https://github.com/makermods-robotics/maker-arm-sdk), Apache
+  License 2.0.
+- robots/setup_view/so101: SO-101 meshes (https://github.com/TheRobotStudio/SO-ARM100), Apache License 2.0.
+- dream_examples/yam_mujoco/assets/fruits: scanned objects from the YCB Object and Model Set, Creative Commons
+  Attribution 4.0 International; the creators, the changes made and the source files are listed in ATTRIBUTION.md in
+  that directory.
+- dream_ik/assets: trimmed kinematic descriptions (joint origins and axes, no meshes) derived from the robot makers'
+  own: ROBOTIS AI Worker (https://github.com/ROBOTIS-GIT/ai_worker, Apache License 2.0), Enactic OpenArm
+  (https://github.com/enactic/openarm_description, Apache License 2.0), MakerMods Maker Arm
+  (https://github.com/makermods-robotics/maker-arm-sdk, Apache License 2.0), SO-101
+  (https://github.com/TheRobotStudio/SO-ARM100, Apache License 2.0), Unitree R1 (https://github.com/unitreerobotics/unitree_ros,
+  BSD 3-Clause License, Copyright (c) 2016-2022 HangZhou YuShu TECHNOLOGY CO.,LTD.), Trossen WidowX AI
+  (https://github.com/TrossenRobotics/trossen_arm_description, BSD 3-Clause License, Copyright (c) 2025 Trossen
+  Robotics) and the YAM (i2rt, MIT License). The Bracketbot, Blue Worm Mantis, Galaxea, ROBO Robo-T and Seeed reBot
+  B601 descriptions were supplied by their makers for this purpose.
+
+Work the dream client derives from:
+
+- The dream client's request lifecycle (one request in flight, timeout recovery, idempotent close) was originally
+  derived from the policy client of NVIDIA Isaac GR00T (https://github.com/NVIDIA/Isaac-GR00T), Apache License 2.0,
+  Copyright (c) 2025 NVIDIA Corporation.
+
+Libraries pip installs beside this distribution and that it loads at run time, under weak copyleft licenses:
+
+- python-can (https://github.com/hardbyte/python-can), GNU Lesser General Public License v3.0. The CAN bus the YAM,
+  Makers and Metal arms are driven over. It is used as an unmodified library; its license text is in
+  THIRD-PARTY-LICENSES.md, and its source is at the address above.
+- The FFmpeg libraries bundled inside the PyAV (av) and opencv-python-headless wheels, GNU Lesser General Public
+  License v2.1 or later; each wheel carries its own license files.
+
+Everything else this distribution depends on is under permissive licenses (MIT, BSD, Apache 2.0, ISC, PSF, MPL 2.0
+or similar), as each package's own metadata states.

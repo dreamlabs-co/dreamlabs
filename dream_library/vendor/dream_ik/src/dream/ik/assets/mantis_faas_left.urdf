@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!-- Blue Worm Mantis bw_std_description std_auto.urdf: C_Link .. A_left_Degree7_link only (7 movable joints; meshes and every other link
+     dropped), the FaaS EEF bake frame. Source sha256 ff67402f5f44b1e59a1c76a2804ecd7443ced77a0454e6cb3a14eadef78e43a1. -->
+<robot name="mantis_faas_left">
+  <link name="C_Link">
+    </link>
+  <link name="A_left_Degree1_link">
+    </link>
+  <joint name="A_left_Degree1_joint" type="revolute">
+    <origin xyz="0.0769782744545503 0.082995695464067 -0.00591929831752525" rpy="0 0 0" />
+    <parent link="C_Link" />
+    <child link="A_left_Degree1_link" />
+    <axis xyz="0 1 0" />
+    <limit lower="-2.069" upper="1.022" effort="0" velocity="0" />
+  </joint>
+  <link name="A_left_Degree2_link">
+    </link>
+  <joint name="A_left_Degree2_joint" type="revolute">
+    <origin xyz="-0.04349999441204076 0.09600000000000418 2.204887470264551e-05" rpy="0 0 0" />
+    <parent link="A_left_Degree1_link" />
+    <child link="A_left_Degree2_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="-0.142" upper="2.077" effort="0" velocity="0" />
+  </joint>
+  <link name="A_left_Degree3_link">
+    </link>
+  <joint name="A_left_Degree3_joint" type="revolute">
+    <origin xyz="0.08350023003696787 0 0.0004576821067593415" rpy="0 0 0" />
+    <parent link="A_left_Degree2_link" />
+    <child link="A_left_Degree3_link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.541" upper="1.541" effort="0" velocity="0" />
+  </joint>
+  <link name="A_left_Degree4_link">
+    </link>
+  <joint name="A_left_Degree4_joint" type="revolute">
+    <origin xyz="-0.0001140199226370478 0.03400000961672196 -0.2254999674069031" rpy="0 0 0" />
+    <parent link="A_left_Degree3_link" />
+    <child link="A_left_Degree4_link" />
+    <axis xyz="0 1 0" />
+    <limit lower="-0.529" upper="1.355" effort="0" velocity="0" />
+  </joint>
+  <link name="A_left_Degree5_link">
+    </link>
+  <joint name="A_left_Degree5_joint" type="revolute">
+    <origin xyz="0.1040000027028259 -0.03400001557480561 -5.271461263612263e-05" rpy="0 0 0" />
+    <parent link="A_left_Degree4_link" />
+    <child link="A_left_Degree5_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="-1.540" upper="1.540" effort="0" velocity="0" />
+  </joint>
+  <link name="A_left_Degree6_link">
+    </link>
+  <joint name="A_left_Degree6_joint" type="revolute">
+    <origin xyz="0.10899995384968593235 0.022499994706963546508547 -0.00005524771126081" rpy="0 0 0" />
+    <parent link="A_left_Degree5_link" />
+    <child link="A_left_Degree6_link" />
+    <axis xyz="0 1 0" />
+    <limit lower="-0.756" upper="0.756" effort="0" velocity="0" />
+  </joint>
+  <link name="A_left_Degree7_link">
+    </link>
+  <joint name="A_left_Degree7_joint" type="revolute">
+    <origin xyz="-0.00001654299283043235 -0.02249999997592419 -0.03269999583197195" rpy="0 0 0" />
+    <parent link="A_left_Degree6_link" />
+    <child link="A_left_Degree7_link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.017" upper="1.018" effort="0" velocity="0" />
+  </joint>
+</robot>

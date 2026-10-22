@@ -1,0 +1,91 @@
+{
+ "arm": "metal",
+ "source": {
+  "repository": "https://github.com/makermods-robotics/makermodslab",
+  "commit": "64defd4e5e9641199b1af5b90587080f721374ba",
+  "urdf": "frontend/dist/metal-urdf/metal_with_gripper.urdf",
+  "urdf_sha256": "a4792f244025ba4676de75a64acd6ce658fe65db84355fe70696640d209995b7",
+  "license": "MIT"
+ },
+ "joints": {
+  "joint1": ["joint1", 1.0],
+  "joint2": ["joint2", 1.0],
+  "joint3": ["joint3", 1.0],
+  "joint4": ["joint4", 1.0],
+  "joint5": ["joint5", 1.0],
+  "joint6": ["joint6", 1.0]
+ },
+ "jaw": ["joint7", 0.0, -0.05],
+ "parts": [
+  {
+   "link": "base_link",
+   "mesh": "base_link.stl",
+   "from": "base_link",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link1",
+   "mesh": "link1.stl",
+   "from": "link1",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link2",
+   "mesh": "link2.stl",
+   "from": "link2",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link3",
+   "mesh": "link3.stl",
+   "from": "link3",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link4",
+   "mesh": "link4.stl",
+   "from": "link4",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link5",
+   "mesh": "link5.stl",
+   "from": "link5",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link6",
+   "mesh": "link6.stl",
+   "from": "link6",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link6",
+   "mesh": "gripper_base.stl",
+   "from": "gripper_base",
+   "pose": [0.0, 0.7071068, 0.0, 0.7071068, 0.0758, 0.0, 0.0]
+  }
+ ],
+ "jaws": [
+  {
+   "link": "link6",
+   "mesh": "link7.stl",
+   "from": "link7",
+   "pose": [0.5, 0.5, 0.5, 0.5, 0.0758, 0.00275, 0.0],
+   "move": "slide",
+   "axis": [0.0, 1.0, 0.0],
+   "pivot": [0.0758, 0.00275, 0.0],
+   "travel": -0.05
+  },
+  {
+   "link": "link6",
+   "mesh": "link8.stl",
+   "from": "link8",
+   "pose": [0.5, 0.5, 0.5, 0.5, 0.0758, -0.00275, 0.0],
+   "move": "slide",
+   "axis": [0.0, 1.0, 0.0],
+   "pivot": [0.0758, -0.00275, 0.0],
+   "travel": 0.05
+  }
+ ]
+}

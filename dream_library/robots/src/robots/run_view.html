@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run View</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f3f4f6; --panel: #ffffff; --ink: #1d232b; --muted: #5d6673; --line: #c9ced6;
+    --arm: #9aa3ae; --arm-lit: #e8590c; --arm-ghost: #6b7d93;
+    --model: #d9480f; --ik: #1864ab; --cross: #868e96; --keep: #e03131;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #12161b; --panel: #1a2027; --ink: #e6e9ee; --muted: #9aa4b1; --line: #36404c;
+      --arm: #7d8794; --arm-lit: #ff8a4c; --arm-ghost: #8fa3bb;
+      --model: #ff8a4c; --ik: #5aa9f0; --cross: #9aa4b1; --keep: #ff6b6b;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #12161b; --panel: #1a2027; --ink: #e6e9ee; --muted: #9aa4b1; --line: #36404c;
+    --arm: #7d8794; --arm-lit: #ff8a4c; --arm-ghost: #8fa3bb;
+    --model: #ff8a4c; --ik: #5aa9f0; --cross: #9aa4b1; --keep: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding: 14px 16px 8px; }
+  h1 { font-size: 17px; margin: 0; }
+  #status { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0 16px 10px; color: var(--muted); font-size: 13px; }
+  .key { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; padding: 0 16px 16px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  h2 { font-size: 14px; margin: 0; padding: 10px 12px 0; }
+  .facts { padding: 2px 12px 8px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; min-height: 1.45em; }
+  .box { position: relative; height: min(62vh, 520px); }
+  .box canvas { width: 100%; height: 100%; display: block; }
+  .chip { position: absolute; left: 10px; top: 8px; font-size: 12px; color: var(--muted); }
+  .hidden { display: none; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  },
+  "integrity": {
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js": "sha384-IDC7sAMAIMB/TZ6dgKKPPAKZ2bXXXP8+FBMBC8cU319eBhKITx+PaalhfDkDNH28",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js": "sha384-aJoe4qqS/DgF2jh9njAuvA6QIveJYoCuYOfYjdFY8P3eawzmc9bEQ40jq2TvOyuP",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/STLLoader.js": "sha384-1EfRoRFlW0okJLwii+CC5clEMVSDeI/MFRIPbyUpGQnNQP+Szo3cgWrhC6r9rHBg"
+  }
+}
+</script>
+</head>
+<body>
+<header>
+  <h1>Policy chunks, live</h1>
+  <span id="status">Loading the arm</span>
+</header>
+<div class="legend">
+  <span class="key"><span class="swatch" style="background: var(--model)"></span>Hand path the model asked for</span>
+  <span class="key"><span class="swatch" style="background: var(--ik)"></span>Where the IK sends the hand</span>
+  <span class="key"><span class="swatch" style="background: var(--cross)"></span>Hand frame every 8 rows (long line: along the fingers)</span>
+  <span class="key"><span class="swatch" style="background: var(--keep)"></span>What the IK keeps the arm off (keep_out)</span>
+  <span class="key">Solid arm: chunk start. See-through arm: chunk end. Faint path: previous chunk.</span>
+</div>
+<main>
+  <section><h2>Left arm</h2><div class="facts" id="left-facts"></div><div class="box" id="left"></div></section>
+  <section><h2>Right arm</h2><div class="facts" id="right-facts"></div><div class="box" id="right"></div></section>
+</main>
+<script type="module">
+import * as THREE from "three";
+import { ArmView } from "/setup_viewer.js";
+
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const vec = (p) => new THREE.Vector3(p[0], p[1], p[2]);
+const status = document.getElementById("status");
+
+function line(points, color, opacity = 1) {
+  const geometry = new THREE.BufferGeometry().setFromPoints(points.map(vec));
+  return new THREE.Line(geometry, new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity }));
+}
+function dots(points, color, size) {
+  const geometry = new THREE.BufferGeometry().setFromPoints(points.map(vec));
+  return new THREE.Points(geometry, new THREE.PointsMaterial({ color, size }));
+}
+function segments(pairs, color) {
+  const geometry = new THREE.BufferGeometry().setFromPoints(pairs.flat().map(vec));
+  return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color }));
+}
+function clear(group) {
+  for (const o of group.children) { o.geometry.dispose(); o.material.dispose(); }
+  group.clear();
+}
+
+function keepOut(shapes) {
+  const group = new THREE.Group();
+  const material = new THREE.MeshStandardMaterial({ color: css("--keep"), transparent: true, opacity: 0.3, depthWrite: false });
+  for (const s of shapes) {
+    const mesh = s.kind === "box"
+      ? new THREE.Mesh(new THREE.BoxGeometry(...s.size), material)
+      : new THREE.Mesh(new THREE.CapsuleGeometry(s.radius, s.height, 8, 24), material);
+    if (s.kind === "capsule") mesh.rotation.x = Math.PI / 2;
+    mesh.position.set(...s.center);
+    group.add(mesh);
+  }
+  return group;
+}
+
+const { drawing, rest, keep_out } = await (await fetch("/api/view")).json();
+const arms = {};
+for (const side of ["left", "right"]) {
+  const view = new ArmView(document.getElementById(side));
+  view.controls.enableZoom = true;
+  await view.load(drawing, rest);
+  view.aim(rest);
+  view.scene.add(keepOut(keep_out[side]));
+  const now = new THREE.Group(), before = new THREE.Group();
+  view.scene.add(now, before);
+  arms[side] = { view, now, before, facts: document.getElementById(`${side}-facts`), last: null };
+}
+status.textContent = "Waiting for the run's first chunk";
+
+let shown = null;
+async function poll() {
+  const r = await fetch("/api/latest");
+  const data = await r.json();
+  if (data.chunk === null) return;
+  const live = data.age_s < 3;
+  status.textContent = `${data.episode}, chunk ${data.chunk}, ${data.age_s.toFixed(1)} s ago${live ? "" : " (no new chunk)"}`;
+  const id = `${data.episode}/${data.chunk}`;
+  if (id === shown) return;
+  shown = id;
+  for (const [side, s] of Object.entries(data.sides)) {
+    const arm = arms[side];
+    clear(arm.before);
+    if (arm.last) arm.before.add(line(arm.last, css("--model"), 0.25));
+    clear(arm.now);
+    arm.now.add(line(s.model, css("--model")), dots(s.model, css("--model"), 0.006));
+    arm.now.add(dots([s.model[0]], css("--model"), 0.016));
+    arm.now.add(line(s.ik, css("--ik")), dots([s.ik[s.ik.length - 1]], css("--ik"), 0.014));
+    arm.now.add(segments(s.approach, css("--ink")), segments(s.cross, css("--cross")));
+    arm.last = s.model;
+    if (s.start) arm.view.live(s.start, s.grip_start);
+    arm.view.setGhost(s.end, s.grip_end);
+    arm.facts.textContent =
+      `hand moves ${s.travel_mm} mm | grip asked ${s.grip_asked[0]} to ${s.grip_asked[1]}, sent ${s.grip_start} to ${s.grip_end}` +
+      ` | IK miss up to ${s.miss_mm} mm`;
+  }
+}
+async function loop() {
+  try { await poll(); } catch (e) { status.textContent = `The page lost the run (${e.message}); is dreamcli robot run still going?`; }
+  setTimeout(loop, 300);
+}
+loop();
+</script>
+</body>
+</html>

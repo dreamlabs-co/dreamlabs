@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/jaxls/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["src/jaxls"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jaxls"]
+
+[project]
+name = "jaxls"
+dynamic = ["version"]
+description = "Nonlinear least squares with JAX"
+readme = "README.md"
+license = { text="MIT" }
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "jax>=0.6.0",
+    "jaxlib>=0.6.0",
+    "jaxlie>=1.0.0",
+    "jax_dataclasses>=1.6.2",
+    "loguru",
+    "termcolor",
+    "tqdm",
+    "rich>=13.0.0",
+    "typing_extensions>=4.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pyright>=1.1.308",
+    "pytest",
+    "ruff",
+    "libcst",
+    "viser",
+    "nbconvert",
+    "ipython",
+]
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx-book-theme>=1.0.0",
+    "sphinx-copybutton>=0.5.0",
+    "myst-nb>=1.0.0",
+    "ipykernel",
+    "matplotlib",
+    "plotly",
+    "opencv-python",
+    "scipy",
+    "scikit-sparse",
+    "tyro",
+    "robot_descriptions",
+    "yourdfpy",
+    "trimesh",
+    "fast_simplification",
+    "jupyterlab",
+    "graphviz",
+    "viser>=1.0.19",
+]
+cholmod = ["scikit-sparse"]
+# Docs plus a CUDA-enabled jaxlib, so the docs build executes notebooks on the
+# GPU (the default `docs` extra is CPU-only and portable for CI / GPU-less
+# machines). Use with serial notebook execution (nb_execution_parallel = 1 in
+# conf.py) so concurrent notebooks don't contend for or OOM the GPU.
+docs-gpu = ["jaxls[docs]", "jax[cuda12]"]
+
+[project.urls]
+"GitHub" = "https://github.com/brentyi/jaxls"
+
+[tool.ruff]
+exclude = ["_py310"]
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [
+    "E731",# Ignore lambda assignment warnings
+    "E741", # Ignore ambiguous variable name warnings
+]
+
+[tool.pyright]
+exclude = ["transpile_py310.py", "**/_py310/**", ".venv"]

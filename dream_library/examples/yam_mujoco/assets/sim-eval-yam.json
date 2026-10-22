@@ -1,0 +1,211 @@
+{
+  "gripper": {
+    "left_finger_open_pos": -0.0475,
+    "left_finger_closed_pos": 0.0,
+    "right_finger_open_pos": -0.0475,
+    "right_finger_closed_pos": 0.0
+  },
+  "arms": {
+    "left": {
+      "position": [
+        0.2525,
+        0.305,
+        0.76
+      ],
+      "quaternion": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "prim_root": "LeftArm"
+    },
+    "right": {
+      "position": [
+        0.2525,
+        -0.305,
+        0.76
+      ],
+      "quaternion": [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "prim_root": "RightArm"
+    }
+  },
+  "grasp": {
+    "normal_force_thresh": 0.1,
+    "check_pad": true,
+    "pad_min_frac": 0.0,
+    "pad_max_frac": 1.0
+  },
+  "cameras": {
+    "intrinsic_resolution": [
+      640,
+      480
+    ],
+    "top": {
+      "prim_path": "{ENV_REGEX_NS}/TopCamera",
+      "position": [
+        0.08600512146949768,
+        -0.008999999612569809,
+        1.7043205499649048
+      ],
+      "quaternion_opengl": [
+        0.68301,
+        0.18301,
+        -0.18301,
+        -0.68301
+      ],
+      "intrinsics": {
+        "fx": 392.195617675781,
+        "fy": 391.722351074219,
+        "cx": 318.389434814453,
+        "cy": 237.876312255859
+      },
+      "lerobot_key": "top_rgb"
+    },
+    "left_wrist": {
+      "prim_path": "{ENV_REGEX_NS}/LeftArm/arm/link_6/wrist_camera",
+      "position": [
+        -0.0004,
+        0.069638,
+        0.073063
+      ],
+      "quaternion_opengl": [
+        -0.003227,
+        0.002817,
+        0.975619,
+        0.21943
+      ],
+      "intrinsics": {
+        "fx": 390.666,
+        "fy": 390.162,
+        "cx": 317.526,
+        "cy": 236.146
+      },
+      "lerobot_key": "left_rgb"
+    },
+    "right_wrist": {
+      "prim_path": "{ENV_REGEX_NS}/RightArm/arm/link_6/wrist_camera",
+      "position": [
+        0.0,
+        0.069638,
+        0.072
+      ],
+      "quaternion_opengl": [
+        -0.003227,
+        0.002817,
+        0.975619,
+        0.21943
+      ],
+      "intrinsics": {
+        "fx": 390.666,
+        "fy": 390.162,
+        "cx": 317.526,
+        "cy": 236.146
+      },
+      "lerobot_key": "right_rgb"
+    }
+  },
+  "table": {
+    "position": [
+      0.6505,
+      0.0,
+      0.7517
+    ],
+    "bottom_left": [
+      0.2995,
+      0.55,
+      0.7517
+    ],
+    "top_right": [
+      1.0015,
+      -0.55,
+      0.7517
+    ]
+  },
+  "fingers": {
+    "lf": {
+      "path": "arm/left_finger",
+      "keypoints": [
+        [
+          -0.088,
+          0.025,
+          -0.045
+        ],
+        [
+          -0.02,
+          0.058,
+          -0.048
+        ],
+        [
+          -0.02,
+          -0.008,
+          -0.048
+        ]
+      ]
+    },
+    "rf": {
+      "path": "arm/right_finger",
+      "keypoints": [
+        [
+          -0.025,
+          -0.088,
+          -0.045
+        ],
+        [
+          -0.058,
+          -0.02,
+          -0.048
+        ],
+        [
+          0.008,
+          -0.02,
+          -0.048
+        ]
+      ]
+    }
+  },
+  "controller": {
+    "default": "high_pd",
+    "base": {
+      "yam_shoulder": {
+        "stiffness": 40.0,
+        "damping": 2.5
+      },
+      "yam_elbow": {
+        "stiffness": 10.0,
+        "damping": 1.0
+      },
+      "yam_wrist": {
+        "stiffness": 10.0,
+        "damping": 1.0
+      },
+      "yam_gripper": {
+        "stiffness": 100.0,
+        "damping": 10.0
+      }
+    },
+    "high_pd": {
+      "yam_shoulder": {
+        "stiffness": 800.0,
+        "damping": 50.0
+      },
+      "yam_elbow": {
+        "stiffness": 800.0,
+        "damping": 50.0
+      },
+      "yam_wrist": {
+        "stiffness": 30.0,
+        "damping": 5.0
+      },
+      "yam_gripper": {
+        "stiffness": 2000.0,
+        "damping": 100.0
+      }
+    }
+  }
+}

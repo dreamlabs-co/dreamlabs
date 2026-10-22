@@ -1,0 +1,326 @@
+<?xml version="1.0"?>
+<!-- kinematics only -->
+<robot name="baxter_right">
+  <link name="served_base">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <link name="arm_root">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <link name="right_upper_shoulder">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01783 0.00086 0.19127" />
+      <mass value="5.70044" />
+      <inertia ixx="0.04709102262" ixy="0.00012787556" ixz="0.00614870039" iyy="0.03766976455" iyz="0.00078086899" izz="0.03595988478" />
+    </inertial>
+  </link>
+  <link name="right_lower_shoulder">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.06845 0.00269 -0.00529" />
+      <mass value="3.22698" />
+      <inertia ixx="0.01175209419" ixy="-0.00030096398" ixz="0.00207675762" iyy="0.0278859752" iyz="-0.00018821993" izz="0.02078749298" />
+    </inertial>
+  </link>
+  <link name="right_upper_elbow">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00276 0.00132 0.18086" />
+      <mass value="4.31272" />
+      <inertia ixx="0.02661733557" ixy="0.00029270634" ixz="0.00392189887" iyy="0.02844355207" iyz="0.0010838933" izz="0.01248008322" />
+    </inertial>
+  </link>
+  <link name="right_upper_elbow_visual">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <mass value="0.0001" />
+      <inertia ixx="1e-08" ixy="0" ixz="0" iyy="1e-08" iyz="0" izz="1e-08" />
+    </inertial>
+  </link>
+  <link name="right_lower_elbow">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.02611 0.00159 -0.01117" />
+      <mass value="2.07206" />
+      <inertia ixx="0.00711582686" ixy="0.00036036173" ixz="0.0007459496" iyy="0.01318227876" iyz="-0.00019663418" izz="0.00926852064" />
+    </inertial>
+  </link>
+  <link name="right_upper_forearm">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00168 0.0046 0.13952" />
+      <mass value="2.24665" />
+      <inertia ixx="0.01667742825" ixy="0.00018403705" ixz="0.00018657629" iyy="0.01675457264" iyz="-0.00064732352" izz="0.0037463115" />
+    </inertial>
+  </link>
+  <link name="right_upper_forearm_visual">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <mass value="0.0001" />
+      <inertia ixx="1e-08" ixy="0" ixz="0" iyy="1e-08" iyz="0" izz="1e-08" />
+    </inertial>
+  </link>
+  <link name="right_arm_itb">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.000000 0.000000 0.000000" />
+      <mass value="0.0001" />
+      <inertia ixx="1e-08" ixy="0" ixz="0" iyy="1e-08" iyz="0" izz="1e-08" />
+    </inertial>
+  </link>
+  <link name="right_lower_forearm">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.06041 0.00697 0.006" />
+      <mass value="1.60979" />
+      <inertia ixx="0.00387607152" ixy="-0.00044384784" ixz="-0.00021115038" iyy="0.00700537914" iyz="0.00015348067" izz="0.0055275524" />
+    </inertial>
+  </link>
+  <link name="right_wrist">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.00198 0.00125 0.01855" />
+      <mass value="0.35093" />
+      <inertia ixx="0.00025289155" ixy="0.00000575311" ixz="-0.00000159345" iyy="0.0002688601" iyz="-0.00000519818" izz="0.0003074118" />
+    </inertial>
+  </link>
+  <link name="right_hand">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01093 0.00042 -0.01532" />
+      <mass value="0.19125" />
+      <inertia ixx="0.00017588" ixy="0.00000147073" ixz="0.0000243633" iyy="0.00021166377" iyz="0.00000172689" izz="0.00023745397" />
+    </inertial>
+  </link>
+  <link name="right_hand_camera">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <mass value="0.0001" />
+      <inertia ixx="1e-08" ixy="0" ixz="0" iyy="1e-08" iyz="0" izz="1e-08" />
+    </inertial>
+  </link>
+  <link name="right_hand_camera_axis">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <mass value="0.0001" />
+      <inertia ixx="1e-08" ixy="0" ixz="0" iyy="1e-08" iyz="0" izz="1e-08" />
+    </inertial>
+  </link>
+  <link name="right_hand_range">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <mass value="0.0001" />
+      <inertia ixx="1e-08" ixy="0" ixz="0" iyy="1e-08" iyz="0" izz="1e-08" />
+    </inertial>
+  </link>
+  <link name="right_hand_accelerometer">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.000000 0.000000 0.000000" />
+      <mass value="0.0001" />
+      <inertia ixx="1e-08" ixy="0" ixz="0" iyy="1e-08" iyz="0" izz="1e-08" />
+    </inertial>
+  </link>
+  <link name="right_gripper_base">
+    <inertial>
+      <origin rpy="-1.5707963267948966 3.141592653589793 0" xyz="0.0 0.0 0.0" />
+      <mass value="0.3" />
+      <inertia ixx="2e-08" ixy="0" ixz="0" iyy="3e-08" iyz="0" izz="2e-08" />
+    </inertial>
+  </link>
+  <link name="right_gripper">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <mass value="0.0001" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0.0" />
+    </inertial>
+  </link>
+  <link name="r_gripper_l_finger">
+    <inertial>
+      <origin rpy="0 0 -3.141592653589793" xyz="0 0 0" />
+      <mass value="0.02" />
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01" />
+    </inertial>
+  </link>
+  <link name="r_gripper_r_finger">
+    <inertial>
+      <origin rpy="0 0 -0.0" xyz="0 0 0" />
+      <mass value="0.02" />
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01" />
+    </inertial>
+  </link>
+  <link name="finger_lf">
+    <inertial>
+      <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
+      <mass value="0.01" />
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01" />
+    </inertial>
+  </link>
+  <link name="finger_rf">
+    <inertial>
+      <origin rpy="0 0 0.0" xyz="0 0 0" />
+      <mass value="0.01" />
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01" />
+    </inertial>
+  </link>
+  <joint name="arm_root_joint" type="fixed">
+    <parent link="served_base" />
+    <child link="arm_root" />
+    <origin xyz="-0.357855 0.085355 0.282588" rpy="0 0 -0.7854" />
+  </joint>
+  <joint name="joint1" type="revolute">
+    <origin rpy="0 0 0" xyz="0.055695 0 0.011038" />
+    <axis xyz="0 0 1" />
+    <parent link="arm_root" />
+    <child link="right_upper_shoulder" />
+    <limit effort="50.0" lower="-1.70167993878" upper="1.70167993878" velocity="1.5" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <joint name="joint2" type="revolute">
+    <origin rpy="-1.57079632679 0 0" xyz="0.069 0 0.27035" />
+    <axis xyz="0 0 1" />
+    <parent link="right_upper_shoulder" />
+    <child link="right_lower_shoulder" />
+    <limit effort="50.0" lower="-2.147" upper="1.047" velocity="1.5" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <joint name="joint3" type="revolute">
+    <origin rpy="1.57079632679 0 1.57079632679" xyz="0.102 0 0" />
+    <axis xyz="0 0 1" />
+    <parent link="right_lower_shoulder" />
+    <child link="right_upper_elbow" />
+    <limit effort="50.0" lower="-3.05417993878" upper="3.05417993878" velocity="1.5" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <joint name="joint4" type="revolute">
+    <origin rpy="-1.57079632679 -1.57079632679 0" xyz="0.069 0 0.26242" />
+    <axis xyz="0 0 1" />
+    <parent link="right_upper_elbow" />
+    <child link="right_lower_elbow" />
+    <limit effort="50.0" lower="-0.05" upper="2.618" velocity="1.5" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <joint name="joint5" type="revolute">
+    <origin rpy="1.57079632679 0 1.57079632679" xyz="0.10359 0 0" />
+    <axis xyz="0 0 1" />
+    <parent link="right_lower_elbow" />
+    <child link="right_upper_forearm" />
+    <limit effort="15.0" lower="-3.059" upper="3.059" velocity="4.0" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <joint name="joint6" type="revolute">
+    <origin rpy="-1.57079632679 -1.57079632679 0" xyz="0.01 0 0.2707" />
+    <axis xyz="0 0 1" />
+    <parent link="right_upper_forearm" />
+    <child link="right_lower_forearm" />
+    <limit effort="15.0" lower="-1.57079632679" upper="2.094" velocity="4.0" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <joint name="joint7" type="revolute">
+    <origin rpy="1.57079632679 0 1.57079632679" xyz="0.115975 0 0" />
+    <axis xyz="0 0 1" />
+    <parent link="right_lower_forearm" />
+    <child link="right_wrist" />
+    <limit effort="15.0" lower="-3.059" upper="3.059" velocity="4.0" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <joint name="right_e0_fixed" type="fixed">
+    <origin rpy="1.57079632679 0 1.57079632679" xyz="0.107 0 0" />
+    <axis xyz="0 0 1" />
+    <parent link="right_lower_shoulder" />
+    <child link="right_upper_elbow_visual" />
+  </joint>
+  <joint name="right_w0_fixed" type="fixed">
+    <origin rpy="1.57079632679 0 1.57079632679" xyz="0.088 0 0" />
+    <axis xyz="0 0 1" />
+    <parent link="right_lower_elbow" />
+    <child link="right_upper_forearm_visual" />
+  </joint>
+  <joint name="right_w0_to_itb_fixed" type="fixed">
+    <origin rpy="-1.57079632679 0 1.57079632679" xyz="-0.0565 0 0.12" />
+    <axis xyz="0 0 1" />
+    <parent link="right_upper_forearm" />
+    <child link="right_arm_itb" />
+  </joint>
+  <joint name="right_hand" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.11355" />
+    <axis xyz="0 0 1" />
+    <parent link="right_wrist" />
+    <child link="right_hand" />
+  </joint>
+  <joint name="right_hand_camera" type="fixed">
+    <origin rpy="0 0 -1.57079633" xyz="0.03825 0.012 0.015355" />
+    <parent link="right_hand" />
+    <child link="right_hand_camera" />
+  </joint>
+  <joint name="right_hand_camera_axis" type="fixed">
+    <origin rpy="0 0 0" xyz="0.03825 0.012 0.015355" />
+    <parent link="right_hand" />
+    <child link="right_hand_camera_axis" />
+  </joint>
+  <joint name="right_hand_range" type="fixed">
+    <origin rpy="0 -1.57079632679 -1.57079632679" xyz="0.032 -0.020245 0.0288" />
+    <parent link="right_hand" />
+    <child link="right_hand_range" />
+  </joint>
+  <joint name="right_hand_accelerometer" type="fixed">
+    <origin rpy="0 0 0" xyz="0.00198 0.000133 -0.0146" />
+    <parent link="right_hand" />
+    <child link="right_hand_accelerometer" />
+  </joint>
+  <joint name="r_gripper_l_finger_tip_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.0 0.01725 0.1127" />
+    <parent link="r_gripper_l_finger" />
+    <child link="finger_lf" />
+  </joint>
+  <joint name="r_gripper_r_finger_tip_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.0 -0.01725 0.1127" />
+    <parent link="r_gripper_r_finger" />
+    <child link="finger_rf" />
+  </joint>
+  <joint name="right_gripper_base" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.025" />
+    <parent link="right_hand" />
+    <child link="right_gripper_base" />
+  </joint>
+  <joint name="right_endpoint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.13269999999999998" />
+    <parent link="right_gripper_base" />
+    <child link="right_gripper" />
+  </joint>
+  <joint name="jaw_drive" type="prismatic">
+    <origin rpy="0 0 0" xyz="0 -0.0015 0.02" />
+    <axis xyz="0.0 1.0 0.0" />
+    <parent link="right_gripper_base" />
+    <child link="r_gripper_l_finger" />
+    <limit effort="11.0" lower="0" upper="0.020833" velocity="5.0" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <joint name="jaw_f1" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 0.0014999999999999996 0.02" />
+    <axis xyz="0 1 0" />
+    <parent link="right_gripper_base" />
+    <child link="r_gripper_r_finger" />
+    <limit effort="11.0" lower="-0.020833" upper="0.0" velocity="5.0" />
+    <dynamics damping="0.7" friction="0.0" />
+  </joint>
+  <link name="tcp">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <joint name="tcp_joint" type="fixed">
+    <parent link="right_gripper_base" />
+    <child link="tcp" />
+    <origin xyz="0 0 0.13" rpy="0 0 -1.57079633" />
+  </joint>
+  <link name="wrist_camera_mount">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <joint name="wrist_camera_mount_joint" type="fixed">
+    <parent link="right_hand" />
+    <child link="wrist_camera_mount" />
+    <origin xyz="0.03825 0.012 0.015355" rpy="0 -1.43134585 3.14159265" />
+  </joint>
+</robot>

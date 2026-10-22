@@ -1,0 +1,10 @@
+.venv/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+documentation/html/
+documentation/xml/
+documentation/doxygen-warnings.log

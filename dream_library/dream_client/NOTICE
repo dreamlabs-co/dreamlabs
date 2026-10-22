@@ -1,0 +1,8 @@
+dreamlabs-client (the DreamAPI policy client, import name dream)
+Copyright 2026 Dream Labs
+
+Licensed under the Apache License, Version 2.0 (LICENSE).
+
+The client's request lifecycle (one request in flight, timeout recovery, idempotent close) was originally derived from
+the policy client of NVIDIA Isaac GR00T (https://github.com/NVIDIA/Isaac-GR00T), Apache License 2.0, Copyright (c) 2025
+NVIDIA Corporation.

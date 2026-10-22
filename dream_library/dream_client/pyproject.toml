@@ -1,0 +1,136 @@
+[project]
+name = "dreamlabs-client"
+version = "1.0.5"
+description = "Policy client for DreamAPI's /v1/get_action gateway: observation out, action chunk in."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.10"
+authors = [{ name = "Dream Labs" }]
+keywords = ["dream", "dreamapi", "policy", "robotics", "inference", "client"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+# websockets: `dream.experimental` records every tick it is handed over a WebSocket to the platform's live service, on
+# every policy, so every install carries it.
+dependencies = [
+    "numpy>=1.24",
+    "websockets>=13",
+]
+
+# `dream.datasets` runs the dataset checks locally (`shared.datasets.validation`, copied into the wheel below), which
+# open the episode parquets with pyarrow and read each video's format with PyAV (`shared.datasets.video_formats`, the
+# check the data worker runs too), and sends the dataset zip to S3 with boto3's transfer manager; only a caller of
+# validate_dataset() or upload_dataset() needs any of them. PyAV at the `live` extra's floor.
+[project.optional-dependencies]
+datasets = ["av>=15", "boto3>=1.36", "pyarrow>=17"]
+# `record` is empty and kept so that `pip install "dream-client[record]"` still resolves: websockets, what it
+# names, is in the base list, since the client always records.
+record = []
+# `live`: what dream.LiveViewClient encodes the camera frames with (PyAV's libvpx VP8 encoder, OpenCV's JPEG decode,
+# resize and the face detector of `shared.faceblur`; the wheel's x264 is GPL and is never opened);
+# the dream library carries both in its base list.
+live = ["av>=15", "opencv-python-headless>=4.10"]
+
+[project.urls]
+Changelog = "https://github.com/dreamlabs-co/dreamlabs/blob/main/dream_library/dream_client/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    # doxytools: `doxygen` + `dot` console scripts (pinned binaries fetched on first use).
+    "doxytools",
+    "mypy>=1.11",
+    # The `datasets` extra under test (its pins live at [project.optional-dependencies] only), and the S3 client's
+    # stubs for mypy (the transfer itself is stubbed in the tests; the data service's e2e runs it for real).
+    "dreamlabs-client[datasets]",
+    # The `live` extra under test (tests/test_live.py encodes real frames).
+    "dreamlabs-client[live]",
+    "boto3-stubs[s3]>=1.36",
+    # dream's IK, which the `ik` config key runs (dream.client_ik): the copy `pip install dream` ships, from
+    # ../vendor/dream_ik (VENDOR.md there). jax 0.7.1 has no release for Python 3.10.
+    "dream-ik ; python_version >= '3.11'",
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv.sources]
+doxytools = { path = "../../infra/docs/doxytools", editable = true }
+dream-ik = { path = "../vendor/dream_ik/packages/dream_ik" }
+pyroki = { path = "../vendor/pyroki" }
+jaxls = { path = "../vendor/jaxls" }
+
+[tool.uv]
+# Supply-chain cooldown: resolve only releases at least a week old.
+exclude-newer = "1 week"
+# An editable install carries a copy of `shared.datasets` and `shared.faceblur` (the force-include below), and in a venv
+# that also installs dreamlabs-shared editable (the data service's, the repository root's) that copy is what `import
+# shared.datasets` finds; so uv rebuilds this package whenever those sources change, and the copy never goes stale.
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "../../shared/__init__.py" },
+    { file = "../../shared/datasets/*.py" },
+    { file = "../../shared/faceblur/*.py" },
+]
+# dream-ik pins pyroki and jaxls to commits on GitHub; these overrides, with the sources above, install the vendored
+# copies of those commits instead, so the tests run the code the library ships and need no GitHub. pyliblzfse, which
+# pyroki lists for an old viser and never imports, has no Linux wheel, so it is left out rather than compiled.
+override-dependencies = [
+    "pyroki ; python_version >= '3.11'",
+    "jaxls ; python_version >= '3.11'",
+    "pyliblzfse ; sys_platform == 'never'",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dream"]
+
+# `dream.datasets` imports the embodiment config parser and the dataset checks (`shared.datasets`), and `dream.live`
+# blurs faces with the face detector and its weights (`shared.faceblur`, OpenCV and numpy, the `live` extra's), each
+# copied in at build time from the monorepo's `shared` package, as dream_library's own wheel does for the modules it
+# imports; so the wheel is built from a checkout (or the clone pip makes of a git URL), never from an sdist, which
+# would not carry ../../shared.
+[tool.hatch.build.targets.wheel.force-include]
+"../../shared/__init__.py" = "shared/__init__.py"
+"../../shared/py.typed" = "shared/py.typed"
+"../../shared/datasets" = "shared/datasets"
+"../../shared/faceblur" = "shared/faceblur"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 119
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+strict = true
+# Checked as 3.12: numpy's stubs use the PEP 695 `type` statement, which mypy refuses to parse
+# under an older target. 3.10 syntax compatibility is enforced by ruff (target-version = py310).
+python_version = "3.12"
+files = ["src/dream"]
+
+# dream's vendored IK (dream.client_ik imports it) ships no type information.
+[[tool.mypy.overrides]]
+module = ["dream_ik", "dream_ik.*"]
+ignore_missing_imports = true
+
+# PyAV and OpenCV ship no type information; dream.live imports both only when it encodes.
+[[tool.mypy.overrides]]
+module = ["av", "av.*", "cv2", "cv2.*"]
+ignore_missing_imports = true

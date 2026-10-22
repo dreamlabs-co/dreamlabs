@@ -1,0 +1,85 @@
+{
+ "arm": "makers",
+ "source": {
+  "repository": "https://github.com/makermods-robotics/maker-arm-sdk",
+  "commit": "b30d05a23d72e8c155a8e00f807aba8e8c705f68",
+  "urdf": "urdf/maker_arm/robot.urdf",
+  "urdf_sha256": "f2921e393b5e2f225048b3ab1437e0aabea40ba538afa61885134e5a0edf7caa",
+  "license": "Apache-2.0"
+ },
+ "joints": {
+  "link_002_joint": ["link_002_joint", 1.0],
+  "link_003_joint": ["link_003_joint", 1.0],
+  "link_004_joint": ["link_004_joint", 1.0],
+  "link_005_joint": ["link_005_joint", 1.0],
+  "link_006_joint": ["link_006_joint", -1.0],
+  "link_007_joint": ["link_007_joint", 1.0]
+ },
+ "jaw": ["gripper_left_joint", 0.0, 0.0524125],
+ "parts": [
+  {
+   "link": "base_link",
+   "mesh": "base_link.stl",
+   "from": "base_link",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_002",
+   "mesh": "link_002.stl",
+   "from": "link_002",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_003",
+   "mesh": "link_003.stl",
+   "from": "link_003",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_004",
+   "mesh": "link_004.stl",
+   "from": "link_004",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_005",
+   "mesh": "link_005.stl",
+   "from": "link_005",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_006",
+   "mesh": "link_006.stl",
+   "from": "link_006",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "link_007",
+   "mesh": "link_007.stl",
+   "from": "link_007",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  }
+ ],
+ "jaws": [
+  {
+   "link": "link_007",
+   "mesh": "gripper_left.stl",
+   "from": "gripper_left",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+   "move": "slide",
+   "axis": [1e-07, 1.0, 0.0],
+   "pivot": [0.0, 0.0, 0.0],
+   "travel": 0.0524125
+  },
+  {
+   "link": "link_007",
+   "mesh": "gripper_right.stl",
+   "from": "gripper_right",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+   "move": "slide",
+   "axis": [-1e-07, -1.0, 0.0],
+   "pivot": [0.0, 0.0, 0.0],
+   "travel": 0.0524125
+  }
+ ]
+}

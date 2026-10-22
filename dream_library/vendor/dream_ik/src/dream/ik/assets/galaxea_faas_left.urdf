@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<!-- The zero-shot galaxea_left.urdf (the model code's zero-shot branch, dd7feae4): served_base .. left_gripper_link only (6 movable joints; meshes and every other link
+     dropped), the FaaS EEF bake frame. Source sha256 7853f1503f943dce44a442cf6cc45cb319dc39965175071dd0761de7b0fcce09. -->
+<robot name="galaxea_faas_left">
+  <link name="served_base" />
+  <link name="arm_root" />
+  <link name="left_arm_link1">
+    </link>
+  <link name="left_arm_link2">
+    </link>
+  <link name="left_arm_link3">
+    </link>
+  <link name="left_arm_link4">
+    </link>
+  <link name="left_arm_link5">
+    </link>
+  <link name="left_arm_link6">
+    </link>
+  <link name="left_gripper_link">
+    </link>
+  <joint name="arm_root_joint" type="fixed">
+    <parent link="served_base" />
+    <child link="arm_root" />
+    <origin xyz="-0.144653891 0.03036033 0.196098781" rpy="0 0.1 0" />
+  </joint>
+  <joint name="joint1" type="revolute">
+    <origin xyz="0 0 0.0925" rpy="0 0 0" />
+    <parent link="arm_root" />
+    <child link="left_arm_link1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.094" upper="2.094" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint2" type="revolute">
+    <origin xyz="0.02 0 0.0425" rpy="0 0 0" />
+    <parent link="left_arm_link1" />
+    <child link="left_arm_link2" />
+    <axis xyz="0 1 0" />
+    <limit lower="0.01745329252" upper="3.12414670748" effort="50" velocity="12.5664" />
+  </joint>
+  <joint name="joint3" type="revolute">
+    <origin xyz="-0.264 0 0" rpy="0 0 0" />
+    <parent link="left_arm_link2" />
+    <child link="left_arm_link3" />
+    <axis xyz="0 1 0" />
+    <limit lower="-3.142" upper="0" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint4" type="revolute">
+    <origin xyz="0.245 0 0.06" rpy="0 0 0" />
+    <parent link="left_arm_link3" />
+    <child link="left_arm_link4" />
+    <axis xyz="0 1 0" />
+    <limit lower="-1.309" upper="1.309" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint5" type="revolute">
+    <origin xyz="0.074 0 0.037" rpy="0 0 0" />
+    <parent link="left_arm_link4" />
+    <child link="left_arm_link5" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.484" upper="1.484" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint6" type="revolute">
+    <origin xyz="0.0235 0 -0.037" rpy="0 0 0" />
+    <parent link="left_arm_link5" />
+    <child link="left_arm_link6" />
+    <axis xyz="1 0 0" />
+    <limit lower="-2.007" upper="2.007" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="left_gripper_joint" type="fixed">
+    <origin xyz="0.0847 0 0" rpy="0 0 0" />
+    <parent link="left_arm_link6" />
+    <child link="left_gripper_link" />
+    <axis xyz="0 0 0" />
+  </joint>
+</robot>

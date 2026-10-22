@@ -1,0 +1,66 @@
+# Doxygen configuration for the robots product (non-default settings only).
+# Run from the product root: documentation/build.sh. Fails on any warning.
+PROJECT_NAME           = "robots"
+PROJECT_NUMBER         = 0.2.0
+PROJECT_BRIEF          = "Public inference control loop for bimanual YAM followers driven by a dream policy"
+OUTPUT_DIRECTORY       = documentation
+USE_MDFILE_AS_MAINPAGE = documentation/MAINPAGE.md
+STRIP_FROM_PATH        = .
+CASE_SENSE_NAMES       = YES
+INPUT                  = documentation/MAINPAGE.md \
+                         src/robots \
+                         examples \
+                         README.md \
+                         CHANGELOG.md \
+                         docs/DESIGN_CORRECTIONS.md \
+                         docs/SETUP_WIZARD.md \
+                         docs/control-loop-architecture.md
+RECURSIVE              = YES
+FILE_PATTERNS          = *.py *.md
+EXCLUDE_PATTERNS       = */.venv/* */__pycache__/* */tests/* */build/*
+EXTENSION_MAPPING      = py=Python
+PYTHON_DOCSTRING       = NO
+OPTIMIZE_OUTPUT_JAVA   = YES
+JAVADOC_AUTOBRIEF      = YES
+MARKDOWN_SUPPORT       = YES
+TAB_SIZE               = 4
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+SHOW_NAMESPACES        = YES
+SORT_MEMBER_DOCS       = NO
+SORT_BRIEF_DOCS        = NO
+GENERATE_TODOLIST      = YES
+GENERATE_DEPRECATEDLIST= YES
+GENERATE_BUGLIST       = YES
+SOURCE_BROWSER         = YES
+STRIP_CODE_COMMENTS    = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES
+WARN_LOGFILE           = documentation/doxygen-warnings.log
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_TREEVIEW      = YES
+FULL_SIDEBAR           = NO
+HTML_COLORSTYLE        = AUTO_LIGHT
+HTML_DYNAMIC_SECTIONS  = YES
+SEARCHENGINE           = YES
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+XML_PROGRAMLISTING     = NO
+HAVE_DOT               = YES
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+DIRECTORY_GRAPH        = YES
+DOT_GRAPH_MAX_NODES    = 100

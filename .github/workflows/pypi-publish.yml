@@ -1,0 +1,145 @@
+# Publishes the dream library's two packages to PyPI: `dreamlabs-client` (dream_library/dream_client/, the Python
+# client, `import dream`) and `dreamlabs` (dream_library/, everything: the robots package, `dreamcli`, the vendored arm
+# driver and IK, on top of `dreamlabs-client`, which it depends on).
+#
+# This file runs in dreamlabs-co/dreamlabs, the public copy of the library. It is written in Dream Labs' monorepo
+# (infra/copybara/public/.github/workflows/pypi-publish.yml) and copied here by Copybara with every
+# other file, so a change to it is a pull request there, never a commit here.
+#
+# When: a push to main that changes either package's pyproject.toml (a version bump, synced from the monorepo), a
+# change to this file, or a dispatch. Copybara writes this repository only when the monorepo deploys to production, with
+# the commit production now runs, and every pull request there that changes a package raises that package's version;
+# so a push here is a release, and this workflow publishes every version PyPI does not have yet. The production
+# deploy's approval, in the monorepo, is the only approval a release waits for: nothing here waits for another.
+#
+# Jobs: `plan` reads each package's name and version, client first (dreamlabs depends on it), and keeps the ones to
+# publish: only the names this repository publishes (`dreamlabs-client`, `dreamlabs`; `dream` on PyPI is an unrelated
+# project and is never published from here), a version with a local part (`+...`, which PyPI refuses) fails the run,
+# and a version PyPI already has is skipped. `build` builds those wheels from this checkout (wheels only: the pyproject
+# files force-include `../shared`, which a source distribution would not carry) and checks their metadata. `publish`
+# uploads them with PyPI's trusted publishing (GitHub's OIDC token, no stored password), the client before dreamlabs.
+# It runs in the `pypi` environment because PyPI's trusted publisher is registered with that environment's name, not to
+# wait for a reviewer.
+#
+# One-time setup: on pypi.org, a trusted publisher for each project (dreamlabs-client, dreamlabs): owner dreamlabs-co,
+# repository dreamlabs, workflow pypi-publish.yml, environment pypi; and the `pypi` environment in this repository's
+# settings, with main as its only deployment branch and no required reviewers.
+name: pypi-publish
+on:
+  push:
+    branches: [main]
+    paths: ["dream_library/pyproject.toml", "dream_library/dream_client/pyproject.toml", ".github/workflows/pypi-publish.yml"]
+  workflow_dispatch:
+concurrency:
+  group: pypi-publish
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      client: ${{ steps.plan.outputs.client }}
+      library: ${{ steps.plan.outputs.library }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+
+      - name: The versions PyPI does not have yet
+        id: plan
+        run: |
+          python3 - <<'EOF'
+          import os
+          import sys
+          import tomllib
+          import urllib.error
+          import urllib.request
+
+          # The names this repository publishes; anything else in a pyproject is skipped, never uploaded.
+          PUBLISHED = ("dreamlabs-client", "dreamlabs")
+          # Client first: dreamlabs depends on it, so a run that publishes both makes the client installable first.
+          PACKAGES = (("client", "dream_library/dream_client"), ("library", "dream_library"))
+
+          failed = False
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output, open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              for key, directory in PACKAGES:
+                  with open(f"{directory}/pyproject.toml", "rb") as file:
+                      project = tomllib.load(file)["project"]
+                  name, version = project["name"], project["version"]
+                  publish = False
+                  if name not in PUBLISHED:
+                      verdict = f"skipped: not a package this repository publishes ({', '.join(PUBLISHED)})"
+                  elif "+" in version:
+                      verdict, failed = "refused: a local version, which PyPI does not accept", True
+                  else:
+                      try:
+                          urllib.request.urlopen(f"https://pypi.org/pypi/{name}/{version}/json", timeout=30)
+                          verdict = "skipped: already on PyPI"
+                      except urllib.error.HTTPError as error:
+                          if error.code != 404:
+                              raise
+                          verdict, publish = "to publish: not on PyPI yet", True
+                  line = f"{name} {version} ({directory}): {verdict}"
+                  print(line)
+                  summary.write(f"- {line}\n")
+                  output.write(f"{key}={'true' if publish else 'false'}\n")
+          sys.exit(1 if failed else 0)
+          EOF
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.client == 'true' || needs.plan.outputs.library == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: astral-sh/setup-uv@v5
+        with: { python-version: "3.12" }
+
+      - name: Build the wheels to publish, and check their metadata
+        env:
+          CLIENT: ${{ needs.plan.outputs.client }}
+          LIBRARY: ${{ needs.plan.outputs.library }}
+        run: |
+          set -euo pipefail
+          # --no-sources: the wheel's dependencies are the pyproject's own, never a uv path source of the monorepo.
+          if [ "$CLIENT" = true ]; then uv build --no-sources --wheel -o dist/client dream_library/dream_client; fi
+          if [ "$LIBRARY" = true ]; then uv build --no-sources --wheel -o dist/library dream_library; fi
+          find dist -name '*.whl' -print
+          uvx twine check --strict dist/*/*.whl
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/dreamlabs/
+    permissions:
+      # PyPI's trusted publishing: the job's OIDC token is what PyPI checks against the publisher it has on file.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels
+          path: dist/
+
+      - name: dreamlabs-client to PyPI
+        if: needs.plan.outputs.client == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/client/
+
+      - name: dreamlabs to PyPI
+        if: needs.plan.outputs.library == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/library/

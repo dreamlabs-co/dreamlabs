@@ -1,0 +1,2 @@
+# Generated or downloaded assets: GitHub collapses them in pull requests and git diff shows them as binary.
+assets/** linguist-generated=true -diff

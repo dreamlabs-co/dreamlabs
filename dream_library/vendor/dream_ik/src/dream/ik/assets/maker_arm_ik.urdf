@@ -1,0 +1,75 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Maker Arm v1 for dream.ik (ArmSpec has no base rotation or per-joint sign), in the joints a Maker Arm station reports
+     (motor degrees as radians, zero = the folded calibration pose).
+     Source: the vendor chain, makermods-robotics/maker-arm-sdk urdf/maker_arm/robot.urdf (Apache-2.0,
+     https://github.com/makermods-robotics/maker-arm-sdk, fetched 2026-09-29), joint origins and axes verbatim except:
+     - ik_base_joint (fixed, new root): y-up -> z-up about x, then a half turn about z, so the base frame is YAM's
+       (x forward, y left, z up); our Maker Arm viewer turns the vendor model the same way to draw it.
+     - link_006_joint (wrist_yaw) axis flipped: the arm reports it opposite to the vendor axis (wrist_yaw -1,
+       seen on a Maker Arm station 2026-09-19).
+     - revolute limits = the station follower's soft limits, not the CAD's.
+     - the two prismatic finger joints dropped: dream.ik solves the six arm joints only.
+     Written on 2026-09-30. -->
+<robot name="maker_arm_gripper_v1">
+  <link name="ik_base" />
+  <link name="base_link" />
+  <link name="link_002" />
+  <link name="link_003" />
+  <link name="link_004" />
+  <link name="link_005" />
+  <link name="link_006" />
+  <link name="link_007" />
+  <link name="grasp_center" />
+  <joint name="ik_base_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="1.5707963267948966 0 3.141592653589793" />
+    <parent link="ik_base" />
+    <child link="base_link" />
+  </joint>
+  <joint name="link_002_joint" type="revolute">
+    <origin xyz="0 0.030799999 0" rpy="-1.5707963 0 0" />
+    <parent link="base_link" />
+    <child link="link_002" />
+    <axis xyz="0 0 -1" />
+    <limit lower="-2.761111" upper="2.724459" effort="10" velocity="5" />
+  </joint>
+  <joint name="link_003_joint" type="revolute">
+    <origin xyz="0 0 0.0583" rpy="1.5707963 0 0" />
+    <parent link="link_002" />
+    <child link="link_003" />
+    <axis xyz="0 0 -1" />
+    <limit lower="-3.059562" upper="-0.055851" effort="10" velocity="5" />
+  </joint>
+  <joint name="link_004_joint" type="revolute">
+    <origin xyz="0.19 0 0" rpy="0 0 0" />
+    <parent link="link_003" />
+    <child link="link_004" />
+    <axis xyz="0 0 -1" />
+    <limit lower="0.048869" upper="4.120722" effort="10" velocity="5" />
+  </joint>
+  <joint name="link_005_joint" type="revolute">
+    <origin xyz="-0.174 0.076315136 0" rpy="0 0 0" />
+    <parent link="link_004" />
+    <child link="link_005" />
+    <axis xyz="0 0 -1" />
+    <limit lower="-1.137955" upper="1.815142" effort="10" velocity="5" />
+  </joint>
+  <joint name="link_006_joint" type="revolute">
+    <origin xyz="-0.084967787 0.032692166 0" rpy="1.5707963 0 0.17453293" />
+    <parent link="link_005" />
+    <child link="link_006" />
+    <axis xyz="0 0 -1" />
+    <limit lower="-1.703441" upper="1.361357" effort="10" velocity="5" />
+  </joint>
+  <joint name="link_007_joint" type="revolute">
+    <origin xyz="-0.00025000013 0 0.04695" rpy="0 1.5707963 0" />
+    <parent link="link_006" />
+    <child link="link_007" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.673844" upper="2.652900" effort="10" velocity="5" />
+  </joint>
+  <joint name="grasp_center_joint" type="fixed">
+    <parent link="link_007" />
+    <child link="grasp_center" />
+    <origin xyz="-3.17806289618e-09 -1.25735103017e-08 -0.169638704618" rpy="0 0 0" />
+  </joint>
+</robot>

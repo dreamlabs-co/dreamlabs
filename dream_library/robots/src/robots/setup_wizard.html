@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot setup</title>
+<style>
+  /* The Dream Labs dashboard's tokens: paper, ink, the logo's three hues; dark below. */
+  :root {
+    --paper: #faf8f7; --card: #ffffff; --ink: #1f1a22; --ink-2: #5d4f58; --muted: #8a7d85; --line: #e9e3e6;
+    --field-bg: #ffffff; --soft: #f1ecee; --code-bg: #1f1a22; --code-ink: #f4eff2;
+    --accent: #b5472c; --teal: #0f9d8a; --sky: #9499e0; --sky-deep: #6f74cf; --bad: #b42318;
+    --good-bg: #e6f4f1; --good-ink: #0b6b5e; --warn-bg: #fdf0e1; --warn-ink: #8a4b12; --warn-line: #f0d6b8;
+    --bad-bg: #fbe9e7; --bad-line: #f3c2bc;
+    --axis-x: #d6453d; --axis-y: #2f9e44; --axis-z: #3d6fd6;
+    --brand: linear-gradient(180deg, #9499e0 0%, #f5b8a3 50%, #ffd694 100%);
+    --frame: linear-gradient(155deg, #f1ece4 0%, #e2dad0 60%, #d6ccc0 100%);
+    --arm: #c9c0c5; --arm-lit: #6f74cf;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #151217; --card: #1e1a21; --ink: #f1ecef; --ink-2: #c8bcc3; --muted: #978a92; --line: #352e39;
+      --field-bg: #17141a; --soft: #2a2430; --code-bg: #0e0c10; --code-ink: #efe9ec;
+      --accent: #e0714f; --teal: #3cc4b0; --sky: #a3a8ee; --sky-deep: #8b90e6; --bad: #f0857a;
+      --good-bg: #123631; --good-ink: #7fdcc8; --warn-bg: #3a2a16; --warn-ink: #f2c38f; --warn-line: #5a4022;
+      --bad-bg: #3c1b19; --bad-line: #6a2c27;
+      --axis-x: #f0716a; --axis-y: #5cc46f; --axis-z: #7a9cf0;
+      --frame: linear-gradient(155deg, #2a2430 0%, #241f29 60%, #1d1922 100%);
+      --arm: #9a8f96; --arm-lit: #8b90e6;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #151217; --card: #1e1a21; --ink: #f1ecef; --ink-2: #c8bcc3; --muted: #978a92; --line: #352e39;
+    --field-bg: #17141a; --soft: #2a2430; --code-bg: #0e0c10; --code-ink: #efe9ec;
+    --accent: #e0714f; --teal: #3cc4b0; --sky: #a3a8ee; --sky-deep: #8b90e6; --bad: #f0857a;
+    --good-bg: #123631; --good-ink: #7fdcc8; --warn-bg: #3a2a16; --warn-ink: #f2c38f; --warn-line: #5a4022;
+    --bad-bg: #3c1b19; --bad-line: #6a2c27;
+    --axis-x: #f0716a; --axis-y: #5cc46f; --axis-z: #7a9cf0;
+    --frame: linear-gradient(155deg, #2a2430 0%, #241f29 60%, #1d1922 100%);
+    --arm: #9a8f96; --arm-lit: #8b90e6;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; overflow-wrap: anywhere; }
+  header.top { background: var(--card); border-bottom: 1px solid var(--line); }
+  header.top .bar { max-width: 980px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+  .mark { width: 28px; height: 28px; border-radius: 8px; background: var(--brand); flex: none; }
+  .brand { font-weight: 600; }
+  .crumb { color: var(--muted); font-size: 13px; }
+  main { max-width: 980px; margin: 0 auto; padding: 28px 16px 120px; }
+  h1 { font-size: 28px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-2); margin: 0 0 22px; }
+  section.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+  section.card > header { display: flex; align-items: center; gap: 10px; padding: 13px 20px; flex-wrap: wrap; }
+  section.card.open > header, section.card.done > header { border-bottom: 1px solid var(--line); }
+  section.card > header .pill { margin-left: auto; }
+  section.card.later { opacity: .55; }
+  section.card.later > .body, section.card.done > .body { display: none; }
+  .step { width: 24px; height: 24px; border-radius: 999px; background: var(--ink); color: var(--card); font-size: 12px; font-weight: 600; display: grid; place-items: center; flex: none; }
+  section.card.done .step { background: var(--teal); }
+  section.card > header h2 { font-size: 16px; font-weight: 600; margin: 0; }
+  section.card .summary { display: none; padding: 10px 20px 12px; font-size: 13px; color: var(--ink-2); }
+  section.card.done .summary { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .body { padding: 18px 20px 20px; }
+  .help { color: var(--ink-2); font-size: 14px; margin: 0 0 14px; }
+  .lead { font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+  label.field, p.field { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  input, select, textarea { width: 100%; font: inherit; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--field-bg); color: var(--ink); }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--sky); outline-offset: 0; border-color: var(--sky-deep); }
+  textarea { min-height: 96px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  .row { display: grid; gap: 12px; margin-bottom: 12px; }
+  .c2 { grid-template-columns: 1fr 1fr; }
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .c4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 700px) { .c2, .c3 { grid-template-columns: 1fr; } .c4 { grid-template-columns: 1fr 1fr; } }
+  button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+  button:hover { border-color: var(--ink-2); }
+  button.primary { background: var(--ink); border-color: var(--ink); color: var(--card); font-weight: 600; padding: 10px 18px; }
+  /* A way on the page does not advise (Skip calibration): a plain underlined line, not a button that invites a click. */
+  button.quiet { border: 0; background: none; padding: 4px 0; color: var(--muted); text-decoration: underline; font-size: 13px; }
+  button.good { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  label.button { font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+  label.button:hover, label.button:focus-within { border-color: var(--ink-2); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  a.go { display: inline-block; background: var(--ink); color: var(--card); font-weight: 600; font-size: 16px; padding: 12px 22px; border-radius: 8px; text-decoration: none; }
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .note { font-size: 13px; color: var(--muted); }
+  .err { color: var(--bad); white-space: pre-wrap; font-size: 13px; margin-top: 8px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--ink-2); }
+  .pill.good { background: var(--good-bg); color: var(--good-ink); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .banner { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-line); border-radius: 10px; padding: 10px 14px; font-size: 14px; margin: 0 0 14px; }
+  .banner.bad { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-line); }
+  .banner.good { background: var(--good-bg); color: var(--good-ink); border-color: transparent; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; background: var(--paper); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+  pre { background: var(--code-bg); color: var(--code-ink); border-radius: 10px; padding: 14px 76px 14px 14px; overflow-x: auto; font-size: 12.5px; margin: 0; }
+  pre code { background: none; border: 0; padding: 0; color: inherit; }
+  .codeblock { position: relative; margin: 8px 0; }
+  .codeblock button.copy { position: absolute; top: 8px; right: 8px; padding: 3px 10px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: var(--code-ink); }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+  .hidden { display: none !important; }
+
+  /* Step 0: the robots, as big choices. */
+  .robots { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .robot { text-align: left; padding: 14px; border-radius: 10px; }
+  .robot b { display: block; font-size: 15px; }
+  .robot span { font-size: 12px; color: var(--muted); }
+  .robot.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink) inset; }
+  main.self-way section.card:not([data-step="0"]) { display: none; }
+  /* dreamcli tcp: the URDF step alone (state's tool), its card's other choices and every other step hidden. */
+  main.tcp-only section.card:not([data-step="0"]), main.tcp-only section.card[data-step="0"] header .step,
+  main.tcp-only section.card[data-step="0"] .body > :not(#custom):not(.err), main.tcp-only #custom > :not(#urdfBox) { display: none; }
+  .codeblock.cmd pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+  /* Step 1: every device that may be an arm, with its joints live while arms are open. */
+  .devices { display: grid; gap: 8px; margin-top: 10px; }
+  .device { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .device input { width: 16px; height: 16px; margin: 0; }
+  .device .name { font-weight: 600; font-size: 14px; }
+  .device .sub2 { font-size: 12px; color: var(--muted); word-break: break-all; }
+  .device.not-arm { opacity: .55; }
+  .device.moved { border-color: var(--sky-deep); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sky) 35%, transparent); }
+  .device .meter { width: 120px; height: 8px; border-radius: 999px; background: var(--soft); overflow: hidden; }
+  .device .meter i { display: block; height: 100%; background: var(--sky-deep); width: 0; transition: width .15s; }
+  .jrow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .jrow span { font-size: 11px; font-variant-numeric: tabular-nums; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--ink-2); }
+  .ask { margin-top: 14px; padding: 14px 16px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); }
+  .ask .lead { display: flex; align-items: center; gap: 10px; }
+  .pulse { width: 10px; height: 10px; border-radius: 999px; background: var(--sky-deep); flex: none; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+  @media (prefers-reduced-motion: reduce) { .pulse, .hand { animation: none; } }
+
+  /* Step 2: a picture of every camera to give roles, then per role: reference, live, and what the model sees. */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin-top: 12px; }
+  .shot { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); }
+  .shot.taken { border-color: var(--ink); }
+  .frame { position: relative; aspect-ratio: 16 / 9; background: var(--frame); display: grid; place-items: center; overflow: hidden; border-radius: 8px; }
+  .shot .frame { border-radius: 0; }
+  .frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .frame .msg { font-size: 12px; color: var(--ink-2); padding: 10px; text-align: center; }
+  .frame .tag { position: absolute; left: 8px; top: 8px; font-size: 11px; font-weight: 600; background: rgba(0,0,0,.55); color: #fff; border-radius: 6px; padding: 2px 7px; }
+  .meta { padding: 9px 10px 10px; }
+  .meta .name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta .how { font-size: 11px; color: var(--muted); }
+  .roles { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .roles button { flex: 1 0 auto; padding: 5px 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .roles button.on { background: var(--ink); border-color: var(--ink); color: var(--card); }
+  .turnbar { display: flex; justify-content: flex-end; align-items: center; min-height: 38px; padding: 4px 0; }
+  .shot .turnbar { padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  .turn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .turn .icon { font-size: 18px; line-height: 1; }
+  .turn .chip { border-radius: 999px; background: var(--soft); color: var(--ink-2); padding: 1px 7px; font-size: 11px; }
+  .compare { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+  @media (max-width: 700px) { .compare { grid-template-columns: 1fr; } }
+  .compare .cap { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .rolehead { display: flex; align-items: baseline; gap: 10px; margin-top: 18px; }
+  .rolehead h3 { font-size: 15px; margin: 0; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 700px) { .pair { grid-template-columns: 1fr; } }
+
+  .view { position: relative; aspect-ratio: 4 / 3; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); overflow: hidden; touch-action: none; cursor: grab; }
+  .view canvas { display: block; width: 100%; height: 100%; }
+  .view .chip { position: absolute; left: 10px; top: 10px; font-size: 12px; font-weight: 600; background: var(--card); color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; pointer-events: none; }
+
+  .views { margin-top: 12px; }
+  /* The URDF step: the operator's arm beside a YAM, and the marker's buttons. */
+  .urdfask { margin: 14px 0 0; font-size: 16px; }
+  /* Your arm over the YAM, each the card's width: twice the size they were side by side, and never taller than the
+     window, so each fits a laptop screen. */
+  .urdfviews { display: grid; gap: 12px; margin-top: 10px; }
+  .urdfviews .view { width: 66.667%; max-height: calc(100vh - 120px); }
+  @media (max-width: 760px) { .urdfviews .view { width: 100%; } }
+  .view.ref { background: color-mix(in srgb, var(--line) 55%, var(--paper)); border-style: dashed; cursor: default; }
+  .view.edit { border: 2px solid var(--ink-2); }
+  .view.edit .chip { color: var(--ink); border-color: var(--ink-2); }
+  .view .hint { position: absolute; left: 10px; bottom: 10px; font-size: 12px; background: var(--card); color: var(--ink-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; pointer-events: none; }
+  .view .typer { position: absolute; display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-2); background: var(--card); border: 1px solid var(--ink-2); border-radius: 8px; padding: 4px 8px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); }
+  .view .typer input { width: 84px; font-size: 13px; }
+  .view.pick { cursor: pointer; }
+  .typed { display: flex; gap: 8px; margin-top: 8px; max-width: 520px; }
+  /* A robot of your own: the driver's file picker over this computer, and the two ways to give dream's model. */
+  h3.q { font-size: 15px; margin: 18px 0 4px; }
+  .files { border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; overflow: hidden; }
+  .filebar { display: flex; gap: 10px; align-items: center; padding: 8px 10px; background: var(--paper); border-bottom: 1px solid var(--line); }
+  .filebar button { flex: none; padding: 4px 10px; font-size: 13px; }
+  .filebar code { background: none; border: 0; padding: 0; color: var(--ink-2); min-width: 0; overflow-wrap: anywhere; }
+  .filelist { max-height: 240px; overflow-y: auto; }
+  .filelist button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; border-bottom: 1px solid var(--line); padding: 7px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  .filelist button.on { background: var(--soft); font-weight: 600; }
+  .filelist .empty { padding: 8px 12px; margin: 0; }
+  .classes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); }
+  .classes label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  .classes input { width: 16px; height: 16px; margin: 0; }
+  .reqblock { border: 2px solid var(--line); border-radius: 12px; padding: 4px 16px 12px; margin-top: 20px; }
+  .reqblock.done { border-color: var(--teal); }
+  .reqblock .classes { border-top: 0; padding: 8px 0 0; }
+  .req { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; vertical-align: 2px; margin-left: 6px; }
+  .reqblock.done .req { color: var(--teal); }
+  .reqblock .picked { font-weight: 600; color: var(--good-ink); }
+  button.linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font: inherit; cursor: pointer; }
+  .flash { animation: flash 1.8s ease-out 1; }
+  .missing { outline: 1.5px solid var(--bad); outline-offset: 3px; border-radius: 10px; }
+  button.blocked { opacity: .5; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 75%, transparent); } 100% { box-shadow: 0 0 0 18px transparent; } }
+  .picked { margin: 8px 0 0; font-size: 14px; }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+  .choice { text-align: left; padding: 16px 18px; border-radius: 10px; }
+  .choice b { display: block; font-size: 16px; margin-bottom: 4px; }
+  .choice span { font-size: 13px; color: var(--muted); }
+  .choice.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink) inset; }
+  @media (max-width: 640px) { .choices { grid-template-columns: 1fr; } }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 10px 0 0; font-size: 14px; font-weight: 600; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 22px; height: 4px; border-radius: 2px; display: inline-block; }
+  .legend .x { background: var(--axis-x); } .legend .y { background: var(--axis-y); } .legend .z { background: var(--axis-z); }
+  .typed button { flex: none; white-space: nowrap; }
+  .urdfpad { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
+  .pad { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .pad .padlabel { width: 76px; font-size: 13px; color: var(--muted); }
+  .pad button { min-width: 40px; padding: 6px 10px; }
+  .pad button.on { background: var(--ink); border-color: var(--ink); color: var(--card); }
+  .pad input { width: 96px; padding: 6px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+  .pad .unit { font-size: 13px; color: var(--muted); }
+  @media (max-width: 640px) { .urdfpad { grid-template-columns: 1fr; } }
+
+  /* The reach area: each arm seen from above, base at the centre, the painted area and the hand. */
+  .reachhead { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+  .reachhead .note { margin-right: auto; }
+  .reachmap { position: relative; aspect-ratio: 1; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); overflow: hidden; }
+  .reachmap canvas { display: block; width: 100%; height: 100%; }
+  .hand { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 999px; border: 2px solid var(--accent); pointer-events: none; animation: ring 1.4s ease-out infinite; }
+  @keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+
+  /* Step 4: the safety popup, then the powered checks with Stop always in reach. */
+  dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; background: var(--card); color: var(--ink); width: min(520px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(20, 16, 22, .55); }
+  dialog .in { padding: 22px; }
+  dialog h2 { margin: 0 0 12px; font-size: 20px; }
+  dialog ol { margin: 0 0 16px; padding-left: 22px; font-size: 15px; display: grid; gap: 8px; }
+  label.confirm { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--warn-ink); cursor: pointer; }
+  label.confirm input { width: 18px; height: 18px; margin: 0; }
+  label.confirm:has(input:checked) { border-color: transparent; background: var(--good-bg); color: var(--good-ink); }
+  .stopbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px; background: color-mix(in srgb, var(--card) 92%, transparent); border-top: 1px solid var(--line); display: flex; justify-content: center; gap: 16px; align-items: center; z-index: 10; }
+  .stopbar button { flex: none; white-space: nowrap; background: #c8261b; border-color: #c8261b; color: #fff; font-size: 20px; font-weight: 700; padding: 14px 64px; border-radius: 12px; letter-spacing: .04em; }
+  .stopbar .phase { flex: 0 1 auto; min-width: 0; font-size: 14px; color: var(--ink-2); }
+  @media (max-width: 700px) { .stopbar { flex-direction: column; gap: 8px; } .stopbar .phase { text-align: center; } }
+  .holdbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px; background: var(--warn-bg); color: var(--warn-ink); border-top: 1px solid var(--warn-line); display: flex; justify-content: center; gap: 12px; align-items: center; flex-wrap: wrap; z-index: 10; font-size: 14px; }
+  .holdbar.gone { background: var(--bad-bg); color: var(--bad); border-top-color: var(--bad-line); font-weight: 600; z-index: 11; }
+  .results { display: grid; gap: 6px; margin-top: 10px; }
+  .result { display: grid; grid-template-columns: 22px 110px 1fr; gap: 10px; align-items: baseline; font-size: 14px; }
+  .result .ok { color: var(--teal); font-weight: 700; }
+  .result .no { color: var(--bad); font-weight: 700; }
+  .result .grp { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  /* A failed check's one cause: what it is, what it does to the robot, and the fix. */
+  .cause { margin: 14px 0; padding: 14px 16px; border-radius: 10px; background: var(--card); border: 1px solid var(--bad-line); border-left: 4px solid var(--bad); }
+  .cause .where { margin: 0 0 4px; color: var(--bad); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .cause .lead { margin: 0 0 4px; }
+  .cause .impact { color: var(--bad); font-size: 14px; margin: 0; }
+  .cause .fix { margin: 10px 0 0; font-size: 14px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="bar"><div class="mark"></div><span class="brand">Dream Labs</span><span class="crumb">/ robot setup</span></div></header>
+<main>
+  <h1 id="title">Set up your robot</h1>
+  <p class="sub" id="intro">Each step checks one thing about your robot against the arm dream's model was trained on. Nothing moves under power until the step Move under power, and only after you say so.</p>
+  <div id="offline" class="banner bad" hidden>Setup needs internet: this page could not load its 3D drawing library (three.js from cdn.jsdelivr.net). Connect this computer to the internet and reload the page.</div>
+  <div id="agent" class="banner bad hidden">The station agent is running and holds the arms and cameras. Run <code>dreamcli robot down</code> in another terminal, then reload this page.</div>
+  <div id="account" class="note" style="margin-bottom:14px"></div>
+
+  <section class="card" data-step="0">
+    <header><span class="step">0</span><h2>Pick your robot</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <div class="choices" id="ways" style="margin:0 0 14px">
+        <button class="choice on" id="wayWizard"><b>Use the setup wizard</b><span>Finds your arms and cameras, checks your driver under power, writes the station file.</span></button>
+        <button class="choice" id="waySelf"><b>Set it up myself</b><span>The station file to fill in and the commands that run it. Nothing is checked.</span></button>
+      </div>
+      <p class="banner" id="zeroBanner">Make sure your motors are calibrated (zeroed) the way your robot maker says before you start.</p>
+      <div class="robots" id="robots"></div>
+      <p class="note" id="robotNote"></p>
+      <div id="so101" class="hidden" style="margin-top:14px">
+        <p class="note">The wizard calibrates your SO-101's arms on step 1, after it finds them. Nothing to do here.</p>
+        <details id="so101Own"><summary>I recorded data with LeRobot calibration files of my own</summary>
+          <p class="note">Tick the files you recorded your data with (lerobot-calibrate writes one per arm). An arm whose motors hold one of them keeps it and is not calibrated again, so your data and your arm mean the same poses.</p>
+          <div class="devices" id="so101Files"></div>
+          <div class="row c2" style="margin-top:8px"><div><input id="so101Add" placeholder="another file: /path/to/my_arm.json"></div><div><button id="so101AddBtn">Add</button></div></div>
+        </details>
+      </div>
+      <div id="custom" class="hidden" style="margin-top:14px">
+        <h3 class="q">dream's model of your arm</h3>
+        <div class="choices">
+          <button class="choice" id="armUrdf"><b>My arm's URDF</b><span>Give it as a .zip with its meshes, or its folder, and mark your gripper on a 3D drawing.</span></button>
+          <button class="choice" id="armOurs"><b>An arm Dream Labs has a model of</b><span id="armOursSub"></span></button>
+        </div>
+        <div class="robots hidden" id="armList" style="margin-top:10px"></div>
+        <div id="urdfBox" class="hidden">
+          <div style="margin-top:12px"><p class="field" style="margin-top:0">Your arm's URDF: a .zip of it with its meshes, or its folder</p><div class="actions" style="margin-top:0"><label class="button"><input id="urdfFile" type="file" accept=".zip,.urdf,.xml" class="visually-hidden">Choose .zip</label><label class="button"><input id="urdfFolder" type="file" webkitdirectory class="visually-hidden">Choose folder</label></div></div>
+          <div id="urdfPick" class="hidden" style="margin-top:12px">
+            <p class="note" id="urdfPickAsk"></p>
+            <div class="devices" id="urdfPickList"></div>
+          </div>
+          <p class="note" id="urdfDrawn"></p>
+          <div id="urdfEnd" class="hidden">
+            <h3 class="urdfask" id="urdfAsk"></h3>
+            <div class="urdfviews"><div class="view ref hidden" id="yamView"></div><div class="view pick edit" id="urdfView"></div></div>
+            <p class="note" id="urdfLinks"></p>
+            <div id="urdfSpare" class="hidden"></div>
+            <div class="actions" id="urdfEndActions" style="margin-top:0"><button class="primary" id="urdfYes">Yes, it ends there</button><button id="urdfBaseBtn">It stands on another link</button></div>
+            <div id="urdfTool" class="hidden">
+              <p class="legend"><span><i class="x"></i>x: fingers close</span><span><i class="y"></i>y: up</span><span><i class="z"></i>z: out of the gripper</span></p>
+              <p class="note">Match your arm's triad to the YAM's above: drag an arrow to move along it or a ring to turn about it, or click one to type. The numbers are its place (mm) and turn (degrees) in your arm's end link's frame.</p>
+              <div class="urdfpad" id="urdfPad"></div>
+              <div class="actions"><button class="primary" id="urdfAdd">Set tool center point</button><button id="urdfFlip">Flip up and down</button><button id="urdfReset">Reset to start</button><button id="urdfBack">Change the end</button><span class="note" id="urdfNote"></span></div>
+              <p><button class="quiet" id="urdfSkip">Skip calibration (not advised)</button></p>
+              <div id="tcpSaved" class="hidden">
+                <p>Wrote your arm file. Put its path in your station file as <code>custom.ik</code>, in place of <code>REPLACE_ARM</code>:</p>
+                <div class="codeblock cmd"><pre><code id="tcpIk"></code></pre><button class="copy" data-copy="tcpIk">Copy</button></div>
+                <p class="note">Move the marker and press Set tool center point again to write it again. Press Ctrl-C in the terminal to end dreamcli tcp.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="reqblock" id="driverBox">
+          <h3 class="q">Your driver <span class="req" id="driverReq">Required</span></h3>
+          <p class="note" style="margin:0">The Python class that runs one arm, in a .py file on this computer.</p>
+          <div class="actions" style="margin-top:10px"><button class="primary" id="driverChoose">Choose your driver file (.py)</button></div>
+          <p class="picked hidden" id="driverPicked"></p>
+          <div class="classes hidden" id="driverClasses"></div>
+          <details id="driverTypedBox"><summary>Installed as a Python package? Type it</summary>
+            <div class="typed"><input id="customDriver" placeholder="my_robot.driver:MyArm" aria-label="Your driver, package.module:Class"><button id="driverUse">Use it</button></div>
+          </details>
+          <p class="note" id="customHelp">Your driver reads and writes one arm: joints in radians as your arm's model has them, the gripper from 0 closed to 1 open. The next steps check it against the model.<br><a id="templateLink" href="/driver_template.py" target="_blank" rel="noopener">Driver template</a> &middot; <a id="exampleLink" target="_blank" rel="noopener">Example driver (reBot)</a> &middot; <a id="docsLink" target="_blank" rel="noopener">A robot of your own (docs)</a></p>
+        </div>
+      </div>
+      <div id="embodimentBox" class="hidden" style="margin-top:14px">
+        <label class="field" for="embodiment">The embodiment your fine-tune was trained on, or a new one</label><select id="embodiment"></select>
+        <p class="note" id="embodimentNote"></p>
+        <p class="note hidden" id="newBox"></p>
+      </div>
+      <div id="selfBox" class="hidden" style="margin-top:14px">
+        <p>Save this as <code id="selfPath"></code> and replace every <code>REPLACE_</code> value. The comments at its top say where each comes from.</p>
+        <div class="codeblock"><pre><code id="selfYaml"></code></pre><button class="copy" data-copy="selfYaml">Copy</button></div>
+        <div id="selfTcp" class="hidden">
+          <p>Your arm from its URDF: run this in another terminal and open the address it prints. You mark your gripper's tool point on a 3D drawing, and it writes the arm file whose path goes in <code>custom.ik</code>.</p>
+          <div class="codeblock cmd"><pre><code id="selfTcpCmd">dreamcli tcp</code></pre><button class="copy" data-copy="selfTcpCmd">Copy</button></div>
+        </div>
+        <p>1. Check it without moving anything: the model is called, nothing is written to the arms, and the log shows each arm's reading once a second.</p>
+        <div class="codeblock cmd"><pre><code id="selfDry"></code></pre><button class="copy" data-copy="selfDry">Copy</button></div>
+        <p>2. Put each arm at rest and copy its reading into its <code>home</code>: every run starts by moving there.</p>
+        <p>3. Run it, with a hand on the emergency stop:</p>
+        <div class="codeblock cmd"><pre><code id="selfRun"></code></pre><button class="copy" data-copy="selfRun">Copy</button></div>
+        <p class="note">This is the control loop the wizard ends in, on the same file. Nothing on this path checks your driver, arms or cameras. <a id="selfDocs" target="_blank" rel="noopener">Set it up yourself</a> in the docs has each step.</p>
+      </div>
+      <div class="actions" id="pickActions"><button class="primary blocked" id="pickRobot">Continue</button><span class="note" id="pickNeed"></span><span class="note" id="pickNote"></span></div>
+      <div class="err" id="pickErr"></div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="1">
+    <header><span class="step">1</span><h2>Find your arms</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <p class="help">We name each arm's adapter by its serial number, or by its USB port when it has none of its own (two adapters that report the same one), so a replug or a reboot cannot swap your arms: keep an adapter named by its port in that port. Only adapters your robot's arms can be on are listed.</p>
+      <div class="actions" style="margin-top:0"><button id="scanArms">Look for arm adapters</button><span class="note" id="scanNote"></span></div>
+      <div class="devices" id="devices"></div>
+      <details id="typedArmBox"><summary>Your arm is not listed?</summary>
+        <p class="note">Type its address the way your arm's driver opens it: an IP address, a CAN link, a serial port. Add each arm that is not listed. The wizard opens it through the driver like the ones it found, and the checks below run on what the driver reads.</p>
+        <div class="typed"><input id="typedArm" placeholder="192.168.1.20" aria-label="Your arm's address"><button id="addArm">Add it</button></div>
+      </details>
+      <details id="otherDevices" class="hidden"><summary>Other devices on this computer, not arms (<span id="otherCount">0</span>)</summary>
+        <p class="note">Your robot's arms cannot be on these, so they are never opened.</p>
+        <ul class="note" id="otherList"></ul>
+      </details>
+      <details id="settingsBox"><summary>Arm settings</summary>
+        <div class="row c2" style="margin-top:10px">
+          <div><label class="field" for="setLeft">Left arm</label><textarea id="setLeft" spellcheck="false"></textarea></div>
+          <div><label class="field" for="setRight">Right arm</label><textarea id="setRight" spellcheck="false"></textarea></div>
+        </div>
+      </details>
+      <div class="actions"><button class="primary" id="openArms" disabled>Find arms</button><button class="hidden" id="lookAgain">Close the arms and look again</button><span class="note" id="openNote" aria-live="polite"></span></div>
+      <p class="note">Find arms opens each ticked adapter, and its arm goes limp so you can move it by hand: hold each arm, or rest it on its stand. Untick an adapter that belongs to something else (another robot on this computer) and it is left alone. Then move one arm a little, and say below which arm it is.</p>
+      <p class="banner" id="limpNote" hidden></p>
+      <div class="err" id="armsErr"></div>
+      <div id="wiggle" class="hidden">
+        <div class="ask" id="wiggleAsk"></div>
+        <div id="crossed" class="banner hidden" style="margin-top:12px"></div>
+        <div id="udev" class="hidden" style="margin-top:14px">
+          <p class="lead">Keep the names after a reboot</p>
+          <p class="help">Install this rule once. It names each arm's link after its adapter's serial number, and the names take effect at the next reboot. Don't unplug the adapters: a replug resets the arms' CAN bus.</p>
+          <div class="codeblock"><pre><code id="udevText"></code></pre><button class="copy" data-copy="udevText">Copy</button></div>
+          <p class="note" id="udevNote"></p>
+        </div>
+        <div id="calibrate" class="hidden" style="margin-top:14px">
+          <p class="lead" id="calLead"></p>
+          <p class="help" id="calHelp"></p>
+          <div class="pair views hidden" id="calViews"><div class="view" id="calView"></div></div>
+          <div class="devices" id="calJoints"></div>
+          <div class="actions" id="calActions"></div>
+          <div class="err" id="calErr"></div>
+        </div>
+        <div class="actions"><button class="primary hidden" id="armsDone">Continue</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="2">
+    <header><span class="step">2</span><h2>Your cameras</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <p class="help">Click the role each camera has. Then compare each one with a reference picture.</p>
+      <div class="row c2">
+        <div><label class="field" for="datasetPath">Your LeRobot v2.1 dataset (optional)</label><input id="datasetPath" placeholder="/data/my_robot_dataset"></div>
+        <div style="align-self:end"><button id="useDataset">Use it</button> <span class="note" id="datasetNote"></span></div>
+      </div>
+      <p class="note">The data you recorded on this robot for your fine-tune, as a folder on this computer. Its first frames become the pictures each camera is compared with, so you can line your cameras up with the views your model learned from. Nothing is uploaded and nothing is saved.</p>
+      <div id="datasetKeys" class="row c3 hidden"></div>
+      <div class="actions" style="margin-top:0"><button id="shootAll">Take a picture from every camera</button><span class="note" id="shootNote"></span></div>
+      <div class="gallery" id="gallery"></div>
+      <details id="typedCamBox"><summary>Your camera is not listed?</summary>
+        <p class="note">Type any address OpenCV opens: a network camera's stream (rtsp://192.168.1.50/stream1), a /dev/video path. For a camera only its maker's SDK reads, type a class of your own instead, as module:Class or my_cams.py:Class. Class(camera) opens it, read() returns (ok, frame) with a BGR picture, and release() lets it go.</p>
+        <div class="typed"><input id="typedCam" placeholder="rtsp://192.168.1.50/stream1" aria-label="Your camera's address or class"><button id="addCam">Add it</button></div>
+      </details>
+      <details id="camSettings"><summary>Capture settings</summary><div id="camRows"></div></details>
+      <div class="actions"><button class="primary blocked" id="liveViews">Show live views</button></div>
+      <div class="err" id="camErr"></div>
+      <div id="compare" class="hidden">
+        <p class="banner" id="compareNote"></p>
+        <div id="swap" class="banner bad hidden"></div>
+        <div id="compareRows"></div>
+        <div class="actions"><button class="primary" id="camsDone">Continue</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="3">
+    <header><span class="step">3</span><h2>Home pose</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <p class="lead" id="homeLead">Put each arm in its home pose, the pose every run starts from, then press OK.</p>
+      <div id="homeTargetBox" class="hidden">
+        <p class="help">Seat each arm like this: folded down onto its base, the wrist camera facing up, the gripper closed.</p>
+        <div class="pair views"><div class="view" id="homeTargetView"></div></div>
+      </div>
+      <div class="pair views">
+        <div class="view" id="homeViewLeft"></div>
+        <div class="view" id="homeViewRight"></div>
+      </div>
+      <p class="note">The drawing is your arms as your driver reads them, on dream's model of the arm. If it does not look like your real arms, a joint's zero, direction or units is off: fix that first. Drag a picture to turn it.</p>
+      <div id="gripBox" class="ask hidden">
+        <p class="lead">Your grippers' range</p>
+        <p class="help" id="gripHelp">The grippers are limp too. Open both grippers fully by hand and press Record open. Then close both fully and press Record closed.<span id="gripStop"> Each gripper will then open to just short of where it stopped, so its motor never pushes into the stop.</span></p>
+        <div class="actions" id="gripActions"><button id="gripOpen">Record open</button><button id="gripClosed">Record closed</button></div>
+        <p class="note" id="gripNote"></p>
+      </div>
+      <div class="actions"><button class="primary" id="homeOk">OK, this is home</button><span class="note" id="homeNote"></span></div>
+      <div class="err" id="homeErr"></div>
+    </div>
+  </section>
+
+  <section class="card later hidden" data-step="4" id="reachCard">
+    <header><span class="step">4</span><h2>Reach area</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <p class="lead">Move each hand over the whole area it should work in.</p>
+      <p class="help">Paint one solid area in front of the arm, and stop short of your camera mount so it stays outside the edge. dream pulls the hand's targets into the area, and if the arm still heads out past the edge, it stops there for the rest of that move.</p>
+      <div class="pair views">
+        <div>
+          <div class="reachhead"><b>Left arm</b><span class="note" id="reachArea-left"></span><button id="reachClear-left">Clear</button></div>
+          <div class="reachmap"><canvas id="reachCanvas-left" aria-label="The left arm's reach area, seen from above"></canvas><span class="hand hidden" id="reachHand-left"></span></div>
+        </div>
+        <div>
+          <div class="reachhead"><b>Right arm</b><span class="note" id="reachArea-right"></span><button id="reachClear-right">Clear</button></div>
+          <div class="reachmap"><canvas id="reachCanvas-right" aria-label="The right arm's reach area, seen from above"></canvas><span class="hand hidden" id="reachHand-right"></span></div>
+        </div>
+      </div>
+      <p class="note">Seen from above, with the arm's base at the centre and a ring every 10 cm. The area holds the hand at any height; it does not guard the elbow.</p>
+      <p class="note" id="reachHint"></p>
+      <div class="actions"><button class="primary blocked" id="reachDone">Continue</button><button id="reachSkip">Skip this step</button></div>
+      <div class="err" id="reachWarn"></div>
+      <div class="err" id="reachErr"></div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="5">
+    <header><span class="step">5</span><h2>Move under power</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <p class="help">The arms move slowly: each joint a little, then each hand. Check that the real arms move like the drawings.</p>
+      <div class="actions" style="margin-top:0"><button class="primary" id="motionGo">Start</button></div>
+      <p class="note" id="motionPhase"></p>
+      <div class="pair views">
+        <div class="view" id="powerViewLeft"></div>
+        <div class="view" id="powerViewRight"></div>
+      </div>
+      <div id="motionBanner" class="banner hidden" style="margin-top:14px"></div>
+      <div id="motionCause" class="cause hidden">
+        <p class="where" id="causeWhere"></p>
+        <p class="lead" id="causeTitle"></p>
+        <p class="impact" id="causeImpact"></p>
+        <p class="fix"><b>Fix:</b> <span id="causeFix"></span></p>
+        <p class="fix" id="causeGoOn"></p>
+      </div>
+      <div id="release" class="ask hidden">
+        <div class="actions" style="margin-top:0"><button id="releaseBtn">Switch off the motors</button><span class="note" id="releaseText"></span></div>
+      </div>
+      <div id="eyes" class="ask hidden">
+        <p class="lead">Did each joint and the hand move like the drawing?</p>
+        <p class="help">Each joint the same way, in the same order, and the hand the same way in the sweep. A joint that turned the other way, or two joints that traded places, is a No.</p>
+        <div class="actions"><button class="primary" id="eyesYes">Yes</button><button id="eyesNo">No</button></div>
+      </div>
+      <div class="results" id="results"></div>
+      <div class="err" id="motionErr"></div>
+      <div class="actions"><button class="primary hidden" id="motionRetry">Run checks again</button><button class="primary hidden" id="motionDone">Continue</button></div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="6">
+    <header><span class="step">6</span><h2>Save</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <p class="help" id="saveWhere"></p>
+      <p class="note hidden" id="saveCustom">Your driver, dream's model of your arm and the embodiment go in the file's <code>custom</code> section; edit them there. To check the file without moving anything, <code id="customRun"></code> reads your arms and writes nothing to them.</p>
+      <div id="saveWarn" class="banner hidden"></div>
+      <div class="actions" style="margin-top:0"><button class="primary" id="saveBtn">Save</button></div>
+      <div class="err" id="saveErr"></div>
+      <div id="saved" class="hidden">
+        <p class="banner good" id="savedLine"></p>
+        <details><summary>The file</summary><div class="codeblock"><pre><code id="savedYaml"></code></pre></div></details>
+        <div class="actions"><button class="primary" id="finish">Finish</button></div>
+      </div>
+    </div>
+  </section>
+  <p class="note" id="version"></p>
+</main>
+
+<dialog id="safety">
+  <div class="in">
+    <h2>Before anything moves</h2>
+    <ol>
+      <li>Clear the workspace.</li>
+      <li>Stand outside the arm's reach.</li>
+      <li>Keep a hand on the emergency stop (or the power switch).</li>
+    </ol>
+    <label class="confirm"><input type="checkbox" id="safeTick"> I have done all three</label>
+    <div class="actions"><button class="primary" id="safeGo" disabled>Start moving</button><button id="safeCancel">Not yet</button></div>
+  </div>
+</dialog>
+<dialog id="driverDialog">
+  <div class="in">
+    <h2>Choose your driver file</h2>
+    <p class="help">A .py file on this computer (the robot's, where the wizard runs). Open folders until you find it.</p>
+    <div class="files">
+      <div class="filebar"><button id="driverUp" aria-label="Up one folder">&uarr; Up</button><code id="driverDir"></code></div>
+      <div class="filelist" id="driverList"></div>
+    </div>
+    <p class="note" id="driverDialogNote"></p>
+    <div class="actions"><button id="driverDialogClose">Cancel</button></div>
+  </div>
+</dialog>
+<dialog id="tcpSkip">
+  <div class="in">
+    <h2>Skip the tool center point?</h2>
+    <p class="help">Not advised. Dream-1 moves your gripper by this point, so without it hand-position actions may land off target. Your arm file records that you skipped it, and every start warns.</p>
+    <label class="confirm"><input type="checkbox" id="tcpSkipTick"> I understand the hand may land off target</label>
+    <div class="actions"><button class="primary" id="tcpSkipBack">Back to Set tool center point</button><button id="tcpSkipGo" disabled>Skip anyway</button></div>
+  </div>
+</dialog>
+<dialog id="skipAsk">
+  <div class="in">
+    <h2>Are you sure?</h2>
+    <p class="help">Skipping this step without passing the checks can meaningfully degrade how your robot performs.</p>
+    <div class="results" id="skipFailed"></div>
+    <p class="lead" id="skipGoOn"></p>
+    <div class="actions"><button class="primary" id="skipBack">Go back</button><button id="skipGo">Continue anyway</button></div>
+  </div>
+</dialog>
+<dialog id="reachAsk">
+  <div class="in">
+    <h2>Are you sure?</h2>
+    <p class="help">Without a reach area the arms can move anywhere, including into your camera mount. Painting it makes runs safer and gives better results.</p>
+    <div class="actions"><button class="primary" id="reachBack">Go back</button><button id="reachSkipGo">Skip anyway</button></div>
+  </div>
+</dialog>
+<div class="stopbar hidden" id="stopbar"><span class="phase" id="stopPhase"></span><button id="stopBtn">STOP</button></div>
+<div class="holdbar gone hidden" id="gonebar"></div>
+<div class="holdbar hidden" id="holdbar"><span id="holdText"></span><button id="holdRelease">Switch off the motors</button><span class="err" id="holdErr"></span></div>
+
+<!-- three.js 0.170.0 from the CDN, pinned by version and by hash. Without internet the page says so. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  },
+  "integrity": {
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js": "sha384-IDC7sAMAIMB/TZ6dgKKPPAKZ2bXXXP8+FBMBC8cU319eBhKITx+PaalhfDkDNH28",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js": "sha384-aJoe4qqS/DgF2jh9njAuvA6QIveJYoCuYOfYjdFY8P3eawzmc9bEQ40jq2TvOyuP",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/STLLoader.js": "sha384-1EfRoRFlW0okJLwii+CC5clEMVSDeI/MFRIPbyUpGQnNQP+Szo3cgWrhC6r9rHBg",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/OBJLoader.js": "sha384-RKqc/KL7HrXk9eZXJ3lGhyR3x7c1FYpZUuvbF33bV7CwKDjRzddX4JsSu/bxlfAE",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/ColladaLoader.js": "sha384-6wa4CgH2qQNACbi5B/X0haZftttTv1zM17UdMnS2uLzM9JMNTQVTnFZ/pacp7y1Q",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js": "sha384-Lq1Wl94so5JCKGDvezrdVMJhdeKQkwb8iwRo59QrPPd61CnrCJZLxYmFlQ8ZuOKR",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js": "sha384-wOjwauvHlJO7K6APr7FmMGH2nupQa3Ndzas9bJZhsAMOK055efJud8ns4aYmASKv",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/TGALoader.js": "sha384-VDQ48jjrtMQHGq9keGZpwHQSKB0DJk2aYk779RjRQqeExPnQiMHKvFVYxJo5VQRG"
+  }
+}
+</script>
+<script type="module" src="/setup_wizard.js" onerror="document.getElementById('offline').hidden = false"></script>
+</body>
+</html>

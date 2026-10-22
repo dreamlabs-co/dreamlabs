@@ -1,0 +1,91 @@
+# Example config for a bimanual MakerMods Makers Arm station driven by a FaaS fine-tune through DreamAPI.
+#
+# The same loop, station and file format as configs/yam.example.yaml; this file shows only what differs on a
+# Makers Arm, and every key it leaves out means what that file says. `body: makers` switches the arm driver
+# (robots.makers, the `makers` extra: pip install "dream-robots[makers]"), the camera roles, the wire the
+# observation is sent in, and the dream client's IK: the fine-tune answers with tool poses, and the client solves
+# them to joints with dream's own IK (dream.client_ik) before the loop sees them.
+
+body: makers
+
+# The model the station runs unless a run names another (dreamcli robot run --checkpoint, the model on a Start).
+# dreamcli setup writes the one you pick; without it every run must name one. Name the cameras what it reads:
+# overhead for a base model, scene for a fine-tune on the platform's Makers or Metal embodiment, head for Dream Labs'
+# shared fine-tunes (README, Config file).
+# checkpoint: dream-1-ft:<your fine-tune>
+
+# --- Follower arms (Makers Arm, RobStride motors over CAN) -------------------------------------
+# One CAN adapter per arm. `can_channel` is either a SocketCAN link (`ip -br link show type can`; a
+# candleLight adapter under the kernel's gs_usb driver, brought up at 1 Mbit/s) or the /dev path of a
+# CANable on slcan firmware (use /dev/serial/by-id so a reboot cannot swap the arms). A raw-USB
+# `gs_usb:` channel is refused: name the SocketCAN link the kernel makes of that adapter instead.
+#
+# The gripper keys default to the vendor's values and are optional:
+#   gripper_open_deg (-96.0): the gripper motor's angle fully open; the open end of the stroke and the
+#     gripper's soft limit there. Re-measure after a gripper swap (grippers differ; one opens to -100.5).
+#   gripper_closed_deg (-2.5): the angle with the jaws closed. Must be above gripper_open_deg: the
+#     Makers gripper closes toward increasing angles.
+#   gripper_hold_torque_nm (0.5): how hard a grasped object is held, N.m at the motor, 0.1 to 2.0;
+#     null turns the hold off and the gripper squeezes at its full position gain.
+#
+# The arm has no brakes: on exit (Ctrl-C, systemd stop) each arm travels back to its rest pose (every
+# joint at zero, the gripper open) at 30 deg/s and only then switches its motors off.
+follower_l:
+  can_channel: can_follower_l
+
+follower_r:
+  can_channel: can_follower_r
+
+# --- Cameras ----------------------------------------------------------------------------------
+# The Makers roles: `scene` (the fixed camera), `wrist_l` and `wrist_r` (the wrist cameras); any
+# other name fails at startup. They are sent as `video.<role>` and stand for the datasets'
+# observation.images.scene, .left_wrist and .right_wrist. Devices as in the YAM file.
+cameras:
+  - name: scene
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:1:1.0-video-index0
+    width: 1280
+    height: 720
+    fps: 30
+  - name: wrist_l
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:2:1.0-video-index0
+    width: 640
+    height: 480
+    fps: 30
+  - name: wrist_r
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:3:1.0-video-index0
+    width: 640
+    height: 480
+    fps: 30
+
+task: "pick up the cup and place it on the plate"
+
+# --- The model ----------------------------------------------------------------------------------
+# A Makers Arm has no default model: it runs your own fine-tune. Name it with each Start on the
+# station page, or with `python -m robots.run --checkpoint <your fine-tune>`; a Start without one
+# is refused.
+
+# --- Loop -------------------------------------------------------------------------------------
+# 20 by default on a Makers Arm, every body's action rate: the fine-tune's 30 fps rows play at two
+# thirds speed. dream's IK holds every solved chunk under the arm's joint speed cap (120 deg/s), and
+# the arm's driver steps toward each target at no more than that again.
+control_hz: 20
+action_horizon: 48
+action_timeout_s: 3.0
+stale_after_s: 0.2
+max_stall_ticks: 240
+first_chunk_timeout_s: 120.0
+# The end-effector cap reads the arm's forward kinematics from dream's IK model of the Makers Arm.
+max_ee_speed_m_s: 0.6
+max_gripper_step: 0.05
+# The grip force cap reads the YAM gripper's measured effort, which a Makers Arm does not report: the
+# gripper's hold above does that job here, so the cap is off.
+grip_force_cap: 0
+
+# Chunks are joined in joint space, after the IK: the client's seam join blends each new chunk into
+# the one the arms are running, as on a YAM.
+
+# --- Policy frames ------------------------------------------------------------------------------
+# What each `video.<role>` window carries; these must match the fine-tune's video settings.
+policy_image_size: 640x360
+obs_window: 9
+obs_fps: 5.0

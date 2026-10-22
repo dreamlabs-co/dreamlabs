@@ -1,0 +1,174 @@
+<?xml version="1.0"?>
+<!-- kinematics only -->
+<robot name="galaxea_right">
+  <link name="served_base" />
+  <link name="arm_root" />
+  <link name="right_arm_link1">
+    <inertial>
+      <origin xyz="0.00507054993499568 0.0037845446193106 0.0186000135981399" rpy="0 0 0" />
+      <mass value="0.0414350272091157" />
+      <inertia ixx="1.49440299108076E-05" ixy="4.92482664836347E-09" ixz="1.77873122963698E-06" iyy="9.66322087206498E-06" iyz="-1.30201475242634E-09" izz="1.69851612555099E-05" />
+    </inertial>
+  </link>
+  <link name="right_arm_link2">
+    <inertial>
+      <origin xyz="-0.132055446018412 -0.00294070342695757 -3.03933616208063E-06" rpy="0 0 0" />
+      <mass value="0.478349341316877" />
+      <inertia ixx="0.000243671540162277" ixy="-2.81644188283793E-09" ixz="-1.39663247093686E-08" iyy="0.000566841208955819" iyz="4.49537154937513E-07" izz="0.000554618747598866" />
+    </inertial>
+  </link>
+  <link name="right_arm_link3">
+    <inertial>
+      <origin xyz="0.163166860303016 0.00088104085929902 0.0547101662896197" rpy="0 0 0" />
+      <mass value="0.312808251683026" />
+      <inertia ixx="0.000189062138280902" ixy="4.83060854339671E-07" ixz="9.18359960255452E-05" iyy="0.000708563071699688" iyz="1.78472046807773E-07" izz="0.000654144065839109" />
+    </inertial>
+  </link>
+  <link name="right_arm_link4">
+    <inertial>
+      <origin xyz="0.0452155702761415 0.000867303769273631 0.0372883400187387" rpy="0 0 0" />
+      <mass value="0.0807552295176296" />
+      <inertia ixx="7.10386309515511E-05" ixy="-5.72483373931718E-08" ixz="2.22000155543582E-05" iyy="7.36872461379075E-05" iyz="-8.99960289894591E-08" izz="9.24001388289086E-05" />
+    </inertial>
+  </link>
+  <link name="right_arm_link5">
+    <inertial>
+      <origin xyz="-0.00239540080573118 4.06883360337673E-10 -0.0359180923193705" rpy="0 0 0" />
+      <mass value="0.12555934103058" />
+      <inertia ixx="4.98255730780667E-05" ixy="-2.09257976169595E-13" ixz="-6.59999226980944E-08" iyy="3.9732535587011E-05" iyz="-1.16849897261517E-08" izz="3.98353215450807E-05" />
+    </inertial>
+  </link>
+  <link name="right_arm_link6">
+    <inertial>
+      <origin xyz="0.00569707313867132 -0.000253533719903887 -0.000948447059302193" rpy="0 0 0" />
+      <mass value="0.0171074311550844" />
+      <inertia ixx="5.81889529405784E-06" ixy="1.60525257014358E-08" ixz="5.98141921016317E-08" iyy="3.20253443263547E-06" iyz="5.35224806998935E-08" izz="3.01690871029796E-06" />
+    </inertial>
+  </link>
+  <link name="right_gripper_link">
+    <inertial>
+      <origin xyz="-0.0257861448506899 -4.22335271589303E-05 0.000825945463576838" rpy="0 0 0" />
+      <mass value="0.0895495499202413" />
+      <inertia ixx="0.000120429399247868" ixy="3.1597207203507E-08" ixz="-8.25942402824985E-08" iyy="5.1629321341721E-05" iyz="-8.98394346807796E-07" izz="9.02939859350081E-05" />
+    </inertial>
+  </link>
+  <link name="right_gmsl_link">
+    <inertial>
+      <origin xyz="-3.53892863691474E-06 0.00952645307700517 -0.0193719009002232" rpy="0 0 0" />
+      <mass value="0.0230739848931233" />
+      <inertia ixx="4.92288960360467E-06" ixy="1.67861309283032E-08" ixz="1.64132906920625E-10" iyy="4.32136389200359E-06" iyz="1.02602424292564E-06" izz="4.37204199243617E-06" />
+    </inertial>
+  </link>
+  <link name="finger_rf">
+    <inertial>
+      <origin xyz="0.0367976609023585 -0.033404613631203 0.0148078091517523" rpy="0 0 0" />
+      <mass value="0.0636078148327969" />
+      <inertia ixx="1.59432728533935E-05" ixy="1.1135594415915E-06" ixz="6.96237470629558E-08" iyy="3.02348410023443E-05" iyz="-9.30103971251762E-07" izz="2.55632964036032E-05" />
+    </inertial>
+  </link>
+  <link name="finger_lf">
+    <inertial>
+      <origin xyz="0.0372995822468454 0.0333458073156999 -0.0148297983395267" rpy="0 0 0" />
+      <mass value="0.0640303986932018" />
+      <inertia ixx="1.59485029916694E-05" ixy="-1.11368918969298E-06" ixz="-6.95036230726549E-08" iyy="3.02431064521566E-05" iyz="-9.30098691880613E-07" izz="2.5566662546286E-05" />
+    </inertial>
+  </link>
+  <link name="right_d405_link">
+    <inertial>
+      <origin xyz="0.00904752892528321 0.0136909832199477 -0.00853046537674529" rpy="0 0 0" />
+      <mass value="0.06740546733382" />
+      <inertia ixx="2.44622496510173E-05" ixy="4.16070667759516E-10" ixz="-1.49033897880215E-08" iyy="2.02869016745121E-05" iyz="2.03088899511246E-06" izz="1.88161703014416E-05" />
+    </inertial>
+  </link>
+  <joint name="arm_root_joint" type="fixed">
+    <parent link="served_base" />
+    <child link="arm_root" />
+    <origin xyz="-0.144653891 -0.02963967 0.196098781" rpy="0 0.1 0" />
+  </joint>
+  <joint name="joint1" type="revolute">
+    <origin xyz="0 0 0.0925" rpy="0 0 0" />
+    <parent link="arm_root" />
+    <child link="right_arm_link1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.094" upper="2.094" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint2" type="revolute">
+    <origin xyz="0.02 0 0.0425" rpy="0 0 0" />
+    <parent link="right_arm_link1" />
+    <child link="right_arm_link2" />
+    <axis xyz="0 1 0" />
+    <limit lower="0" upper="3.142" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint3" type="revolute">
+    <origin xyz="-0.264 0 0" rpy="0 0 0" />
+    <parent link="right_arm_link2" />
+    <child link="right_arm_link3" />
+    <axis xyz="0 1 0" />
+    <limit lower="-3.142" upper="0" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint4" type="revolute">
+    <origin xyz="0.245 0 0.06" rpy="0 0 0" />
+    <parent link="right_arm_link3" />
+    <child link="right_arm_link4" />
+    <axis xyz="0 1 0" />
+    <limit lower="-1.309" upper="1.309" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint5" type="revolute">
+    <origin xyz="0.074 0 0.037" rpy="0 0 0" />
+    <parent link="right_arm_link4" />
+    <child link="right_arm_link5" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.484" upper="1.484" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="joint6" type="revolute">
+    <origin xyz="0.0235 0 -0.037" rpy="0 0 0" />
+    <parent link="right_arm_link5" />
+    <child link="right_arm_link6" />
+    <axis xyz="1 0 0" />
+    <limit lower="-2.007" upper="2.007" effort="50.0" velocity="3.14" />
+  </joint>
+  <joint name="right_gripper_joint" type="fixed">
+    <origin xyz="0.0847 0 0" rpy="0 0 0" />
+    <parent link="right_arm_link6" />
+    <child link="right_gripper_link" />
+    <axis xyz="0 0 0" />
+  </joint>
+  <joint name="right_gmsl_joint" type="fixed">
+    <origin xyz="-0.0082885 0 0.061284" rpy="-1.5708 0 -1.5708" />
+    <parent link="right_gripper_link" />
+    <child link="right_gmsl_link" />
+    <axis xyz="0 0 0" />
+  </joint>
+  <joint name="right_d405_joint" type="fixed">
+    <origin xyz="-0.022183 0.009 0.07467" rpy="-2.2689 0 -1.5708" />
+    <parent link="right_gripper_link" />
+    <child link="right_d405_link" />
+    <axis xyz="0 0 0" />
+  </joint>
+  <joint name="jaw_drive" type="prismatic">
+    <origin xyz="-0.0122 -0.024503 0.017991" rpy="0 0 0" />
+    <parent link="right_gripper_link" />
+    <child link="finger_lf" />
+    <axis xyz="0.0 1.0 0.0" />
+    <limit lower="0" upper="0.0504" effort="100.0" velocity="0.2" />
+  </joint>
+  <joint name="jaw_f1" type="prismatic">
+    <origin xyz="-0.0122 0.024503 -0.018004" rpy="0 0 0" />
+    <parent link="right_gripper_link" />
+    <child link="finger_rf" />
+    <axis xyz="0 1 0" />
+    <limit lower="-0.0504" upper="0" effort="100.0" velocity="0.2" />
+  </joint>
+  <link name="tcp" />
+  <joint name="tcp_joint" type="fixed">
+    <parent link="right_gripper_link" />
+    <child link="tcp" />
+    <origin xyz="0.09996 0 0" rpy="1.57079633 0 1.57079633" />
+  </joint>
+  <link name="wrist_camera_mount" />
+  <joint name="wrist_camera_mount_joint" type="fixed">
+    <parent link="right_gripper_link" />
+    <child link="wrist_camera_mount" />
+    <origin xyz="-0.0082885 0 0.061284" rpy="0 0 0" />
+  </joint>
+</robot>

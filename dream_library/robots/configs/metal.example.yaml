@@ -1,0 +1,107 @@
+# Example config for a bimanual MakerMods Metal arm station driven by a FaaS fine-tune through DreamAPI.
+#
+# The same loop, station and file format as configs/yam.example.yaml; this file shows only what differs on a
+# Metal arm, and every key it leaves out means what that file says. `body: metal` switches the arm driver
+# (robots.metal, the `metal` extra: pip install "dream-robots[metal]"), the camera roles, the wire the
+# observation is sent in, and the dream client's IK: the fine-tune answers with tool poses, and the client solves
+# them to joints with dream's own IK (dream.client_ik) before the loop sees them.
+
+body: metal
+
+# The model the station runs unless a run names another (dreamcli robot run --checkpoint, the model on a Start).
+# dreamcli setup writes the one you pick; without it every run must name one. Name the cameras what it reads:
+# overhead for a base model, scene for a fine-tune on the platform's Makers or Metal embodiment, head for Dream Labs'
+# shared fine-tunes (README, Config file).
+# checkpoint: dream-1-ft:<your fine-tune>
+
+# --- Follower arms (Metal arm, Damiao motors over CAN) ----------------------------------------
+# One CAN adapter per arm (both arms answer to the same motor ids). `can_channel` is either a
+# SocketCAN link (`ip -br link show type can`, brought up at 1 Mbit/s classic CAN) or the /dev path of
+# a CANable on slcan firmware (use /dev/serial/by-id so a reboot cannot swap the arms). A raw-USB
+# `gs_usb:` channel is refused: name the SocketCAN link the kernel makes of that adapter instead.
+#
+# gripper_open_deg, gripper_closed_deg (required, no default): the gripper motor's angle, degrees,
+#   with the jaws fully open and closed, within 0 to 137.5, closed below open. The grip runs
+#   linearly in the motor angle between them: closed is the model's 0, open its 1 (100 mm). The
+#   setup wizard measures them: you open and close the gripper by hand, and it keeps the open end a
+#   little short of the stop. The placeholders below will not load.
+# gripper_hold_torque_nm (0.5): how hard a grasped object is held, N.m at the motor, 0.1 to 2.0.
+# home (required, no default): the arm's home pose, six joint angles in radians, where every run
+#   starts and where Home and Stop move it, the gripper open. The zero pose stands the arm straight
+#   up, so it is no home: the setup wizard captures one, or copy the six angles
+#   `dreamcli robot run --dry-run` logs with the arm where it should start. The placeholders below
+#   will not load.
+#
+# The motors keep their zero: zero them once with MakerMods' calibration, with the arm at its zero
+# pose (upright, every joint at 0, the gripper closed). An arm that reads more than 5 degrees past a
+# soft limit refuses to start.
+#
+# The arm has no brakes: on exit (Ctrl-C, systemd stop) each arm travels back to the pose it was in
+# when it was opened, at 15 deg/s with the gripper open, and only then switches its motors off.
+follower_l:
+  can_channel: can_follower_l
+  gripper_open_deg: REPLACE_DEG
+  gripper_closed_deg: REPLACE_DEG
+  home: [REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD]
+
+follower_r:
+  can_channel: can_follower_r
+  gripper_open_deg: REPLACE_DEG
+  gripper_closed_deg: REPLACE_DEG
+  home: [REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD]
+
+# --- Cameras ----------------------------------------------------------------------------------
+# The Metal roles are the Makers Arm's: `scene` (the fixed camera), `wrist_l` and `wrist_r` (the
+# wrist cameras); any other name fails at startup. They are sent as `video.<role>` and stand for the
+# datasets' observation.images.scene, .left_wrist and .right_wrist. Devices as in the YAM file.
+# 1280x720 as the regular Metal station records: these cameras' 640x480 mode crops the sides off the
+# 16:9 view, and the model's frame squashes it back to 16:9.
+cameras:
+  - name: scene
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:1:1.0-video-index0
+    width: 1280
+    height: 720
+    fps: 30
+  - name: wrist_l
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:2:1.0-video-index0
+    width: 1280
+    height: 720
+    fps: 30
+  - name: wrist_r
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:3:1.0-video-index0
+    width: 1280
+    height: 720
+    fps: 30
+
+task: "pick up the cup and place it on the plate"
+
+# --- The model ----------------------------------------------------------------------------------
+# A Metal arm has no default model: it runs your own fine-tune. Name it with each Start on the
+# station page, or with --checkpoint; a Start without one is refused:
+#   dreamcli robot run --config metal.yaml --checkpoint dream-1-ft:<your fine-tune> --task "..."
+
+# --- Loop -------------------------------------------------------------------------------------
+# 20 by default on a Metal arm, as on a YAM: the rows play at two thirds of the speed they were
+# recorded at (30 fps), which runs smooth where 30 swings the arm. The arm's driver steps toward
+# each target at no more than 120 deg/s per motor.
+control_hz: 20
+action_horizon: 48
+action_timeout_s: 3.0
+stale_after_s: 0.2
+max_stall_ticks: 240
+first_chunk_timeout_s: 120.0
+# The end-effector cap reads the arm's forward kinematics from dream's IK model of the Metal arm.
+max_ee_speed_m_s: 0.6
+max_gripper_step: 0.05
+# The grip force cap reads the YAM gripper's measured effort, which a Metal arm does not report: the
+# gripper's hold above does that job here, so the cap is off.
+grip_force_cap: 0
+
+# Chunks are joined in joint space, after the IK: the client's seam join blends each new chunk into
+# the one the arms are running, as on a YAM.
+
+# --- Policy frames ------------------------------------------------------------------------------
+# What each `video.<role>` window carries; these must match the fine-tune's video settings.
+policy_image_size: 640x360
+obs_window: 9
+obs_fps: 5.0

@@ -1,0 +1,132 @@
+# dream-ik: dream's IK without dream. The PyRoKi chunk solver, the arm specs and the EEF-head decode
+# as one small wheel a station can install next to its control loop, so it can turn the tool poses a
+# served EEF checkpoint returns into joints for itself (contract v3, ik.exec "eef"; the serve never solves since
+# 2026-10-10). No torch, nothing else of dream: the wheel is about 690 KB of files (560 KB of them the
+# zero-shot sim robots' URDFs, 2026-10-14), 160 KB zipped, plus the JAX stack.
+#
+# One copy, nothing to drift: the modules LIVE in ../../src/dream/ik (dream imports them as dream.ik.*) and this
+# package force-includes them under the top-level name dream_ik, the way robots' contracts/ ships robots_wire. The
+# included modules import each other relatively and import nothing from dream; a test checks both.
+# dream.ik.serve (the torch adapters for Policy) is deliberately not in here.
+#
+# Consumers install a pinned commit:
+#   dream-ik @ git+<model repository URL>@<sha>#subdirectory=packages/dream_ik
+# The JAX pins are dream's [ik] extra, exactly, so every consumer solves with the same code and the same jax.
+#
+# EVOLUTION RULE: a change to the solve, the specs or the decode that alters the joints for the same input changes
+# what every EEF station does; bump `version` in that commit and say so in the message.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dream-ik"
+version = "0.3.1"
+description = "dream's IK for stations: PyRoKi chunk solve, arm specs and the EEF-head decode, without torch"
+requires-python = ">=3.11"
+dependencies = [
+    # dream pyproject [ik], verbatim
+    "pyroki @ git+https://github.com/chungmin99/pyroki.git@388e43e1fc0d0ee382968d3dd72970fd62a0450c",
+    "jaxls @ git+https://github.com/brentyi/jaxls.git@50a58be88c5ef74532f09e3f55268b4f02c490e3",
+    "jax==0.7.1",
+    "jaxlib==0.7.1",
+    "jaxlie==1.5.0",
+    "jax-dataclasses==1.6.3",
+    "yourdfpy==0.0.60",
+    # what the included modules use beyond the JAX stack
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "einops>=0.7",
+    "pydantic>=2",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+# Nothing is discovered under this directory; everything ships through force-include below.
+bypass-selection = true
+
+[tool.hatch.build.targets.wheel.force-include]
+"../../src/dream/ik/__init__.py" = "dream_ik/__init__.py"
+"../../src/dream/ik/specs.py" = "dream_ik/specs.py"
+"../../src/dream/ik/solver.py" = "dream_ik/solver.py"
+"../../src/dream/ik/decode.py" = "dream_ik/decode.py"
+"../../src/dream/ik/assets/yam.urdf" = "dream_ik/assets/yam.urdf"
+"../../src/dream/ik/assets/metal.urdf" = "dream_ik/assets/metal.urdf"
+"../../src/dream/ik/assets/b601_dm.urdf" = "dream_ik/assets/b601_dm.urdf"
+"../../src/dream/ik/assets/maker_arm_ik.urdf" = "dream_ik/assets/maker_arm_ik.urdf"
+"../../src/dream/ik/assets/wxai.urdf" = "dream_ik/assets/wxai.urdf"
+"../../src/dream/ik/assets/ai_worker_faas_left.urdf" = "dream_ik/assets/ai_worker_faas_left.urdf"
+"../../src/dream/ik/assets/ai_worker_faas_right.urdf" = "dream_ik/assets/ai_worker_faas_right.urdf"
+"../../src/dream/ik/assets/openarm2_faas_left.urdf" = "dream_ik/assets/openarm2_faas_left.urdf"
+"../../src/dream/ik/assets/openarm2_faas_right.urdf" = "dream_ik/assets/openarm2_faas_right.urdf"
+"../../src/dream/ik/assets/bracketbot_faas_left.urdf" = "dream_ik/assets/bracketbot_faas_left.urdf"
+"../../src/dream/ik/assets/bracketbot_faas_right.urdf" = "dream_ik/assets/bracketbot_faas_right.urdf"
+"../../src/dream/ik/assets/mantis_faas_left.urdf" = "dream_ik/assets/mantis_faas_left.urdf"
+"../../src/dream/ik/assets/mantis_faas_right.urdf" = "dream_ik/assets/mantis_faas_right.urdf"
+"../../src/dream/ik/assets/galaxea_faas_left.urdf" = "dream_ik/assets/galaxea_faas_left.urdf"
+"../../src/dream/ik/assets/galaxea_faas_right.urdf" = "dream_ik/assets/galaxea_faas_right.urdf"
+"../../src/dream/ik/assets/unitree_r1_faas_left.urdf" = "dream_ik/assets/unitree_r1_faas_left.urdf"
+"../../src/dream/ik/assets/unitree_r1_faas_right.urdf" = "dream_ik/assets/unitree_r1_faas_right.urdf"
+"../../src/dream/ik/assets/robo_t_faas_left.urdf" = "dream_ik/assets/robo_t_faas_left.urdf"
+"../../src/dream/ik/assets/robo_t_faas_right.urdf" = "dream_ik/assets/robo_t_faas_right.urdf"
+"../../src/dream/ik/assets/so101_faas_left.urdf" = "dream_ik/assets/so101_faas_left.urdf"
+"../../src/dream/ik/assets/so101_faas_right.urdf" = "dream_ik/assets/so101_faas_right.urdf"
+"../../src/dream/ik/assets/ai_worker_left.urdf" = "dream_ik/assets/ai_worker_left.urdf"
+"../../src/dream/ik/assets/ai_worker_right.urdf" = "dream_ik/assets/ai_worker_right.urdf"
+"../../src/dream/ik/assets/aloha_left.urdf" = "dream_ik/assets/aloha_left.urdf"
+"../../src/dream/ik/assets/aloha_right.urdf" = "dream_ik/assets/aloha_right.urdf"
+"../../src/dream/ik/assets/arx_x5_left.urdf" = "dream_ik/assets/arx_x5_left.urdf"
+"../../src/dream/ik/assets/arx_x5_right.urdf" = "dream_ik/assets/arx_x5_right.urdf"
+"../../src/dream/ik/assets/baxter_left.urdf" = "dream_ik/assets/baxter_left.urdf"
+"../../src/dream/ik/assets/baxter_right.urdf" = "dream_ik/assets/baxter_right.urdf"
+"../../src/dream/ik/assets/bracketbot_left.urdf" = "dream_ik/assets/bracketbot_left.urdf"
+"../../src/dream/ik/assets/bracketbot_right.urdf" = "dream_ik/assets/bracketbot_right.urdf"
+"../../src/dream/ik/assets/franka_dual_left.urdf" = "dream_ik/assets/franka_dual_left.urdf"
+"../../src/dream/ik/assets/franka_dual_right.urdf" = "dream_ik/assets/franka_dual_right.urdf"
+"../../src/dream/ik/assets/franka_right.urdf" = "dream_ik/assets/franka_right.urdf"
+"../../src/dream/ik/assets/galaxea_left.urdf" = "dream_ik/assets/galaxea_left.urdf"
+"../../src/dream/ik/assets/galaxea_right.urdf" = "dream_ik/assets/galaxea_right.urdf"
+"../../src/dream/ik/assets/iiwa14_right.urdf" = "dream_ik/assets/iiwa14_right.urdf"
+"../../src/dream/ik/assets/kinova_gen3_dual_left.urdf" = "dream_ik/assets/kinova_gen3_dual_left.urdf"
+"../../src/dream/ik/assets/kinova_gen3_dual_right.urdf" = "dream_ik/assets/kinova_gen3_dual_right.urdf"
+"../../src/dream/ik/assets/kinova_gen3_right.urdf" = "dream_ik/assets/kinova_gen3_right.urdf"
+"../../src/dream/ik/assets/mantis_left.urdf" = "dream_ik/assets/mantis_left.urdf"
+"../../src/dream/ik/assets/mantis_right.urdf" = "dream_ik/assets/mantis_right.urdf"
+"../../src/dream/ik/assets/openarm2_left.urdf" = "dream_ik/assets/openarm2_left.urdf"
+"../../src/dream/ik/assets/openarm2_right.urdf" = "dream_ik/assets/openarm2_right.urdf"
+"../../src/dream/ik/assets/openarm2_rm_left.urdf" = "dream_ik/assets/openarm2_rm_left.urdf"
+"../../src/dream/ik/assets/openarm2_rm_right.urdf" = "dream_ik/assets/openarm2_rm_right.urdf"
+"../../src/dream/ik/assets/openyam_left.urdf" = "dream_ik/assets/openyam_left.urdf"
+"../../src/dream/ik/assets/openyam_r_right.urdf" = "dream_ik/assets/openyam_r_right.urdf"
+"../../src/dream/ik/assets/openyam_right.urdf" = "dream_ik/assets/openyam_right.urdf"
+"../../src/dream/ik/assets/piper_dual_left.urdf" = "dream_ik/assets/piper_dual_left.urdf"
+"../../src/dream/ik/assets/piper_dual_right.urdf" = "dream_ik/assets/piper_dual_right.urdf"
+"../../src/dream/ik/assets/piper_right.urdf" = "dream_ik/assets/piper_right.urdf"
+"../../src/dream/ik/assets/pr2_left.urdf" = "dream_ik/assets/pr2_left.urdf"
+"../../src/dream/ik/assets/pr2_right.urdf" = "dream_ik/assets/pr2_right.urdf"
+"../../src/dream/ik/assets/sawyer_dual_left.urdf" = "dream_ik/assets/sawyer_dual_left.urdf"
+"../../src/dream/ik/assets/sawyer_dual_right.urdf" = "dream_ik/assets/sawyer_dual_right.urdf"
+"../../src/dream/ik/assets/sawyer_right.urdf" = "dream_ik/assets/sawyer_right.urdf"
+"../../src/dream/ik/assets/so101_left.urdf" = "dream_ik/assets/so101_left.urdf"
+"../../src/dream/ik/assets/so101_right.urdf" = "dream_ik/assets/so101_right.urdf"
+"../../src/dream/ik/assets/trossen_wb_left.urdf" = "dream_ik/assets/trossen_wb_left.urdf"
+"../../src/dream/ik/assets/trossen_wb_right.urdf" = "dream_ik/assets/trossen_wb_right.urdf"
+"../../src/dream/ik/assets/unitree_r1_left.urdf" = "dream_ik/assets/unitree_r1_left.urdf"
+"../../src/dream/ik/assets/unitree_r1_right.urdf" = "dream_ik/assets/unitree_r1_right.urdf"
+"../../src/dream/ik/assets/unitree_r1_rm_left.urdf" = "dream_ik/assets/unitree_r1_rm_left.urdf"
+"../../src/dream/ik/assets/unitree_r1_rm_right.urdf" = "dream_ik/assets/unitree_r1_rm_right.urdf"
+"../../src/dream/ik/assets/ur5e_dual_left.urdf" = "dream_ik/assets/ur5e_dual_left.urdf"
+"../../src/dream/ik/assets/ur5e_dual_right.urdf" = "dream_ik/assets/ur5e_dual_right.urdf"
+"../../src/dream/ik/assets/ur5e_right.urdf" = "dream_ik/assets/ur5e_right.urdf"
+"../../src/dream/ik/assets/widowx250_dual_left.urdf" = "dream_ik/assets/widowx250_dual_left.urdf"
+"../../src/dream/ik/assets/widowx250_dual_right.urdf" = "dream_ik/assets/widowx250_dual_right.urdf"
+"../../src/dream/ik/assets/widowx250_right.urdf" = "dream_ik/assets/widowx250_right.urdf"
+"../../src/dream/ik/assets/xarm7_dual_left.urdf" = "dream_ik/assets/xarm7_dual_left.urdf"
+"../../src/dream/ik/assets/xarm7_dual_right.urdf" = "dream_ik/assets/xarm7_dual_right.urdf"
+"../../src/dream/ik/assets/xarm7_right.urdf" = "dream_ik/assets/xarm7_right.urdf"
+"../../src/dream/ik/assets/yam7_left.urdf" = "dream_ik/assets/yam7_left.urdf"
+"../../src/dream/ik/assets/yam7_right.urdf" = "dream_ik/assets/yam7_right.urdf"
+"../../src/dream/ik/assets/yumi_left.urdf" = "dream_ik/assets/yumi_left.urdf"
+"../../src/dream/ik/assets/yumi_right.urdf" = "dream_ik/assets/yumi_right.urdf"

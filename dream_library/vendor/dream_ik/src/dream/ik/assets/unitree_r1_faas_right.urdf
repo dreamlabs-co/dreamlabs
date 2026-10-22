@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!-- unitree_ros 5994d4fa robots/r1_a7_description/r1_a7.urdf: waist_yaw_link .. right_wrist_yaw_link only (7 movable joints; meshes and every other link
+     dropped), the FaaS EEF bake frame. Source sha256 ddb33bdb141278516154721550ef28a728d4da1b9a4b1a46d899f569e205c7e7. -->
+<robot name="unitree_r1_faas_right">
+  <link name="waist_yaw_link">
+    </link>
+  <link name="right_shoulder_pitch_link">
+    </link>
+  <joint name="right_shoulder_pitch_joint" type="revolute">
+    <origin xyz="0 -0.085688 0.19749" rpy="-0.26187 0 0" />
+    <parent link="waist_yaw_link" />
+    <child link="right_shoulder_pitch_link" />
+    <axis xyz="0 1 0" />
+    <limit lower="-3.1416" upper="2.0944" effort="60" velocity="18.7" />
+  </joint>
+  <link name="right_shoulder_roll_link">
+    </link>
+  <joint name="right_shoulder_roll_joint" type="revolute">
+    <origin xyz="0.03445 -0.047132 -0.025693" rpy="0.26187 0 0" />
+    <parent link="right_shoulder_pitch_link" />
+    <child link="right_shoulder_roll_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="-2.47849" upper="0.2268" effort="60" velocity="18.7" />
+  </joint>
+  <link name="right_shoulder_yaw_link">
+    </link>
+  <joint name="right_shoulder_yaw_joint" type="revolute">
+    <origin xyz="-0.03445 -0.0043 -0.10835" rpy="0 0 0" />
+    <parent link="right_shoulder_roll_link" />
+    <child link="right_shoulder_yaw_link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.9199" upper="1.9199" effort="33" velocity="33.4" />
+  </joint>
+  <link name="right_elbow_link">
+    </link>
+  <joint name="right_elbow_joint" type="revolute">
+    <origin xyz="0.016191 -0.026461 -0.082858" rpy="0 0 0" />
+    <parent link="right_shoulder_yaw_link" />
+    <child link="right_elbow_link" />
+    <axis xyz="0 1 0" />
+    <limit lower="-0.97564" upper="2.1852" effort="33" velocity="33.4" />
+  </joint>
+  <link name="right_wrist_roll_link">
+    </link>
+  <joint name="right_wrist_roll_joint" type="revolute">
+    <origin xyz="0.11218 0.03002 -0.011702" rpy="0 0 0" />
+    <parent link="right_elbow_link" />
+    <child link="right_wrist_roll_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="-1.9199" upper="1.9199" effort="33" velocity="33.4" />
+  </joint>
+  <link name="right_wrist_pitch_link">
+    </link>
+  <joint name="right_wrist_pitch_joint" type="revolute">
+    <origin xyz="0.04646 0.0018084 -0.00062321" rpy="0 0 0" />
+    <parent link="right_wrist_roll_link" />
+    <child link="right_wrist_pitch_link" />
+    <axis xyz="0 1 0" />
+    <limit lower="-1.6144" upper="1.6144" effort="10" velocity="37.7" />
+  </joint>
+  <link name="right_wrist_yaw_link">
+    </link>
+  <joint name="right_wrist_yaw_joint" type="revolute">
+    <origin xyz="0.051235 0.00013294 -0.021703" rpy="0 0 0" />
+    <parent link="right_wrist_pitch_link" />
+    <child link="right_wrist_yaw_link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.6144" upper="1.6144" effort="10" velocity="37.7" />
+  </joint>
+</robot>

@@ -1,0 +1,63 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Seeed reBot B601-DM arm for dream.ik, in the DM motor convention the robot reports (joint1..joint6 only).
+     Origins from the vendor DM URDF (Seeed-Projects/reBot-DevArm bafae734, Rebot_Arm_description/DM/urdf/
+     ReBot_Arm_DM.urdf), whose axes already follow the DM motor angles, with two changes for dream.ik, which reads the
+     joints the robot reports as URDF joints:
+     - limits are the station follower's soft limits in DM radians, inside the CAD limits;
+     - joint1 sits 0.03965 m above base_link, not 0.08465: base_link is the frame the EEF heads were trained in, 45 mm
+       above the B601 base plate, so the table lands where the YAM head saw it.
+     The axes are the 9/25 golden take's wrist-camera signs (every vendor RS axis flipped, wrist roll included).
+     Until 10/01 this file had the RS variant's links (lerobot-robot-seeed-b601 1.0.5 00-arm-rs_asm-v3.urdf, the model
+     our B601 teleop loads): upper arm 236 mm vs 264 mm here, fingertip 31 mm apart (median) on 96
+     recorded station poses. A test pins its FK to golden poses from the vendor DM file. -->
+<robot name="b601_dm">
+  <link name="base_link"/>
+  <link name="link1"/>
+  <link name="link2"/>
+  <link name="link3"/>
+  <link name="link4"/>
+  <link name="link5"/>
+  <link name="link6"/>
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <origin xyz="-0.00008416 0 0.03965" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.530727" upper="2.530727" effort="36" velocity="50"/>
+  </joint>
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="0.020084 0.031625 0.05555" rpy="-1.5708 0 0"/>
+    <axis xyz="0 0 -1"/>
+    <limit lower="-2.967060" upper="0.000000" effort="36" velocity="50"/>
+  </joint>
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="-0.264 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.139847" upper="0.000000" effort="36" velocity="50"/>
+  </joint>
+  <joint name="joint4" type="revolute">
+    <parent link="link3"/>
+    <child link="link4"/>
+    <origin xyz="0.2426 -0.054 -0.001625" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.396263" upper="1.569924" effort="14" velocity="40"/>
+  </joint>
+  <joint name="joint5" type="revolute">
+    <parent link="link4"/>
+    <child link="link5"/>
+    <origin xyz="0.078308 -0.0375 -0.03" rpy="-1.5708 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.569924" upper="1.569924" effort="14" velocity="40"/>
+  </joint>
+  <joint name="joint6" type="revolute">
+    <parent link="link5"/>
+    <child link="link6"/>
+    <origin xyz="0.028008 0 0.04" rpy="0 1.5708 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.268928" upper="2.268928" effort="14" velocity="40"/>
+  </joint>
+</robot>

@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!-- Enactic OpenArm v2.urdf (models/openarm): openarm_right_base_link .. openarm_right_ee_base_link only (7 movable joints; meshes and every other link
+     dropped), the FaaS EEF bake frame. Source sha256 d3cf256488c95556f15a6c372cc8258884edc987df8af943e36a1bdfbfe8444b. -->
+<robot name="openarm2_faas_right">
+  <link name="openarm_right_base_link">
+    </link>
+  <link name="openarm_right_link1">
+    </link>
+  <joint name="openarm_right_joint1" type="revolute">
+    <origin rpy="0 0 0" xyz="0 -0.0625 0" />
+    <parent link="openarm_right_base_link" />
+    <child link="openarm_right_link1" />
+    <axis xyz="0 -1 0" />
+    <limit effort="40" lower="-1.3963" upper="3.4907" velocity="16.755" />
+  </joint>
+  <link name="openarm_right_link2">
+    </link>
+  <joint name="openarm_right_joint2" type="revolute">
+    <origin rpy="0 0 0" xyz="0 -0.0600000000000001 0" />
+    <parent link="openarm_right_link1" />
+    <child link="openarm_right_link2" />
+    <axis xyz="-1 0 0" />
+    <limit effort="40" lower="-0.17453" upper="3.3161" velocity="16.755" />
+  </joint>
+  <link name="openarm_right_link3">
+    </link>
+  <joint name="openarm_right_joint3" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 -0.0662500000000008" />
+    <parent link="openarm_right_link2" />
+    <child link="openarm_right_link3" />
+    <axis xyz="0 0 -1" />
+    <limit effort="27" lower="-1.5708" upper="1.5708" velocity="5.4454" />
+  </joint>
+  <link name="openarm_right_link4">
+    </link>
+  <joint name="openarm_right_joint4" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 -0.15375" />
+    <parent link="openarm_right_link3" />
+    <child link="openarm_right_link4" />
+    <axis xyz="0 -1 0" />
+    <limit effort="27" lower="0" upper="2.4435" velocity="5.4454" />
+  </joint>
+  <link name="openarm_right_link5">
+    </link>
+  <joint name="openarm_right_joint5" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 -0.0955000000000005" />
+    <parent link="openarm_right_link4" />
+    <child link="openarm_right_link5" />
+    <axis xyz="0 0 -1" />
+    <limit effort="7" lower="-1.5708" upper="1.5708" velocity="20.944" />
+  </joint>
+  <link name="openarm_right_link6">
+    </link>
+  <joint name="openarm_right_joint6" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 -0.120499999999998" />
+    <parent link="openarm_right_link5" />
+    <child link="openarm_right_link6" />
+    <axis xyz="0 1 0" />
+    <limit effort="7" lower="-0.7854" upper="0.7854" velocity="20.944" />
+  </joint>
+  <joint name="openarm_right_joint7" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0" />
+    <parent link="openarm_right_link6" />
+    <child link="openarm_right_ee_base_link" />
+    <axis xyz="1 0 0" />
+    <limit effort="7" lower="-1.5708" upper="1.5708" velocity="20.944" />
+  </joint>
+  <link name="openarm_right_ee_base_link">
+    </link>
+</robot>

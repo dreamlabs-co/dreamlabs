@@ -1,0 +1,304 @@
+<?xml version="1.0"?>
+<!-- kinematics only -->
+<robot name="iiwa14_right">
+  <link name="served_base">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <link name="arm_root">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <link name="iiwa_link_0">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.1 0 0.07" />
+      <mass value="5" />
+      <inertia ixx="0.05" ixy="0" ixz="0" iyy="0.06" iyz="0" izz="0.03" />
+    </inertial>
+    <self_collision_checking>
+      <origin rpy="0 0 0" xyz="0 0 0" />
+      <geometry>
+        <capsule length="0.25" radius="0.15" />
+      </geometry>
+    </self_collision_checking>
+  </link>
+  <link name="iiwa_link_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 -0.03 0.12" />
+      <mass value="4" />
+      <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.09" iyz="0" izz="0.02" />
+    </inertial>
+  </link>
+  <link name="iiwa_link_2">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0003 0.059 0.042" />
+      <mass value="4" />
+      <inertia ixx="0.05" ixy="0" ixz="0" iyy="0.018" iyz="0" izz="0.044" />
+    </inertial>
+  </link>
+  <link name="iiwa_link_3">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0.03 0.13" />
+      <mass value="3" />
+      <inertia ixx="0.08" ixy="0" ixz="0" iyy="0.075" iyz="0" izz="0.01" />
+    </inertial>
+  </link>
+  <link name="iiwa_link_4">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0.067 0.034" />
+      <mass value="2.7" />
+      <inertia ixx="0.03" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.029" />
+    </inertial>
+  </link>
+  <link name="iiwa_link_5">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0001 0.021 0.076" />
+      <mass value="1.7" />
+      <inertia ixx="0.02" ixy="0" ixz="0" iyy="0.018" iyz="0" izz="0.005" />
+    </inertial>
+  </link>
+  <link name="iiwa_link_6">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0.0006 0.0004" />
+      <mass value="1.8" />
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.0036" iyz="0" izz="0.0047" />
+    </inertial>
+  </link>
+  <link name="iiwa_link_7">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0.02" />
+      <mass value="0.3" />
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001" />
+    </inertial>
+  </link>
+  <link name="iiwa_link_ee">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <link name="robotiq_85_base_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0 2.274e-05 0.03232288" />
+      <mass value="6.6320197e-01" />
+      <inertia ixx="5.1617816e-04" ixy="2.936e-8" ixz="0.0" iyy="5.8802208e-04" iyz="-3.2296e-7" izz="3.9462776e-04" />
+    </inertial>
+  </link>
+  <link name="robotiq_85_left_knuckle_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01213197 0.0002 -0.00058647" />
+      <mass value="1.384773208e-02" />
+      <inertia ixx="3.5232e-7" ixy="0.0" ixz="1.1744e-7" iyy="2.31944e-6" iyz="0" izz="2.23136e-6" />
+    </inertial>
+  </link>
+  <link name="robotiq_85_right_knuckle_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.01213197 0.0002 -0.00058647" />
+      <mass value="1.384773208e-02" />
+      <inertia ixx="3.5232e-7" ixy="0.0" ixz="-1.1744e-7" iyy="2.31944e-6" iyz="0.0" izz="2.23136e-6" />
+    </inertial>
+  </link>
+  <link name="robotiq_85_left_inner_knuckle_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01897699 0.00015001 0.02247101" />
+      <mass value="2.969376448e-02" />
+      <inertia ixx="9.57136e-06" ixy="0.0" ixz="-3.93424e-06" iyy="8.69056e-06" iyz="0.0" izz="8.19144e-06" />
+    </inertial>
+  </link>
+  <link name="robotiq_85_right_inner_knuckle_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.01926824 5.001e-05 0.02222178" />
+      <mass value="2.969376448e-02" />
+      <inertia ixx="9.42456e-06" ixy="0.0" ixz="3.9636e-06" iyy="8.69056e-06" iyz="0.0" izz="8.33824e-06" />
+    </inertial>
+  </link>
+  <link name="robotiq_85_left_finger_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.00346899 -0.00079447 0.01867121" />
+      <mass value="4.260376752e-02" />
+      <inertia ixx="1.385792000000000e-05" ixy="0.0" ixz="-2.17264e-06" iyy="1.183208e-05" iyz="0.0" izz="5.19672e-06" />
+    </inertial>
+  </link>
+  <link name="robotiq_85_right_finger_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.00346899 -5.53e-06 0.01867121" />
+      <mass value="4.260376752000000e-02" />
+      <inertia ixx="1.385792e-05" ixy="0.0" ixz="2.17264e-06" iyy="1.183208e-05" iyz="0.0" izz="5.19672e-06" />
+    </inertial>
+  </link>
+  <link name="finger_lf">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.01456706 -0.0008 0.01649701" />
+      <mass value="4.268588744e-02" />
+      <inertia ixx="1.048152e-05" ixy="0.0" ixz="3.5232e-6" iyy="1.197888e-05" iyz="0.0" izz="4.22784e-06" />
+    </inertial>
+  </link>
+  <link name="finger_rf">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.01456706 5e-05 0.01649701" />
+      <mass value="4.268588744e-02" />
+      <inertia ixx="1.048152e-05" ixy="0.0" ixz="-3.5232e-06" iyy="1.197888e-05" iyz="0.0" izz="4.22784e-06" />
+    </inertial>
+  </link>
+  <joint name="arm_root_joint" type="fixed">
+    <parent link="served_base" />
+    <child link="arm_root" />
+    <origin xyz="0 0 -0.0073" rpy="0 0 0" />
+  </joint>
+  <joint name="joint1" type="revolute">
+    <parent link="iiwa_link_0" />
+    <child link="iiwa_link_1" />
+    <origin rpy="0 0 0" xyz="0 0 0.1575" />
+    <axis xyz="0 0 1" />
+    <limit effort="320" lower="-2.9670597283903604" upper="2.9670597283903604" velocity="1.4834" />
+    <safety_controller k_position="100" k_velocity="2" soft_lower_limit="-2.9321531433504737" soft_upper_limit="2.9321531433504737" />
+    <dynamics damping="0.5" />
+  </joint>
+  <joint name="joint2" type="revolute">
+    <parent link="iiwa_link_1" />
+    <child link="iiwa_link_2" />
+    <origin rpy="1.5707963267948966   0 3.141592653589793" xyz="0 0 0.2025" />
+    <axis xyz="0 0 1" />
+    <limit effort="320" lower="-2.0943951023931953" upper="2.0943951023931953" velocity="1.4834" />
+    <safety_controller k_position="100" k_velocity="2" soft_lower_limit="-2.0594885173533086" soft_upper_limit="2.0594885173533086" />
+    <dynamics damping="0.5" />
+  </joint>
+  <joint name="joint3" type="revolute">
+    <parent link="iiwa_link_2" />
+    <child link="iiwa_link_3" />
+    <origin rpy="1.5707963267948966 0 3.141592653589793" xyz="0 0.2045 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="176" lower="-2.9670597283903604" upper="2.9670597283903604" velocity="1.7452" />
+    <safety_controller k_position="100" k_velocity="2" soft_lower_limit="-2.9321531433504737" soft_upper_limit="2.9321531433504737" />
+    <dynamics damping="0.5" />
+  </joint>
+  <joint name="joint4" type="revolute">
+    <parent link="iiwa_link_3" />
+    <child link="iiwa_link_4" />
+    <origin rpy="1.5707963267948966 0 0" xyz="0 0 0.2155" />
+    <axis xyz="0 0 1" />
+    <limit effort="176" lower="-2.0943951023931953" upper="2.0943951023931953" velocity="1.3089" />
+    <safety_controller k_position="100" k_velocity="2" soft_lower_limit="-2.0594885173533086" soft_upper_limit="2.0594885173533086" />
+    <dynamics damping="0.5" />
+  </joint>
+  <joint name="joint5" type="revolute">
+    <parent link="iiwa_link_4" />
+    <child link="iiwa_link_5" />
+    <origin rpy="-1.5707963267948966 3.141592653589793 0" xyz="0 0.1845 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="110" lower="-2.9670597283903604" upper="2.9670597283903604" velocity="2.2688" />
+    <safety_controller k_position="100" k_velocity="2" soft_lower_limit="-2.9321531433504737" soft_upper_limit="2.9321531433504737" />
+    <dynamics damping="0.5" />
+  </joint>
+  <joint name="joint6" type="revolute">
+    <parent link="iiwa_link_5" />
+    <child link="iiwa_link_6" />
+    <origin rpy="1.5707963267948966 0 0" xyz="0 0 0.2155" />
+    <axis xyz="0 0 1" />
+    <limit effort="40" lower="-2.0943951023931953" upper="2.0943951023931953" velocity="2.356" />
+    <safety_controller k_position="100" k_velocity="2" soft_lower_limit="-2.0594885173533086" soft_upper_limit="2.0594885173533086" />
+    <dynamics damping="0.5" />
+  </joint>
+  <joint name="joint7" type="revolute">
+    <parent link="iiwa_link_6" />
+    <child link="iiwa_link_7" />
+    <origin rpy="-1.5707963267948966 3.141592653589793 0" xyz="0 0.081 0" />
+    <axis xyz="0 0 1" />
+    <limit effort="40" lower="-3.0543261909900763" upper="3.0543261909900763" velocity="2.356" />
+    <safety_controller k_position="100" k_velocity="2" soft_lower_limit="-3.01941960595019" soft_upper_limit="3.01941960595019" />
+    <dynamics damping="0.5" />
+  </joint>
+  <joint name="world_iiwa_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0" />
+    <parent link="arm_root" />
+    <child link="iiwa_link_0" />
+  </joint>
+  <joint name="iiwa_joint_ee" type="fixed">
+    <parent link="iiwa_link_7" />
+    <child link="iiwa_link_ee" />
+    <origin rpy="0 0 0" xyz="0 0 0.045" />
+  </joint>
+  <joint name="robotiq_85_base_joint" type="fixed">
+    <parent link="iiwa_link_ee" />
+    <child link="robotiq_85_base_link" />
+    <origin rpy="0 0 0" xyz="0 0 0" />
+  </joint>
+  <joint name="robotiq_85_left_finger_joint" type="fixed">
+    <parent link="robotiq_85_left_knuckle_link" />
+    <child link="robotiq_85_left_finger_link" />
+    <origin rpy="0 0 0" xyz="0.03152616 0.0 -0.00376347" />
+  </joint>
+  <joint name="robotiq_85_right_finger_joint" type="fixed">
+    <parent link="robotiq_85_right_knuckle_link" />
+    <child link="robotiq_85_right_finger_link" />
+    <origin rpy="0 0 0" xyz="-0.03152616 0.0 -0.00376347" />
+  </joint>
+  <joint name="jaw_drive" type="revolute">
+    <parent link="robotiq_85_base_link" />
+    <child link="robotiq_85_left_knuckle_link" />
+    <axis xyz="-0.0 1.0 -0.0" />
+    <origin rpy="0 -0.796875 0" xyz="0.03060114 0 0.05490452" />
+    <limit effort="24.13" lower="0" upper="0.798828125" velocity="1.4" />
+  </joint>
+  <joint name="jaw_f1" type="revolute">
+    <parent link="robotiq_85_base_link" />
+    <child link="robotiq_85_right_knuckle_link" />
+    <axis xyz="0 -1 0" />
+    <origin rpy="0 0 0" xyz="-0.03060114 0.0 0.05490452" />
+    <limit effort="24.13" lower="-0.8" upper="0.0" velocity="1.4" />
+  </joint>
+  <joint name="jaw_f2" type="revolute">
+    <parent link="robotiq_85_base_link" />
+    <child link="robotiq_85_left_inner_knuckle_link" />
+    <axis xyz="0 -1 0" />
+    <origin rpy="0 0 0" xyz="0.0127 0.0 0.06142" />
+    <limit effort="21.7" lower="0.0" upper="0.8" velocity="1.4" />
+  </joint>
+  <joint name="jaw_f3" type="revolute">
+    <parent link="robotiq_85_base_link" />
+    <child link="robotiq_85_right_inner_knuckle_link" />
+    <axis xyz="0 -1 0" />
+    <origin rpy="0 0 0" xyz="-0.0127 0.0 0.06142" />
+    <limit effort="21.7" lower="-0.8" upper="0.0" velocity="1.4" />
+  </joint>
+  <joint name="jaw_f4" type="revolute">
+    <parent link="robotiq_85_left_finger_link" />
+    <child link="finger_lf" />
+    <axis xyz="0 -1 0" />
+    <origin rpy="0 0 0" xyz="0.00563134 0.0 0.04718515" />
+    <limit effort="15.56" lower="-0.8" upper="0.0" velocity="1.4" />
+  </joint>
+  <joint name="jaw_f5" type="revolute">
+    <parent link="robotiq_85_right_finger_link" />
+    <child link="finger_rf" />
+    <axis xyz="0 -1 0" />
+    <origin rpy="0 0 0" xyz="-0.00563134 0.0 0.04718515" />
+    <limit effort="14.91" lower="0.0" upper="0.8" velocity="1.4" />
+  </joint>
+  <link name="tcp">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <joint name="tcp_joint" type="fixed">
+    <parent link="robotiq_85_base_link" />
+    <child link="tcp" />
+    <origin xyz="0 0 0.1529" rpy="0 0 0" />
+  </joint>
+  <link name="wrist_camera_mount">
+    <inertial>
+      <mass value="0.001" />
+      <inertia ixx="1e-8" ixy="0" ixz="0" iyy="1e-8" iyz="0" izz="1e-8" />
+    </inertial>
+  </link>
+  <joint name="wrist_camera_mount_joint" type="fixed">
+    <parent link="robotiq_85_base_link" />
+    <child link="wrist_camera_mount" />
+    <origin xyz="0 0.065 0.07" rpy="0 -0.959926997 -1.57079633" />
+  </joint>
+</robot>

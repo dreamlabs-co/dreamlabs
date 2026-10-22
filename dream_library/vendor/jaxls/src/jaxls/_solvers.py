@@ -1,0 +1,1210 @@
+from __future__ import annotations
+
+import contextlib
+import dataclasses
+import functools
+import time
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Hashable,
+    Iterator,
+    Literal,
+    assert_never,
+    cast,
+    overload,
+)
+
+import jax
+import jax.flatten_util
+import jax_dataclasses as jdc
+import numpy as onp
+import scipy
+import scipy.sparse
+from jax import numpy as jnp
+
+from jaxls._preconditioning import (
+    make_block_jacobi_precoditioner,
+    make_point_jacobi_precoditioner,
+)
+
+from ._augmented_lagrangian import (
+    AugmentedLagrangianConfig,
+    AugmentedLagrangianState,
+    check_al_convergence,
+    initialize_al_state,
+    update_al_state,
+    update_problem_al_params,
+)
+from ._schur import (
+    EliminationPlan,
+    SchurFactors,
+    prepare_schur,
+    solve_schur_cg,
+    solve_schur_cholmod,
+    solve_schur_dense,
+)
+from ._sparse_matrices import BlockRowSparseMatrix, SparseCooMatrix, SparseCsrMatrix
+from ._variables import VarTypeOrdering, VarValues
+from .utils import _log, jax_log, tikhonov_floor
+
+if TYPE_CHECKING:
+    import sksparse.cholmod
+
+    from ._problem import AnalyzedLeastSquaresProblem, _CostInfo
+
+
+_cholmod_analyze_cache: dict[Hashable, sksparse.cholmod.Factor] = {}
+
+
+def _cholmod_solve(
+    A: SparseCsrMatrix, ATb: jax.Array, lambd: float | jax.Array
+) -> jax.Array:
+    """JIT-friendly linear solve using CHOLMOD."""
+    return jax.pure_callback(
+        _cholmod_solve_on_host,
+        ATb,  # Result shape/dtype.
+        A,
+        ATb,
+        lambd,
+        vmap_method="sequential",
+    )
+
+
+def _cholmod_solve_on_host(
+    A: SparseCsrMatrix,
+    ATb: jax.Array,
+    lambd: float | jax.Array,
+) -> jax.Array:
+    """Solve a linear system using CHOLMOD. Should be called on the host.
+
+    Unlike the Schur path's `_cholmod_solve_symmetric_on_host`, this full-system
+    solve does not need the Jacobi-scaling + Tikhonov-floor robustness: it never
+    forms a normal-equations matrix by subtraction (it factors A Aᵀ directly via
+    `cholesky_AAt`, which is positive definite by construction once `beta > 0`),
+    so it is not exposed to the catastrophic float32 cancellation that can leave
+    the Schur complement S = H_cc - W V^{-1} W^T numerically indefinite.
+    """
+    import sksparse.cholmod
+
+    # Matrix is transposed when we convert CSR to CSC.
+    A_T_scipy = scipy.sparse.csc_matrix(
+        (A.values, A.coords.indices, A.coords.indptr), shape=A.coords.shape[::-1]
+    )
+
+    # Cache sparsity pattern analysis.
+    cache_key = (
+        A.coords.indices.tobytes(),
+        A.coords.indptr.tobytes(),
+        A.coords.shape,
+    )
+    cost = _cholmod_analyze_cache.get(cache_key, None)
+    if cost is None:
+        cost = sksparse.cholmod.analyze_AAt(A_T_scipy)
+        _cholmod_analyze_cache[cache_key] = cost
+
+        max_cache_size = 512
+        if len(_cholmod_analyze_cache) > max_cache_size:
+            _cholmod_analyze_cache.pop(next(iter(_cholmod_analyze_cache)))
+
+    # Factorize and solve.
+    cost = cost.cholesky_AAt(
+        A_T_scipy,
+        # Some simple linear problems blow up without this 1e-5 term.
+        beta=lambd + 1e-5,
+    )
+    return cost.solve_A(ATb)
+
+
+_cholmod_symmetric_analyze_cache: dict[Hashable, sksparse.cholmod.Factor] = {}
+
+
+def _cholmod_solve_symmetric(
+    s_values: jax.Array,
+    rows: jax.Array,
+    cols: jax.Array,
+    reduced_dim: int,
+    b: jax.Array,
+) -> jax.Array:
+    """JIT-friendly CHOLMOD solve of a symmetric system S x = b, where S is
+    given in COO form (s_values at (rows, cols), duplicates summed). Used by
+    the Schur + CHOLMOD reduced solve."""
+    return jax.pure_callback(
+        functools.partial(_cholmod_solve_symmetric_on_host, reduced_dim=reduced_dim),
+        b,  # Result shape/dtype.
+        s_values,
+        rows,
+        cols,
+        b,
+        vmap_method="sequential",
+    )
+
+
+def _cholmod_solve_symmetric_on_host(
+    s_values: jax.Array,
+    rows: jax.Array,
+    cols: jax.Array,
+    b: jax.Array,
+    *,
+    reduced_dim: int,
+) -> jax.Array:
+    """Factor a symmetric sparse S (COO: s_values at (rows, cols)) with CHOLMOD
+    and solve S x = b. Runs on the host."""
+    import sksparse.cholmod
+
+    rows_onp = onp.asarray(rows)
+    cols_onp = onp.asarray(cols)
+    b_onp = onp.asarray(b)
+    dtype = b_onp.dtype
+    S = scipy.sparse.coo_matrix(
+        (onp.asarray(s_values), (rows_onp, cols_onp)),
+        shape=(reduced_dim, reduced_dim),
+    ).tocsc()  # Sums duplicate (i, j) entries.
+
+    # Symmetric Jacobi scaling plus a precision-adaptive Tikhonov floor, the
+    # same robustness the dense path applies in `_schur._solve_spd_scaled`.
+    # Forming S = H_cc - W V^{-1} W^T cancels catastrophically in float32 and
+    # can leave S numerically indefinite, which CHOLMOD rejects outright
+    # (CholmodNotPositiveDefiniteError) rather than producing a NaN the LM
+    # ratio test would catch. We solve the scaled system D S D y = D b with
+    # D = diag(1 / sqrt(|diag S|)) and recover x = D y. Diagonal scaling does
+    # not touch the sparsity pattern, so the cached symbolic factorization
+    # stays valid; the floor is a no-op for well-conditioned float64.
+    diag = S.diagonal()
+    inv_scale = 1.0 / onp.sqrt(onp.maximum(onp.abs(diag), onp.finfo(dtype).tiny))
+    D = scipy.sparse.diags(inv_scale, format="csc")
+    # CSC @ CSC stays CSC, so the sparsity pattern (and the cached symbolic
+    # factorization keyed on it) is preserved. setdiag only updates entries in
+    # place here (it never expands nnz) because every diagonal entry is
+    # already structurally present: `build_sparse_s_pattern` always emits a
+    # diagonal block per kept type (`_iter_S_block_sources`). If that ever
+    # changed, a structurally-missing diagonal would make setdiag grow nnz and
+    # desync from the cached symbolic factor.
+    S = D @ S @ D
+    S.setdiag(S.diagonal() + tikhonov_floor(dtype))
+
+    # Cache the symbolic analysis. The COO coordinates are fixed across solves
+    # for a given problem, so the summed CSC pattern is stable.
+    cache_key = (rows_onp.tobytes(), cols_onp.tobytes(), reduced_dim)
+    factor = _cholmod_symmetric_analyze_cache.get(cache_key, None)
+    if factor is None:
+        factor = sksparse.cholmod.analyze(S)
+        _cholmod_symmetric_analyze_cache[cache_key] = factor
+
+        max_cache_size = 512
+        if len(_cholmod_symmetric_analyze_cache) > max_cache_size:
+            _cholmod_symmetric_analyze_cache.pop(
+                next(iter(_cholmod_symmetric_analyze_cache))
+            )
+
+    # Numeric refactorization reusing the cached symbolic analysis. The 1e-5
+    # diagonal floor is already folded into s_values by the caller; the Jacobi
+    # scaling and Tikhonov floor above keep the factorization finite in float32.
+    factor = factor.cholesky(S)
+    return (inv_scale * factor.solve_A(inv_scale * b_onp)).astype(dtype)
+
+
+_active_iteration_time_recorder: list[float] | None = None
+
+
+@contextlib.contextmanager
+def record_iteration_times() -> Iterator[list[float]]:
+    """Record a host wall-clock timestamp at each outer LM iteration of any
+    `solve()` running in this block, for cost-vs-time benchmarking.
+
+    Returns a list that is filled with `time.perf_counter()` values (one per
+    outer iteration, in order); `times[i] - times[0]` is the elapsed time to
+    reach iteration `i`. Off the normal solve path entirely — the timestamps
+    never enter the jitted computation or `SolveSummary`, so there is zero
+    overhead and no dtype dependence when not recording, and the values are
+    always host float64 (the in-array alternative would be float32 without
+    jax_enable_x64, too coarse to resolve millisecond steps).
+
+    Timestamps include async-dispatch latency, so read differences, not
+    absolute values, and wrap the solve in `block_until_ready` for precise
+    totals. Not reentrant / not for concurrent solves from multiple threads
+    (one active recorder at a time)::
+
+        with jaxls.record_iteration_times() as times:
+            sol = problem.solve(init)
+        # times[1:] - times[0]  ->  per-iteration elapsed seconds
+
+    The recording callback is decided at trace time, so whether timestamps are
+    captured is baked into the compiled solve. Entering and leaving this block
+    therefore clears the solver's JIT cache, so the first solve inside it
+    recompiles *with* the callback (even if an identical solve was already
+    compiled without one) and the first solve after it recompiles *without*.
+    The compile inside the block also acts as the warmup; for steady-state
+    timing, run the solve twice in the block and read the second::
+
+        with jaxls.record_iteration_times() as times:
+            jax.block_until_ready(problem.solve(init))   # warmup, compiles
+            times.clear()
+            sol = jax.block_until_ready(problem.solve(init))
+    """
+    global _active_iteration_time_recorder
+    prev = _active_iteration_time_recorder
+    times: list[float] = []
+    _active_iteration_time_recorder = times
+    # The callback's presence is fixed at trace time and not part of the JIT
+    # cache key, so a cached (callback-free) executable would otherwise be
+    # reused and silently record nothing. Clear the cache on the way in (force
+    # a callback-bearing recompile) and on the way out (restore the zero-
+    # overhead executable for normal solves).
+    _clear_solve_cache()
+    try:
+        yield times
+    finally:
+        _active_iteration_time_recorder = prev
+        _clear_solve_cache()
+
+
+def _clear_solve_cache() -> None:
+    # NonlinearSolver.solve is wrapped by @jdc.jit, whose .clear_cache() the
+    # type checker can't see through the FunctionType it infers.
+    NonlinearSolver.solve.clear_cache()  # type: ignore[attr-defined]
+
+
+def _record_iteration_time(anchor: jax.Array) -> None:
+    """Append `time.perf_counter()` to the active recorder, if any, via
+    `jax.debug.callback` so it works inside the jitted `lax.while_loop`.
+
+    `anchor` is a value that depends on the just-computed iterate (its cost);
+    the callback consumes it so the timestamp is ordered after that
+    iteration's work and the callbacks are not merged/hoisted by XLA. A no-op
+    (no callback emitted) when no `record_iteration_times()` block is active,
+    so the default solve path is untouched."""
+    if _active_iteration_time_recorder is None:
+        return
+
+    def _stamp(_anchor: object) -> None:
+        if _active_iteration_time_recorder is not None:
+            _active_iteration_time_recorder.append(time.perf_counter())
+
+    jax.debug.callback(_stamp, anchor)
+
+
+# Host-side wall-clock for the verbose "solved in ..." timing. Filled by a
+# fire-and-forget `jax.debug.callback` at the start of the outer loop and read
+# by the terminated-log callback; both run on the host, so the elapsed time is
+# computed entirely host-side with no device<->host round-trip (nothing is
+# returned to the device). Single-threaded, like `_active_iteration_time_recorder`.
+_solve_start_time: float | None = None
+
+
+def _record_solve_start(anchor: jax.Array) -> None:
+    """Stamp the host start time of the outer loop into `_solve_start_time`.
+
+    `anchor` depends on the pre-loop iterate (its cost) and is consumed by the
+    callback, so the stamp is ordered before the loop and XLA cannot hoist it.
+    Fire-and-forget (`jax.debug.callback` returns nothing to the device), so it
+    adds no round-trip. The matching read happens in the terminated-log
+    callback, which subtracts on the host."""
+
+    def _stamp(_anchor: object) -> None:
+        global _solve_start_time
+        _solve_start_time = time.perf_counter()
+
+    jax.debug.callback(_stamp, anchor)
+
+
+def _log_terminated(
+    fmt: str,
+    *args: object,
+) -> None:
+    """Emit the verbose terminated line with the elapsed solve time appended.
+
+    Like `jax_log`, this is a `jax.debug.callback`, but the host function also
+    reads `_solve_start_time` and subtracts the current host time, so the
+    elapsed seconds are computed host-side from two host timestamps, with no
+    value returned to the device (no round-trip). The `(solved in ...)` suffix
+    is owned here, so the caller's `fmt` describes only its own fields."""
+
+    def _emit(*host_args: object) -> None:
+        start = _solve_start_time
+        elapsed = time.perf_counter() - start if start is not None else float("nan")
+        _log(fmt + " (solved in {:.4f} sec)", *host_args, elapsed)
+
+    jax.debug.callback(_emit, *args)
+
+
+def _compute_jacobian_scaler(column_norms: jax.Array) -> jax.Array:
+    """Column scaling for the Levenberg-Marquardt normal equations.
+
+    This is the historical jaxls scaler: bounded gain in (1, 2], so weak
+    directions are never amplified and lambdas tuned against it keep their
+    meaning. A Marquardt-style scale-invariant splice
+    (``min(legacy, 1.5/n)``) was evaluated and rejected: it silently
+    re-denominates every tuned lambda for problems whose column norms
+    exceed unit (IK, pose graphs), regressing downstream workloads, and its
+    bundle-adjustment motivation disappeared once rejected-step termination
+    handling was fixed and lambda escalation made adaptive. Measurements and
+    derivation: benchmarks/results.md, "The column-scaling math".
+    """
+    return 1.0 / (1.0 + column_norms) + 1.0
+
+
+@jdc.pytree_dataclass
+class _ConjugateGradientState:
+    """State used for Eisenstat-Walker criterion in ConjugateGradientLinearSolver."""
+
+    ATb_norm_prev: float | jax.Array
+    """Previous norm of ATb."""
+    eta: float | jax.Array
+    """Current tolerance."""
+
+
+@jdc.pytree_dataclass
+class ConjugateGradientConfig:
+    """Iterative solver for sparse linear systems. Can run on CPU or GPU.
+
+    For inexact steps, we use the Eisenstat-Walker criterion. For reference,
+    see "Choosing the Forcing Terms in an Inexact Newton Method", Eisenstat &
+    Walker, 1996."
+    """
+
+    tolerance_min: float | jax.Array = 1e-7
+    tolerance_max: float | jax.Array = 1e-2
+
+    eisenstat_walker_gamma: float | jax.Array = 0.9
+    """Eisenstat-Walker criterion gamma term. Controls how quickly the tolerance
+    decreases. Typical values range from 0.5 to 0.9. Higher values lead to more
+    aggressive tolerance reduction."""
+    eisenstat_walker_alpha: float | jax.Array = 2.0
+    """ Eisenstat-Walker criterion alpha term. Determines rate at which the
+    tolerance changes based on residual reduction. Typical values are 1.5 or
+    2.0. Higher values make the tolerance more sensitive to residual changes."""
+
+    preconditioner: jdc.Static[Literal["block_jacobi", "point_jacobi"] | None] = (
+        "block_jacobi"
+    )
+    """Preconditioner to use for linear solves."""
+
+    def _solve(
+        self,
+        problem: AnalyzedLeastSquaresProblem,
+        A_blocksparse: BlockRowSparseMatrix,
+        ATA_multiply: Callable[[jax.Array], jax.Array],
+        ATb: jax.Array,
+        prev_linear_state: _ConjugateGradientState,
+    ) -> tuple[jax.Array, _ConjugateGradientState]:
+        assert len(ATb.shape) == 1, "ATb should be 1D!"
+
+        # Preconditioning setup.
+        if self.preconditioner == "block_jacobi":
+            preconditioner = make_block_jacobi_precoditioner(problem, A_blocksparse)
+        elif self.preconditioner == "point_jacobi":
+            preconditioner = make_point_jacobi_precoditioner(A_blocksparse)
+        elif self.preconditioner is None:
+            preconditioner = lambda x: x
+        else:
+            assert_never(self.preconditioner)
+
+        # Calculate tolerance using Eisenstat-Walker criterion.
+        ATb_norm = jnp.linalg.norm(ATb)
+        current_eta = jnp.minimum(
+            self.eisenstat_walker_gamma
+            * (ATb_norm / (prev_linear_state.ATb_norm_prev + 1e-7))
+            ** self.eisenstat_walker_alpha,
+            self.tolerance_max,
+        )
+        current_eta = jnp.maximum(
+            self.tolerance_min, jnp.minimum(current_eta, prev_linear_state.eta)
+        )
+
+        # Solve with conjugate gradient.
+        initial_x = jnp.zeros(ATb.shape)
+        solution_values, _ = jax.scipy.sparse.linalg.cg(
+            A=ATA_multiply,
+            b=ATb,
+            x0=initial_x,
+            # https://en.wikipedia.org/wiki/Conjugate_gradient_method#Convergence_properties
+            maxiter=len(initial_x),
+            tol=cast(float, current_eta),
+            M=preconditioner,
+        )
+        return solution_values, _ConjugateGradientState(
+            ATb_norm_prev=ATb_norm, eta=current_eta
+        )
+
+
+# Nonlinear solvers.
+
+
+@jdc.pytree_dataclass
+class SolveSummary:
+    iterations: jax.Array
+    termination_criteria: jax.Array
+    termination_deltas: jax.Array
+    cost_history: jax.Array
+    """History of non-augmented costs (l2_squared terms only, excludes constraint penalties)."""
+    lambda_history: jax.Array
+
+
+@jdc.pytree_dataclass
+class _SolutionState:
+    """State associated with a single solution point."""
+
+    vals: VarValues
+    cost_info: _CostInfo
+    cg_state: _ConjugateGradientState | None
+
+
+@jdc.pytree_dataclass
+class _LmInnerState:
+    """State for inner loop that tries different lambda values.
+
+    For Levenberg-Marquardt, this loop searches for a good lambda. For
+    Gauss-Newton (trust_region=None), the loop runs exactly once with lambda=0.
+    """
+
+    lambd: float | jax.Array
+    accepted: jax.Array
+    sol_proposed: _SolutionState
+    local_delta: jax.Array
+    summary: SolveSummary
+    lambda_growth: jax.Array = dataclasses.field(default_factory=lambda: jnp.array(2.0))
+    """Lambda escalation factor; doubled after each consecutive rejection
+    within one outer step, so a grossly under-damped lambda recovers in
+    O(log log) tries instead of O(log). This is the rejection-side half of
+    the strategy in H.B. Nielsen (1999), "Damping Parameter in Marquardt's
+    Method", IMM-REP-1999-05, DTU; the decrease-on-acceptance rule remains
+    jaxls's plain halving. A no-op whenever the first proposal is accepted,
+    so well-tuned solves are unaffected."""
+
+
+@jdc.pytree_dataclass
+class _LmOuterState:
+    """State for outer loop. Each iteration corresponds to one accepted
+    step."""
+
+    solution: _SolutionState
+    summary: SolveSummary
+    lambd: float | jax.Array
+    jacobian_scaler: jax.Array
+    al_state: AugmentedLagrangianState | None  # AL state when constraints present.
+    last_step_accepted: jax.Array = dataclasses.field(
+        default_factory=lambda: jnp.array(True)
+    )
+    """Whether the last outer step found an acceptable proposal. When False
+    with lambda at its maximum, no further progress is possible."""
+
+
+@jdc.pytree_dataclass
+class NonlinearSolver:
+    """Helper class for solving using Gauss-Newton or Levenberg-Marquardt."""
+
+    linear_solver: jdc.Static[
+        Literal["conjugate_gradient", "cholmod", "dense_cholesky"]
+    ]
+    trust_region: TrustRegionConfig | None
+    termination: TerminationConfig
+    conjugate_gradient_config: ConjugateGradientConfig | None
+    sparse_mode: jdc.Static[Literal["blockrow", "coo", "csr"]]
+    verbose: jdc.Static[bool]
+    augmented_lagrangian: AugmentedLagrangianConfig | None = None
+    """Configuration for Augmented Lagrangian method. Set when constraints are present."""
+    elimination: EliminationPlan | None = None
+    """Schur-complement variable elimination plan. Set when `eliminate` is
+    passed to `solve()`."""
+
+    def _resolve_cg_config(self) -> ConjugateGradientConfig:
+        """CG settings for this solve. A `ConjugateGradientConfig` passed to
+        `solve(linear_solver=...)` reaches this class as the string
+        "conjugate_gradient" plus the separate `conjugate_gradient_config`
+        field (see `AnalyzedLeastSquaresProblem.solve`), so both fields must
+        be consulted; reading only `linear_solver` silently drops user
+        settings."""
+        if isinstance(self.linear_solver, ConjugateGradientConfig):
+            return self.linear_solver
+        if self.conjugate_gradient_config is not None:
+            return self.conjugate_gradient_config
+        return ConjugateGradientConfig()
+
+    @overload
+    def solve(
+        self,
+        problem: AnalyzedLeastSquaresProblem,
+        initial_vals: VarValues,
+        return_summary: Literal[False] = False,
+    ) -> VarValues: ...
+
+    @overload
+    def solve(
+        self,
+        problem: AnalyzedLeastSquaresProblem,
+        initial_vals: VarValues,
+        return_summary: Literal[True],
+    ) -> tuple[VarValues, SolveSummary]: ...
+
+    @overload
+    def solve(
+        self,
+        problem: AnalyzedLeastSquaresProblem,
+        initial_vals: VarValues,
+        return_summary: bool,
+    ) -> VarValues | tuple[VarValues, SolveSummary]: ...
+
+    @jdc.jit
+    def solve(
+        self,
+        problem: AnalyzedLeastSquaresProblem,
+        initial_vals: VarValues,
+        return_summary: jdc.Static[bool] = False,
+    ) -> VarValues | tuple[VarValues, SolveSummary]:
+        vals = initial_vals
+        cost_info = problem._compute_cost_info(vals)
+
+        cost_history = jnp.zeros(self.termination.max_iterations)
+        cost_history = cost_history.at[0].set(cost_info.cost_nonconstraint)
+        lambda_history = jnp.zeros(self.termination.max_iterations)
+        if self.trust_region is not None:
+            lambda_history = lambda_history.at[0].set(self.trust_region.lambda_initial)
+        # Timestamp the initial point (no-op unless a record_iteration_times()
+        # block is active); kept off the solver state entirely.
+        _record_iteration_time(cost_info.cost_total)
+
+        # Initialize AL state if constraints are present.
+        al_state: AugmentedLagrangianState | None = None
+        if self.augmented_lagrangian is not None:
+            al_state = initialize_al_state(
+                problem,
+                vals,
+                self.augmented_lagrangian,
+                verbose=self.verbose,
+            )
+            # Update problem with initial AL params.
+            problem = update_problem_al_params(problem, al_state)
+            # Recompute cost with updated AL params.
+            cost_info = problem._compute_cost_info(vals)
+            cost_history = cost_history.at[0].set(cost_info.cost_nonconstraint)
+
+        # Jacobian column scaler: depends only on the linearization at the
+        # initial point, so compute it once here rather than every outer step
+        # (compute_column_norms is a full-Jacobian scatter — wasted on every
+        # iteration past the first when the scaler is frozen anyway).
+        jacobian_scaler = _compute_jacobian_scaler(
+            problem._compute_jac_values(
+                vals, cost_info.jac_cache
+            ).compute_column_norms()
+        )
+
+        state = _LmOuterState(
+            solution=_SolutionState(
+                vals=vals,
+                cost_info=cost_info,
+                cg_state=None
+                if self.linear_solver != "conjugate_gradient"
+                else _ConjugateGradientState(
+                    ATb_norm_prev=0.0,
+                    eta=self._resolve_cg_config().tolerance_max,
+                ),
+            ),
+            summary=SolveSummary(
+                iterations=jnp.array(0),
+                cost_history=cost_history,
+                lambda_history=lambda_history,
+                termination_criteria=jnp.array([False, False, False]),
+                termination_deltas=jnp.zeros(3),
+            ),
+            lambd=self.trust_region.lambda_initial
+            if self.trust_region is not None
+            else 0.0,
+            jacobian_scaler=jacobian_scaler,
+            al_state=al_state,
+        )
+
+        # Wall-clock start of the outer loop, for the verbose "solved in ..."
+        # timing. A fire-and-forget host callback records the start time;
+        # the terminated-log callback reads it and subtracts, all host-side
+        # (no device<->host round-trip). Anchored on the pre-loop cost so the
+        # stamp is ordered before the loop; only emitted when verbose.
+        if self.verbose:
+            _record_solve_start(cost_info.cost_total)
+
+        # Optimization.
+        if self.termination.early_termination:
+
+            def should_continue(state: _LmOuterState) -> jax.Array:
+                # Basic checks: not NaN, within iteration limit.
+                basic_checks = ~jnp.isnan(state.solution.cost_info.cost_total) & (
+                    state.summary.iterations < self.termination.max_iterations
+                )
+                # No acceptable step exists even at maximum damping: further
+                # outer steps would re-reject the same proposals until the
+                # iteration cap. Unconstrained only: under augmented
+                # Lagrangian, a penalty update reshapes the cost surface and
+                # can restore progress, so a maxed-out lambda sweep must not
+                # end the solve before the AL machinery gets that chance.
+                if self.trust_region is not None and self.augmented_lagrangian is None:
+                    basic_checks = basic_checks & ~(
+                        ~state.last_step_accepted
+                        & (state.lambd >= self.trust_region.lambda_max)
+                    )
+
+                # For unconstrained: stop when termination criteria met or step rejected.
+                if self.augmented_lagrangian is None:
+                    return basic_checks & ~jnp.any(state.summary.termination_criteria)
+
+                # For constrained: check AL convergence.
+                assert state.al_state is not None
+                al_abs, al_rel = check_al_convergence(
+                    state.al_state, self.augmented_lagrangian
+                )
+                al_converged = al_abs & al_rel
+
+                # For constrained problems, all termination criteria (cost, gradient,
+                # parameter) should only trigger when AL has converged. This ensures
+                # we don't stop when the original objective has converged but
+                # constraints are not yet satisfied.
+                # termination_criteria: [cost, gradient, parameter]
+                lm_terminated = jnp.any(state.summary.termination_criteria)
+
+                # Stop if:
+                # - max_iters reached (regardless of AL), OR
+                # - LM terminated AND AL converged
+                should_stop = lm_terminated & al_converged
+                return basic_checks & ~should_stop
+
+            state = jax.lax.while_loop(
+                cond_fun=should_continue,
+                body_fun=lambda state: self.lm_outer_step(problem, state),
+                init_val=state,
+            )
+        else:
+            state = jax.lax.fori_loop(
+                0,
+                self.termination.max_iterations,
+                body_fun=lambda _, state: self.lm_outer_step(problem, state),
+                init_val=state,
+            )
+        if self.verbose:
+            # The elapsed solve time is appended host-side by `_log_terminated`
+            # (it reads the start stamp recorded above and subtracts the current
+            # host time), so it does not enter the device computation. The
+            # fields below are positional device values, ordered after the loop.
+            _log_terminated(
+                "Terminated @ iteration #{}: cost={:.4f} criteria={}, "
+                "term_deltas={:.1e},{:.1e},{:.1e}",
+                state.summary.iterations,
+                state.solution.cost_info.cost_nonconstraint,
+                state.summary.termination_criteria.astype(jnp.int32),
+                state.summary.termination_deltas[0],
+                state.summary.termination_deltas[1],
+                state.summary.termination_deltas[2],
+            )
+
+        if return_summary:
+            return state.solution.vals, state.summary
+        else:
+            return state.solution.vals
+
+    def lm_inner_step(
+        self,
+        problem: AnalyzedLeastSquaresProblem,
+        inner_state: _LmInnerState,
+        sol_prev: _SolutionState,
+        jacobian_scaler: jax.Array,
+        A_blocksparse: BlockRowSparseMatrix,
+        A_multiply: Callable[[jax.Array], jax.Array],
+        AT_multiply: Callable[[jax.Array], jax.Array],
+        ATb: jax.Array,
+        schur_factors: SchurFactors | None = None,
+    ) -> _LmInnerState:
+        """Levenberg-Marquardt inner step. Tries one lambda value."""
+        # Compute lambda for this iteration.
+        # - For LM: multiply previous lambda by factor (initial state is pre-divided)
+        # - For GN: keep lambda at 0
+        if self.trust_region is not None:
+            lambd = jnp.minimum(
+                inner_state.lambd * inner_state.lambda_growth,
+                self.trust_region.lambda_max,
+            )
+        else:
+            lambd = inner_state.lambd  # stays at 0
+
+        # Log optimizer state for debugging.
+        if self.verbose:
+            self._log_state(problem, sol_prev, inner_state.summary.iterations, lambd)
+
+        # Solve the linear system.
+        cg_state: _ConjugateGradientState | None = None
+        if schur_factors is not None:
+            # Variable elimination: solve the reduced (Schur complement)
+            # system, then back-substitute the eliminated variables.
+            if self.linear_solver == "conjugate_gradient":
+                assert isinstance(sol_prev.cg_state, _ConjugateGradientState)
+                local_delta, cg_state = solve_schur_cg(
+                    schur_factors, lambd, self._resolve_cg_config(), sol_prev.cg_state
+                )
+            elif self.linear_solver == "dense_cholesky":
+                local_delta = solve_schur_dense(schur_factors, lambd)
+            elif self.linear_solver == "cholmod":
+                local_delta = solve_schur_cholmod(schur_factors, lambd)
+            else:
+                raise AssertionError(
+                    f"Unexpected elimination plan for {self.linear_solver}."
+                )
+        elif (
+            isinstance(self.linear_solver, ConjugateGradientConfig)
+            or self.linear_solver == "conjugate_gradient"
+        ):
+            cg_config = self._resolve_cg_config()
+            assert isinstance(sol_prev.cg_state, _ConjugateGradientState)
+            local_delta, cg_state = cg_config._solve(
+                problem,
+                A_blocksparse,
+                # We could also use (lambd * ATA_diagonals * vec) for
+                # scale-invariant damping. But this is hard to match with CHOLMOD.
+                # The extra 1e-5 keeps simple/underdetermined problems from blowing
+                # up, matching the CHOLMOD path (see beta=lambd + 1e-5 above); the
+                # Schur CG path in solve_schur_cg adds the same term. Only
+                # dense_cholesky omits it, using lambd alone.
+                lambda vec: AT_multiply(A_multiply(vec)) + (lambd + 1e-5) * vec,
+                ATb=ATb,
+                prev_linear_state=sol_prev.cg_state,
+            )
+        elif self.linear_solver == "cholmod":
+            # Use CHOLMOD for direct solve.
+            A_csr = SparseCsrMatrix(
+                jnp.concatenate(
+                    [
+                        block_row.blocks_concat.flatten()
+                        for block_row in A_blocksparse.block_rows
+                    ],
+                    axis=0,
+                ),
+                problem._jac_coords_csr,
+            )
+            local_delta = _cholmod_solve(A_csr, ATb, lambd=lambd)
+        elif self.linear_solver == "dense_cholesky":
+            A_dense = A_blocksparse.to_dense()
+            ATA = A_dense.T @ A_dense
+            diag_idx = jnp.arange(ATA.shape[0])
+            ATA = ATA.at[diag_idx, diag_idx].add(lambd)
+            cho_factor = jax.scipy.linalg.cho_factor(ATA)
+            local_delta = jax.scipy.linalg.cho_solve(cho_factor, ATb)
+        else:
+            assert_never(self.linear_solver)
+
+        scaled_local_delta = local_delta * jacobian_scaler
+        proposed_vals = sol_prev.vals._retract(
+            scaled_local_delta, problem._tangent_ordering
+        )
+        proposed_cost_info = problem._compute_cost_info(proposed_vals)
+
+        # Compute step acceptance.
+        # - For GN: always accept.
+        # - For LM: accept if step quality meets threshold.
+        if self.trust_region is None:
+            accepted = jnp.array(True)
+        else:
+            # Predicted reduction of the linear model, expanded analytically:
+            #   |r|^2 - |r + J dx|^2 = -2 dx^T J^T r - |J dx|^2
+            #                        =  2 dx^T ATb   - |J dx|^2.
+            # The expanded form avoids the catastrophic cancellation of
+            # subtracting two O(cost) sums over ~1e5+ residual terms, which
+            # otherwise reduces `step_quality` to rounding noise once the
+            # true per-step reduction approaches eps * cost.
+            #
+            # `A_blocksparse` is the column-scaled Jacobian and `local_delta`
+            # / `ATb` live in the same scaled coordinates, so the products
+            # are exactly J dx and dx^T J^T r in the original space.
+            # (Multiplying by `scaled_local_delta` here would apply the
+            # column scaling twice.)
+            predicted_reduction = 2.0 * jnp.dot(local_delta, ATb) - jnp.sum(
+                A_blocksparse.multiply(local_delta) ** 2
+            )
+            actual_reduction = (
+                sol_prev.cost_info.cost_total - proposed_cost_info.cost_total
+            )
+            step_quality = actual_reduction / predicted_reduction
+            accepted = ~jnp.isnan(proposed_cost_info.cost_total) & (
+                step_quality >= self.trust_region.step_quality_min
+            )
+
+        iterations = inner_state.summary.iterations + 1
+        term_criteria, term_deltas = self.termination._check_convergence(
+            sol_prev,
+            cost_nonconstraint_updated=proposed_cost_info.cost_nonconstraint,
+            tangent=local_delta * jacobian_scaler,
+            tangent_ordering=problem._tangent_ordering,
+            ATb=ATb,
+            iterations=iterations,
+            accepted=accepted,
+        )
+        with jdc.copy_and_mutate(inner_state) as next:
+            next.lambd = lambd
+            # Accelerate the next escalation step (see `lambda_growth`).
+            next.lambda_growth = inner_state.lambda_growth * 2.0
+            next.accepted = accepted
+            next.sol_proposed = _SolutionState(
+                vals=proposed_vals,
+                cost_info=proposed_cost_info,
+                cg_state=cg_state,
+            )
+            next.local_delta = local_delta
+            # Timestamp this iterate (no-op unless a record_iteration_times()
+            # block is active). Anchored on this step's cost so the callback
+            # can't be reordered/hoisted ahead of the work it measures.
+            _record_iteration_time(proposed_cost_info.cost_total)
+            next.summary = SolveSummary(
+                iterations=iterations,
+                termination_criteria=term_criteria,
+                termination_deltas=term_deltas,
+                cost_history=next.summary.cost_history.at[iterations].set(
+                    proposed_cost_info.cost_nonconstraint
+                ),
+                lambda_history=next.summary.lambda_history.at[iterations].set(lambd),
+            )
+
+        return next
+
+    def lm_outer_step(
+        self,
+        problem: AnalyzedLeastSquaresProblem,
+        state: _LmOuterState,
+    ) -> _LmOuterState:
+        """Levenberg-Marquardt outer step. Each outer step applies one parameter update."""
+        sol_prev = state.solution
+
+        # Update problem with current AL params if constraints present.
+        if self.augmented_lagrangian is not None and state.al_state is not None:
+            problem = update_problem_al_params(problem, state.al_state)
+
+        # Get nonzero values of Jacobian.
+        A_blocksparse = problem._compute_jac_values(
+            sol_prev.vals, sol_prev.cost_info.jac_cache
+        )
+
+        # The Jacobian scaler is frozen at the initial linearization (computed
+        # once in `solve`), so just apply it — no per-iteration column-norm
+        # scatter.
+        A_blocksparse = A_blocksparse.scale_columns(state.jacobian_scaler)
+
+        # Get flattened version for COO/CSR matrices.
+        jac_values = jnp.concatenate(
+            [
+                block_row.blocks_concat.flatten()
+                for block_row in A_blocksparse.block_rows
+            ],
+            axis=0,
+        )
+
+        # linear_transpose() will return a tuple, with one element per primal.
+        if self.sparse_mode == "blockrow":
+            A_multiply = A_blocksparse.multiply
+            AT_multiply_ = jax.linear_transpose(
+                A_multiply, jnp.zeros((A_blocksparse.shape[1],))
+            )
+            AT_multiply = lambda vec: AT_multiply_(vec)[0]
+        elif self.sparse_mode == "coo":
+            A_coo = SparseCooMatrix(
+                values=jac_values, coords=problem._jac_coords_coo
+            ).as_jax_bcoo()
+            AT_coo = A_coo.transpose()
+            A_multiply = lambda vec: A_coo @ vec
+            AT_multiply = lambda vec: AT_coo @ vec
+        elif self.sparse_mode == "csr":
+            A_csr = SparseCsrMatrix(
+                values=jac_values, coords=problem._jac_coords_csr
+            ).as_jax_bcsr()
+            A_multiply = lambda vec: A_csr @ vec
+            AT_multiply_ = jax.linear_transpose(
+                A_multiply, jnp.zeros((A_blocksparse.shape[1],))
+            )
+            AT_multiply = lambda vec: AT_multiply_(vec)[0]
+        else:
+            assert_never(self.sparse_mode)
+
+        # Compute right-hand side of normal equation.
+        ATb = -AT_multiply(sol_prev.cost_info.residual_vector)
+
+        # Variable elimination: precompute the damping-independent parts of
+        # the Schur-complement system once per outer step. The inner (lambda
+        # search) loop below only redoes the damping-dependent work.
+        schur_factors: SchurFactors | None = None
+        if self.elimination is not None:
+            schur_factors = prepare_schur(
+                self.elimination, A_blocksparse, ATb, linear_solver=self.linear_solver
+            )
+
+        # Inner loop: search for a good lambda value.
+        #
+        # For Levenberg-Marquardt, we try increasing lambdas until the step is
+        # accepted or lambda is maxed out. For Gauss-Newton (trust_region=None),
+        # lambda stays at 0 and the step is always accepted, so the loop runs
+        # exactly once.
+        #
+        # We use the "pre-divide" trick: initialize with lambd/factor so that
+        # the first multiplication in lm_inner_step gives us the correct starting
+        # lambda. For GN, lambda starts and stays at 0.
+        if self.trust_region is not None:
+            init_lambd = state.lambd / self.trust_region.lambda_factor
+            lambda_max = self.trust_region.lambda_max
+        else:
+            init_lambd = jnp.zeros(())
+            lambda_max = jnp.inf
+
+        # Reset termination criteria for this outer step. The criteria from the
+        # previous outer step should not prevent the inner loop from running.
+        with jdc.copy_and_mutate(state.summary, validate=False) as init_summary:
+            init_summary.termination_criteria = jnp.array([False, False, False])
+
+        init_inner_state = _LmInnerState(
+            lambd=init_lambd,
+            lambda_growth=jnp.asarray(
+                self.trust_region.lambda_factor
+                if self.trust_region is not None
+                else 2.0
+            ),
+            accepted=jnp.array(False),
+            # Dummy values - will be overwritten by first lm_inner_step call.
+            sol_proposed=sol_prev,
+            local_delta=jnp.zeros_like(ATb),
+            summary=init_summary,
+        )
+        inner_state_final = jax.lax.while_loop(
+            cond_fun=lambda s: (
+                # Exit early if converged (cost, gradient, or parameter criteria).
+                ~s.accepted
+                & ~jnp.any(s.summary.termination_criteria)
+                & (s.lambd < lambda_max)
+                & (s.summary.iterations < self.termination.max_iterations)
+            ),
+            body_fun=lambda s: self.lm_inner_step(
+                problem,
+                s,
+                sol_prev,
+                state.jacobian_scaler,
+                A_blocksparse,
+                A_multiply,
+                AT_multiply,
+                ATb,
+                schur_factors,
+            ),
+            init_val=init_inner_state,
+        )
+
+        # For LM, decrease lambda if step was good.
+        if self.trust_region is not None:
+            lambd_next = jnp.maximum(
+                self.trust_region.lambda_min,
+                jnp.where(
+                    inner_state_final.accepted,
+                    inner_state_final.lambd / self.trust_region.lambda_factor,
+                    inner_state_final.lambd,
+                ),
+            )
+        else:
+            lambd_next = inner_state_final.lambd  # stays at 0
+
+        # Build next state from inner loop result.
+        with jdc.copy_and_mutate(state) as state_next:
+            state_next.solution = jax.tree.map(
+                lambda new, old: jnp.where(inner_state_final.accepted, new, old),
+                inner_state_final.sol_proposed,
+                sol_prev,
+            )
+            state_next.lambd = lambd_next
+            state_next.last_step_accepted = inner_state_final.accepted
+
+        # Debug: log step acceptance and ATb_norm.
+        if self.verbose:
+            jax_log(
+                "     accepted={accepted} ATb_norm={atb_norm:.2e} cost_prev={cost_prev:.4f} cost_new={cost_new:.4f}",
+                accepted=inner_state_final.accepted,
+                atb_norm=jnp.linalg.norm(ATb),
+                cost_prev=sol_prev.cost_info.cost_total,
+                cost_new=inner_state_final.sol_proposed.cost_info.cost_total,
+                ordered=True,
+            )
+
+        # Update AL state when inner problem has converged (gradient small or terminated).
+        # Note: we update even if the step was rejected - if gradient is small, inner has converged.
+        if self.augmented_lagrangian is not None and state_next.al_state is not None:
+            should_update_al = (
+                jnp.linalg.norm(ATb) < self.augmented_lagrangian.inner_solve_tolerance
+            ) | jnp.any(inner_state_final.summary.termination_criteria)
+            state_next = jax.lax.cond(
+                should_update_al,
+                lambda s: self._update_al_state_and_recompute(problem, s),
+                lambda s: s,
+                state_next,
+            )
+
+        # Copy summary from inner state (convergence and histories already updated).
+        with jdc.copy_and_mutate(state_next) as state_next:
+            state_next.summary = inner_state_final.summary
+        return state_next
+
+    def _update_al_state_and_recompute(
+        self,
+        problem: AnalyzedLeastSquaresProblem,
+        state: _LmOuterState,
+    ) -> _LmOuterState:
+        """Update Augmented Lagrangian state and recompute cost.
+
+        Args:
+            problem: The analyzed problem with constraints.
+            state: Current outer state.
+
+        Returns:
+            Updated outer state with new AL params and recomputed cost.
+        """
+        assert self.augmented_lagrangian is not None
+        assert state.al_state is not None
+
+        al_state_updated = update_al_state(
+            problem,
+            state.solution.vals,
+            state.al_state,
+            self.augmented_lagrangian,
+            verbose=self.verbose,
+        )
+
+        problem_updated = update_problem_al_params(problem, al_state_updated)
+        new_cost_info = problem_updated._compute_cost_info(state.solution.vals)
+
+        with jdc.copy_and_mutate(state) as state_updated:
+            state_updated.al_state = al_state_updated
+            state_updated.solution.cost_info = new_cost_info
+        return state_updated
+
+    @staticmethod
+    def _log_state(
+        problem: AnalyzedLeastSquaresProblem,
+        sol: _SolutionState,
+        iterations: jax.Array,
+        lambd: float | jax.Array,
+    ) -> None:
+        if sol.cg_state is None:
+            jax_log(
+                " step #{i}: cost={cost:.4f} lambd={lambd:.4f}",
+                i=iterations,
+                cost=sol.cost_info.cost_nonconstraint,
+                lambd=lambd,
+                ordered=True,
+            )
+        else:
+            jax_log(
+                " step #{i}: cost={cost:.4f} lambd={lambd:.4f} inexact_tol={inexact_tol:.1e}",
+                i=iterations,
+                cost=sol.cost_info.cost_nonconstraint,
+                lambd=lambd,
+                inexact_tol=sol.cg_state.eta,
+                ordered=True,
+            )
+        residual_index = 0
+        for f, count in zip(problem._stacked_costs, problem._cost_counts):
+            stacked_dim = count * f.residual_flat_dim
+            partial_cost = jnp.sum(
+                sol.cost_info.residual_vector[
+                    residual_index : residual_index + stacked_dim
+                ]
+                ** 2
+            )
+            residual_index += stacked_dim
+            jax_log(
+                "     - "
+                + f"{f._get_name()}({count}):".ljust(15)
+                + " {:.5f} (avg {:.5f})",
+                partial_cost,
+                partial_cost / stacked_dim,
+                ordered=True,
+            )
+
+
+@jdc.pytree_dataclass
+class TrustRegionConfig:
+    # Levenberg-Marquardt parameters.
+    lambda_initial: float | jax.Array = 5e-4
+    """Initial damping factor. Only used for Levenberg-Marquardt."""
+    lambda_factor: float | jax.Array = 2.0
+    """Factor to increase or decrease damping. Only used for Levenberg-Marquardt."""
+    lambda_min: float | jax.Array = 1e-5
+    """Minimum damping factor. Only used for Levenberg-Marquardt."""
+    lambda_max: float | jax.Array = 1e6
+    """Maximum damping factor. Only used for Levenberg-Marquardt."""
+    step_quality_min: float | jax.Array = 1e-3
+    """Minimum step quality for Levenberg-Marquardt. Only used for Levenberg-Marquardt."""
+
+
+@jdc.pytree_dataclass
+class TerminationConfig:
+    # Termination criteria.
+    max_iterations: jdc.Static[int] = 100
+    """Maximum number of optimization steps. For constrained problems, this is
+    the maximum iterations per inner solve (not total iterations)."""
+    early_termination: jdc.Static[bool] = True
+    """If set to `True`, terminate when any of the tolerances are met. If
+    `False`, always run `max_iterations` steps."""
+    cost_tolerance: float | jax.Array = 1e-5
+    """We terminate if `|cost change| / cost < cost_tolerance`. For constrained
+    problems, this acts as a floor for the adaptive inner solver tolerance."""
+    gradient_tolerance: float | jax.Array = 1e-4
+    """We terminate if `norm_inf(x - rplus(x, linear delta)) < gradient_tolerance`.
+    For constrained problems, this acts as a floor for the adaptive inner solver
+    tolerance."""
+    gradient_tolerance_start_step: int | jax.Array = 10
+    """When to start checking the gradient tolerance condition. Helps solve precision
+    issues caused by inexact Newton steps."""
+    parameter_tolerance: float | jax.Array = 1e-6
+    """We terminate if `norm_2(linear delta) < (norm2(x) + parameter_tolerance) * parameter_tolerance`."""
+
+    def _check_convergence(
+        self,
+        sol_prev: _SolutionState,
+        cost_nonconstraint_updated: jax.Array,
+        tangent: jax.Array,
+        tangent_ordering: VarTypeOrdering,
+        ATb: jax.Array,
+        iterations: jax.Array,
+        accepted: jax.Array,
+    ) -> tuple[jax.Array, jax.Array]:
+        """Check for convergence!"""
+
+        # Cost tolerance: use cost_nonconstraint for meaningful convergence check.
+        # For constrained problems, the total cost changes with each AL update,
+        # but cost_nonconstraint (original objective) provides stable convergence.
+        # Only accepted proposals count: the cost delta of a rejected step says
+        # nothing about progress, since the step is not taken.
+        cost_reldelta = (
+            jnp.abs(cost_nonconstraint_updated - sol_prev.cost_info.cost_nonconstraint)
+            / sol_prev.cost_info.cost_nonconstraint
+        )
+        converged_cost = (cost_reldelta < self.cost_tolerance) & accepted
+
+        # Gradient tolerance: infinity norm of the gradient step.
+        flat_vals = jax.flatten_util.ravel_pytree(sol_prev.vals)[0]
+        gradient_mag = jnp.max(
+            jnp.abs(
+                flat_vals
+                - jax.flatten_util.ravel_pytree(
+                    sol_prev.vals._retract(ATb, tangent_ordering)
+                )[0]
+            )
+        )
+        converged_gradient = jnp.where(
+            iterations >= self.gradient_tolerance_start_step,
+            gradient_mag < self.gradient_tolerance,
+            False,
+        )
+
+        # Parameter tolerance. Like the cost criterion above, only accepted
+        # proposals count: a rejected step is not taken, so its size says
+        # nothing about convergence — and treating it as converged exits the
+        # lambda-escalation loop early, freezing LM into re-proposing the
+        # same rejected step forever (measurements: benchmarks/results.md).
+        # When no acceptable step exists at any damping, the lambda_max
+        # check in the outer loop terminates instead.
+        param_delta = jnp.linalg.norm(jnp.abs(tangent)) / (
+            jnp.linalg.norm(flat_vals) + self.parameter_tolerance
+        )
+        converged_parameters = (param_delta < self.parameter_tolerance) & accepted
+
+        # Check termination flags. We'll terminate if any of the conditions are met.
+        term_flags = jnp.array(
+            [converged_cost, converged_gradient, converged_parameters]
+        )
+        return term_flags, jnp.array([cost_reldelta, gradient_mag, param_delta])

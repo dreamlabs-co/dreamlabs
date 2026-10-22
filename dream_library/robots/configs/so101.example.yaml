@@ -1,0 +1,90 @@
+# Example config for a bimanual SO-101 driven by a FaaS fine-tune through DreamAPI.
+#
+# The same loop, station and file format as configs/yam.example.yaml; this file shows only what differs on an
+# SO-101, and every key it leaves out means what that file says. `body: so101` switches the arm driver
+# (robots.so101 on LeRobot's Feetech bus, the `so101` extra: pip install "dream[so101]" inside the dream
+# environment, Python 3.12 or newer), the wire the observation is sent in, and the dream client's IK: the fine-tune answers with tool poses, and
+# the client solves them to joints with dream's own IK of the SO-101 (dream.client_ik, `so101_faas`) before the loop
+# sees them. The client also turns the joints and the gripper into the units the checkpoint was trained in.
+#
+# Try it first without moving anything: dreamcli robot run --config so101.yaml --task "..." --dry-run
+
+body: so101
+
+# The embodiment your fine-tune was trained on, <username>/<name> as `dream.DreamClient().get_embodiments()` lists
+# it. Its config is what the observation is sent as, and its `video` roles are the camera names below.
+embodiment: REPLACE_USERNAME/REPLACE_EMBODIMENT
+
+# --- Follower arms (SO-101, Feetech servos on a serial bus) -------------------------------------
+# One serial adapter per arm. Every key is required.
+# can_channel: the arm's serial port by id, /dev/serial/by-id/... (`ls -l /dev/serial/by-id/`). A /dev/ttyACM name
+#   changes when a cable is replugged, so it is refused: the two arms could swap.
+# calibration: the arm's LeRobot calibration file, what `lerobot-calibrate` wrote for it (by default under
+#   ~/.cache/huggingface/lerobot/calibration/robots/so101_follower/). Calibrate with the arm in LeRobot's middle pose:
+#   that pose is the joints' zero here, as it was in the data the model learned from. An arm whose servos hold
+#   another calibration than its file (the other arm's file, or a recalibration since) refuses to start. A relative
+#   path is read from this file's directory. The gripper's closed and open ends are the file's gripper range.
+# home: the arm's home pose, six joint angles in radians, where every run starts and where Home and Stop move it, the
+#   gripper open. The SO-101 has five joints, so the sixth is always 0. Its zero pose stands the arm up, so it is no
+#   home: the setup wizard captures one, or copy the angles `dreamcli robot run --dry-run` logs with the arm where it
+#   should start. The placeholders below will not load.
+#
+# The arm has no brakes: on exit (Ctrl-C, systemd stop) each arm travels back to the pose it was in when it was
+# opened, at 20 deg/s with the gripper open, and only then switches its servos off.
+follower_l:
+  can_channel: /dev/serial/by-id/usb-1a86_USB_Single_Serial_REPLACE-if00
+  calibration: ~/.cache/huggingface/lerobot/calibration/robots/so101_follower/left.json
+  home: [REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, 0.0]
+
+follower_r:
+  can_channel: /dev/serial/by-id/usb-1a86_USB_Single_Serial_REPLACE-if00
+  calibration: ~/.cache/huggingface/lerobot/calibration/robots/so101_follower/right.json
+  home: [REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, REPLACE_RAD, 0.0]
+
+# --- Cameras ----------------------------------------------------------------------------------
+# Name each camera after a `video` role of your embodiment (a run lists them when a name does not fit). They are sent
+# as `video.<role>`. Devices as in the YAM file.
+cameras:
+  - name: top
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:1:1.0-video-index0
+    width: 640
+    height: 480
+    fps: 30
+  - name: left_wrist
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:2:1.0-video-index0
+    width: 640
+    height: 480
+    fps: 30
+  - name: right_wrist
+    device: /dev/v4l/by-path/pci-0000:00:14.0-usb-0:3:1.0-video-index0
+    width: 640
+    height: 480
+    fps: 30
+
+task: "pick up the cup and place it on the plate"
+
+# --- The model ----------------------------------------------------------------------------------
+# An SO-101 has no default model: name your fine-tune with each Start on the station page, or with --checkpoint:
+#   dreamcli robot run --config so101.yaml --checkpoint dream-1-ft:<your fine-tune> --task "..."
+
+# --- Loop -------------------------------------------------------------------------------------
+# 20 by default on an SO-101, every body's action rate: the fine-tune's 30 fps rows play at two thirds speed.
+# The arm's driver ticks at 60 Hz and steps toward each target at no more than 120 deg/s per joint.
+control_hz: 20
+action_horizon: 48
+action_timeout_s: 3.0
+stale_after_s: 0.2
+max_stall_ticks: 240
+first_chunk_timeout_s: 120.0
+# The end-effector cap reads each arm's forward kinematics from dream's IK model of the SO-101.
+max_ee_speed_m_s: 0.6
+max_gripper_step: 0.05
+# The grip force cap reads the YAM gripper's measured effort, which an SO-101 does not report: its gripper servo's
+# own torque limit does that job here, so the cap is off.
+grip_force_cap: 0
+
+# --- Policy frames ------------------------------------------------------------------------------
+# What each `video.<role>` window carries; these must match the fine-tune's video settings.
+policy_image_size: 640x360
+obs_window: 9
+obs_fps: 5.0

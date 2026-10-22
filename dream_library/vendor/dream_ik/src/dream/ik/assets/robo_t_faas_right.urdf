@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<!-- ROBO Robo-Tv2_dreamlabs.urdf (the vendor upload, robo/robo-t/urdf): R.ShoulderFixed .. R.Gripper only (7
+     movable joints; meshes and every other link dropped), the FaaS EEF bake frame. Axes turned over and limits
+     mirrored for R.WristRoll, R.WristYaw, then limits {"R.Elbow": [-0.1, 2.3562], "R.ShoulderRotate": [-0.2745, 3.3161]}, as the training-side
+     robo_t_faas twin. Source sha256 b0b8a8ed00021042aa12b928a9e3e9b4e2233eb696a2d8a7cd873acb2a69f1d2. -->
+<robot name="robo_t_faas_right">
+  <link name="R.ShoulderFixed">
+    
+    </link>
+  <link name="R.Shoulder">
+    
+    </link>
+  <joint name="R.Shoulder" type="revolute">
+    <origin xyz="1.3596E-05 -0.15687 0" rpy="0 0 0" />
+    <parent link="R.ShoulderFixed" />
+    <child link="R.Shoulder" />
+    <axis xyz="0 -1 0" />
+    <limit lower="-2.5307" upper="2.3562" effort="0" velocity="0" />
+  </joint>
+  <link name="R.ShoulderRotate">
+    
+    </link>
+  <joint name="R.ShoulderRotate" type="revolute">
+    <origin xyz="-0.0301 -0.06 0" rpy="0 0 0" />
+    <parent link="R.Shoulder" />
+    <child link="R.ShoulderRotate" />
+    <axis xyz="-1 0 0" />
+    <limit lower="-0.2745" upper="3.3161" effort="0" velocity="0" />
+  </joint>
+  <link name="R.ArmRoll">
+    
+    </link>
+  <joint name="R.ArmRoll" type="revolute">
+    <origin xyz="0.0301 0 -0.06625" rpy="0 0 0" />
+    <parent link="R.ShoulderRotate" />
+    <child link="R.ArmRoll" />
+    <axis xyz="0 0 -1" />
+    <limit lower="-1.5708" upper="1.5708" effort="0" velocity="0" />
+  </joint>
+  <link name="R.Elbow">
+    
+    </link>
+  <joint name="R.Elbow" type="revolute">
+    <origin xyz="0 0.03155 -0.23971" rpy="0 0 0" />
+    <parent link="R.ArmRoll" />
+    <child link="R.Elbow" />
+    <axis xyz="0 -1 0" />
+    <limit lower="-0.1" upper="2.3562" effort="0" velocity="0" />
+  </joint>
+  <link name="R.WristRoll">
+    
+    </link>
+  <joint name="R.WristRoll" type="revolute">
+    <origin xyz="0 -0.0315 -0.22444" rpy="0 0 0" />
+    <parent link="R.Elbow" />
+    <child link="R.WristRoll" />
+    <axis xyz="-0.0 -0.0 -1.0" />
+    <limit lower="-1.5708" upper="1.5708" effort="0" velocity="0" />
+  </joint>
+  <link name="R.WristPitch">
+    
+    </link>
+  <joint name="R.WristPitch" type="revolute">
+    <origin xyz="0 0 -0.1205" rpy="0 0 0" />
+    <parent link="R.WristRoll" />
+    <child link="R.WristPitch" />
+    <axis xyz="0 1 0" />
+    <limit lower="-0.7854" upper="0.7854" effort="0" velocity="0" />
+  </joint>
+  <link name="R.WristYaw">
+    
+    </link>
+  <joint name="R.WristYaw" type="revolute">
+    <origin xyz="0.0205 0 0" rpy="0 0 0" />
+    <parent link="R.WristPitch" />
+    <child link="R.WristYaw" />
+    <axis xyz="1.0 -0.0 -0.0" />
+    <limit lower="-1.5708" upper="1.5708" effort="0" velocity="0" />
+  </joint>
+  <link name="R.Gripper">
+    </link>
+  <joint name="R.Gripper" type="fixed">
+    <origin xyz="-0.0205 0 -0.0955" rpy="0 0 0" />
+    <parent link="R.WristYaw" />
+    <child link="R.Gripper" />
+    <axis xyz="0 0 0" />
+  </joint>
+</robot>

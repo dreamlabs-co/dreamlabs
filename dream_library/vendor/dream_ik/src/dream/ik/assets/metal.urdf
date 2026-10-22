@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<!-- MakerMods Metal arm, kinematics only (joint1..joint6, no meshes, no gripper fingers).
+     Source: metal-python-ros ef4181f1305cbcfc63431d3bcfb96f5fb7f72763,
+     metal_ros2/src/metal_description/urdf/metal_with_gripper.urdf (sha256 ad3cdb43efc45ad7757507a0985e63dc39c8388430be744406242bed31a55d4a),
+     origins, axes and limits copied verbatim. The same chain as our Metal policy's. -->
+<robot name="metal">
+  <link name="base_link"/>
+  <link name="link1"/>
+  <link name="link2"/>
+  <link name="link3"/>
+  <link name="link4"/>
+  <link name="link5"/>
+  <link name="link6"/>
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <origin xyz="0 0 0.06675" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.79" upper="2.79" velocity="5" effort="30"/>
+  </joint>
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="0.00075 0 0.055" rpy="1.5707963267949 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14" upper="0" velocity="5" effort="100"/>
+  </joint>
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="-0.28 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="0" upper="3.14" velocity="5" effort="30"/>
+  </joint>
+  <joint name="joint4" type="revolute">
+    <parent link="link3"/>
+    <child link="link4"/>
+    <origin xyz="0.215000000000004 0.0630000000000073 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.145" upper="1.413" velocity="20" effort="10"/>
+  </joint>
+  <joint name="joint5" type="revolute">
+    <parent link="link4"/>
+    <child link="link5"/>
+    <origin xyz="0.0799999999999998 0.0519999999999981 0.000249997832942123" rpy="1.5707963267949 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.482" upper="1.482" velocity="20" effort="10"/>
+  </joint>
+  <joint name="joint6" type="revolute">
+    <parent link="link5"/>
+    <child link="link6"/>
+    <origin xyz="0.0235 0 0.0440000000000001" rpy="-3.14159265330655 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-2.529" upper="2.529" velocity="20" effort="10"/>
+  </joint>
+</robot>

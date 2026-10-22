@@ -1,0 +1,184 @@
+{
+ "robots": [
+  {
+   "id": "metal",
+   "label": "MakerMods Metal Arm",
+   "ik": "metal",
+   "body": "metal",
+   "gripper": "part",
+   "first_arm": "left",
+   "cameras": {
+    "head": "observation.images.scene",
+    "wrist_l": "observation.images.left_wrist",
+    "wrist_r": "observation.images.right_wrist"
+   },
+   "head_camera": "head",
+   "control_hz": 30.0
+  },
+  {
+   "id": "makers_arm",
+   "label": "MakerMods Maker Arm",
+   "ik": "makers",
+   "body": "makers",
+   "gripper": "part",
+   "first_arm": "left",
+   "cameras": {
+    "scene": "observation.images.scene",
+    "wrist_l": "observation.images.left_wrist",
+    "wrist_r": "observation.images.right_wrist"
+   },
+   "head_camera": "scene",
+   "control_hz": 30.0
+  },
+  {
+   "id": "rebot",
+   "label": "Seeed reBot B601-DM",
+   "ik": "seeed_faas",
+   "body": "custom",
+   "gripper": "part",
+   "first_arm": "right",
+   "cameras": {
+    "head": "observation.images.top",
+    "wrist_l": "observation.images.left",
+    "wrist_r": "observation.images.right"
+   },
+   "head_camera": "head",
+   "control_hz": 30.0
+  },
+  {
+   "id": "so101",
+   "label": "XLeRobot (two SO-101)",
+   "ik": "so101_faas",
+   "body": "so101",
+   "gripper": "part",
+   "first_arm": "left",
+   "cameras": {
+    "head": "observation.images.top",
+    "wrist_l": "observation.images.left",
+    "wrist_r": "observation.images.right"
+   },
+   "head_camera": "head",
+   "control_hz": 30.0
+  },
+  {
+   "id": "trossen",
+   "label": "Trossen WidowX AI",
+   "ik": "trossen_wb_faas",
+   "body": "custom",
+   "gripper": "in_arm",
+   "first_arm": "left",
+   "cameras": {
+    "overhead": "observation.images.camera_main",
+    "wrist_l": "observation.images.camera_left",
+    "wrist_r": "observation.images.camera_right"
+   },
+   "head_camera": "overhead",
+   "control_hz": 30.0
+  },
+  {
+   "id": "ai_worker",
+   "label": "ROBOTIS AI Worker",
+   "ik": "ai_worker_faas",
+   "body": "custom",
+   "gripper": "part",
+   "first_arm": "left",
+   "cameras": {
+    "head": "observation.images.rgb.cam_left_head",
+    "wrist_l": "observation.images.rgb.cam_left_wrist",
+    "wrist_r": "observation.images.rgb.cam_right_wrist"
+   },
+   "head_camera": "head",
+   "control_hz": 30.0
+  },
+  {
+   "id": "openarm_2",
+   "label": "Enactic OpenArm v2",
+   "ik": "openarm2_faas",
+   "body": "custom",
+   "gripper": "part",
+   "first_arm": "right",
+   "cameras": {
+    "head": "observation.images.head_left",
+    "wrist_l": "observation.images.wrist_left",
+    "wrist_r": "observation.images.wrist_right"
+   },
+   "head_camera": "head",
+   "control_hz": 30.0
+  },
+  {
+   "id": "galaxea_r1_lite",
+   "label": "Galaxea R1 Lite",
+   "ik": "galaxea_faas",
+   "body": "custom",
+   "gripper": "part",
+   "first_arm": "left",
+   "cameras": {
+    "overhead": "observation.images.head_rgb",
+    "wrist_l": "observation.images.left_wrist_rgb",
+    "wrist_r": "observation.images.right_wrist_rgb"
+   },
+   "head_camera": "overhead",
+   "control_hz": 30.0
+  },
+  {
+   "id": "mantis",
+   "label": "Blue Worm Mantis",
+   "ik": "mantis_faas",
+   "body": "custom",
+   "gripper": "part",
+   "first_arm": "left",
+   "cameras": {
+    "head": "observation.images.env_cam",
+    "wrist_l": "observation.images.left_wrist_cam",
+    "wrist_r": "observation.images.right_wrist_cam"
+   },
+   "head_camera": "head",
+   "control_hz": 30.0
+  },
+  {
+   "id": "bracketbot",
+   "label": "Bracketbot",
+   "ik": "bracketbot_faas",
+   "body": "custom",
+   "gripper": "part",
+   "first_arm": "left",
+   "cameras": {
+    "head": "observation.images.head",
+    "wrist_l": "observation.images.arm_left",
+    "wrist_r": "observation.images.arm_right"
+   },
+   "head_camera": "head",
+   "control_hz": 30.0
+  },
+  {
+   "id": "robo_t1",
+   "label": "ROBO-T1",
+   "ik": "robo_t_faas",
+   "body": "custom",
+   "gripper": "part",
+   "first_arm": "left",
+   "cameras": {
+    "overhead": "observation.images.center_rgb",
+    "wrist_l": "observation.images.left_wrist",
+    "wrist_r": "observation.images.right_wrist"
+   },
+   "head_camera": "overhead",
+   "control_hz": 30.0
+  },
+  {
+   "id": "unitree_r1",
+   "label": "Unitree R1 (A7 arms)",
+   "ik": "unitree_r1_faas",
+   "body": "custom",
+   "gripper": "after_arms",
+   "first_arm": "left",
+   "cameras": {
+    "high_l": "observation.images.cam_left_high",
+    "wrist_l": "observation.images.cam_left_wrist",
+    "wrist_r": "observation.images.cam_right_wrist"
+   },
+   "head_camera": "high_l",
+   "control_hz": 30.0
+  }
+ ]
+}

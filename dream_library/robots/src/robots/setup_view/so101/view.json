@@ -1,0 +1,68 @@
+{
+ "arm": "so101_faas",
+ "source": {
+  "repository": "https://github.com/TheRobotStudio/SO-ARM100",
+  "commit": "a758567c3978dfeefe282ede0500085a48fe8f78",
+  "urdf": "Simulation/SO101/so101_new_calib.urdf",
+  "urdf_sha256": "3a65d2d35e68a8d2f0c2cc176d19b884506543c93ba72980145b80abe276022c",
+  "license": "Apache-2.0"
+ },
+ "joints": {
+  "joint1": ["shoulder_pan", 1.0],
+  "joint2": ["shoulder_lift", 1.0],
+  "joint3": ["elbow_flex", 1.0],
+  "joint4": ["wrist_flex", 1.0],
+  "joint5": ["wrist_roll", 1.0]
+ },
+ "jaw": ["gripper", 0.0, 1.74533],
+ "parts": [
+  {
+   "link": "arm_root",
+   "mesh": "base_link.stl",
+   "from": "base_link",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "shoulder_link",
+   "mesh": "shoulder_link.stl",
+   "from": "shoulder_link",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "upper_arm_link",
+   "mesh": "upper_arm_link.stl",
+   "from": "upper_arm_link",
+   "pose": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "lower_arm_link",
+   "mesh": "lower_arm_link.stl",
+   "from": "lower_arm_link",
+   "pose": [1.0, -1e-07, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "wrist_link",
+   "mesh": "wrist_link.stl",
+   "from": "wrist_link",
+   "pose": [1.0, 0.0, -1e-07, 0.0, 0.0, 0.0, 0.0]
+  },
+  {
+   "link": "finger_lf",
+   "mesh": "gripper_link.stl",
+   "from": "gripper_link",
+   "pose": [1.0, -1e-07, 0.0, -1e-07, 0.0, 0.0, 0.0]
+  }
+ ],
+ "jaws": [
+  {
+   "link": "finger_lf",
+   "mesh": "moving_jaw_so101_v1_link.stl",
+   "from": "moving_jaw_so101_v1_link",
+   "pose": [0.7071055, 0.707108, -1e-07, 0.0, 0.0202, 0.0188, -0.0234],
+   "move": "turn",
+   "axis": [-1e-07, -1.0, -3.5e-06],
+   "pivot": [0.0202, 0.0188, -0.0234],
+   "travel": 1.74533
+  }
+ ]
+}

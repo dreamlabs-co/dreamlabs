@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup wizard</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjMxOCIgdmlld0JveD0iMCAwIDY0MCAzMTgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxzdHlsZT5wYXRoIHsgZmlsbDogIzFiMWIxYjsgfSBAbWVkaWEgKHByZWZlcnMtY29sb3Itc2NoZW1lOiBkYXJrKSB7IHBhdGggeyBmaWxsOiAjZmZmZmZmOyB9IH08L3N0eWxlPgo8cGF0aCBkPSJNMzA1Ljk3NCAwQzM0My43NSAwIDM4MC40MTIgMTAuODAwNCA0MTEuOTg4IDMxLjIzNzNDNDM2LjM1NyA0Ny4wMDE0IDQ1Ni40NzkgNjcuNDM4NiA0NzEuNzk3IDkxLjk4MTRDNDc0Ljk5MSA5Ny4wOTU0IDQ4MC41OSAxMDAuMTkzIDQ4Ni42MDEgMTAwLjE5M0g0ODYuOTZDNDg3Ljk3MyAxMDAuMTc0IDQ4OS4wMDEgMTAwLjE2NCA0OTAuMDE0IDEwMC4xNjRDNTEwLjE0IDEwMC4xNjQgNTI5LjY3NiAxMDQuMTA5IDU0OC4wNzIgMTExLjg5QzU2NS44MzMgMTE5LjQwMyA1ODEuNzgxIDEzMC4xNTUgNTk1LjQ3MSAxNDMuODQ1QzYwOS4xNiAxNTcuNTM0IDYxOS45MTIgMTczLjQ4MiA2MjcuNDI2IDE5MS4yNDNDNjM1LjIwNiAyMDkuNjM5IDYzOS4xNTEgMjI5LjE3NSA2MzkuMTUxIDI0OS4yOTdDNjM5LjE1MSAyNjkuNDE5IDYzNS4yMDYgMjg4Ljk1NCA2MjcuNDI2IDMwNy4zNTFDNjI3LjQxMSAzMDcuMzg0IDYyNy4zOTYgMzA3LjQxOCA2MjcuMzgyIDMwNy40NTJDNjI0Ljg3MSAzMTMuMzgxIDYxOS4wMDYgMzE3LjE5NiA2MTIuNTYzIDMxNy4xOTZIMjAuODg3N0MxNC4wMjg2IDMxNy4xOTYgNy45NTAwNCAzMTIuODU3IDUuNjUyMzQgMzA2LjM5NkMxLjkzOTIgMjk1Ljk0NCAwIDI4NC44MTkgMCAyNzMuMzk4QzAuMDAwMTEyODIyIDI0Ny4xNCAxMC4yMjgyIDIyMi40NTEgMjguNzk4OCAyMDMuODc2QzQ2Ljk1NzUgMTg1LjcxNyA3MS4wNzg2IDE3NS40OTkgOTYuNzI2NiAxNzUuMDk3QzEwNS4wNzQgMTc0Ljk2NiAxMTIuMTU2IDE2OC45NCAxMTMuNjMgMTYwLjcyNEMxMTYuMTYgMTQ2LjU4OCAxMjAuMyAxMzIuNjYyIDEyNS45MzggMTE5LjMzNkMxMzUuNzc4IDk2LjA2MzEgMTQ5Ljg2NSA3NS4xNzAxIDE2Ny44MDYgNTcuMjI5NUMxODUuNzQ2IDM5LjI4OSAyMDYuNjQ0IDI1LjIwMjcgMjI5LjkxMiAxNS4zNjIzQzI1NC4wMDkgNS4xNjgwOSAyNzkuNjAzIDEuODU2MzhlLTA1IDMwNS45NzQgMFpNMzY5LjEzMyAxNjguMjcxQzM1Mi4zMzEgMTY4LjI3MiAzMzguNzExIDE4MS44OTIgMzM4LjcxMSAxOTguNjkzQzMzOC43MTEgMjE1LjQ5NSAzNTIuMzMxIDIyOS4xMTYgMzY5LjEzMyAyMjkuMTE2QzM4NS45MzQgMjI5LjExNiAzOTkuNTU1IDIxNS40OTUgMzk5LjU1NSAxOTguNjkzQzM5OS41NTQgMTgxLjg5MiAzODUuOTM0IDE2OC4yNzEgMzY5LjEzMyAxNjguMjcxWk00NzcuOTM2IDE2OC4yNzFDNDYxLjEzNCAxNjguMjcyIDQ0Ny41MTQgMTgxLjg5MiA0NDcuNTE0IDE5OC42OTNDNDQ3LjUxNCAyMTUuNDk1IDQ2MS4xMzQgMjI5LjExNiA0NzcuOTM2IDIyOS4xMTZDNDk0LjczNyAyMjkuMTE2IDUwOC4zNTggMjE1LjQ5NSA1MDguMzU4IDE5OC42OTNDNTA4LjM1OCAxODEuODkyIDQ5NC43MzcgMTY4LjI3MSA0NzcuOTM2IDE2OC4yNzFaIiBmaWxsPSJibGFjayIvPgo8L3N2Zz4K">
+<link rel="stylesheet" href="/setup_wizard.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="https://platform.dreamlabs.ai" title="Open the Dream Labs platform"><svg role="img" aria-label="Dream Labs" height="20" viewBox="0 0 271.54 27.3487" fill="none" xmlns="http://www.w3.org/2000/svg"> <g> <g transform="translate(12.497 0)"> <path d="M52.8827 26.8675V0H63.5094C66.1828 0 68.4953 0.574776 70.4468 1.72433C72.3984 2.87388 73.8955 4.45118 74.9381 6.45621C75.9807 8.46125 76.502 10.7604 76.502 13.3535C76.502 15.9467 75.9807 18.2592 74.9381 20.291C73.8955 22.3227 72.3984 23.9267 70.4468 25.103C68.522 26.2793 66.2095 26.8675 63.5094 26.8675H52.8827ZM57.775 22.4163H62.9079C64.9397 22.4163 66.5838 22.0287 67.8403 21.2534C69.1235 20.4514 70.0458 19.3686 70.6072 18.0052C71.1954 16.6151 71.4895 15.0645 71.4895 13.3535C71.4895 11.6158 71.1954 10.0786 70.6072 8.74195C70.0191 7.40526 69.0834 6.36264 67.8002 5.6141C66.5437 4.83882 64.9129 4.45118 62.9079 4.45118H57.775V22.4163Z" fill="#1C1C1C"/> <path d="M79.5528 26.8675V7.13792H84.0441L84.004 11.0678C84.5387 9.8915 85.3674 8.88899 86.4903 8.06024C87.6131 7.20476 89.0032 6.77702 90.6607 6.77702C91.2221 6.77702 91.6499 6.81712 91.9439 6.89732V11.5891C91.7301 11.5356 91.4494 11.4955 91.1018 11.4688C90.7543 11.4153 90.3934 11.3886 90.0191 11.3886C88.3616 11.3886 87.0249 11.9233 86.009 12.9926C85.4476 13.5273 85.0199 14.1956 84.7258 14.9977C84.4318 15.7729 84.2847 16.7086 84.2847 17.8047V26.8675H79.5528Z" fill="#1C1C1C"/> <path d="M102.172 27.3487C100.247 27.3487 98.5223 26.9076 96.9985 26.0254C95.5014 25.1164 94.3118 23.8866 93.4296 22.3361C92.5473 20.7855 92.1062 19.0077 92.1062 17.0027C92.1062 15.0244 92.534 13.26 93.3895 11.7094C94.2717 10.1321 95.4613 8.90235 96.9584 8.02014C98.4822 7.11119 100.193 6.65672 102.091 6.65672C103.909 6.65672 105.54 7.08446 106.984 7.93994C108.427 8.76869 109.563 9.94497 110.392 11.4688C111.221 12.9926 111.635 14.7571 111.635 16.7621C111.635 17.0027 111.622 17.2567 111.595 17.524C111.595 17.7646 111.595 17.9785 111.595 18.1656H96.7579C96.8648 19.8231 97.4263 21.1331 98.4421 22.0955C99.458 23.0312 100.715 23.499 102.212 23.499C103.441 23.499 104.417 23.2183 105.139 22.6569C105.888 22.0688 106.395 21.4138 106.663 20.692H111.435C111.274 21.3336 110.967 22.042 110.512 22.8173C110.058 23.5658 109.443 24.2877 108.668 24.9827C107.919 25.6778 106.997 26.2526 105.901 26.7071C104.832 27.1348 103.588 27.3487 102.172 27.3487ZM96.8782 14.9175H107.024C106.97 14.3026 106.756 13.661 106.382 12.9926C106.008 12.2975 105.46 11.7094 104.738 11.2282C104.043 10.7203 103.161 10.4663 102.091 10.4663C100.648 10.4663 99.458 10.9074 98.5223 11.7896C97.6134 12.6718 97.0653 13.7144 96.8782 14.9175Z" fill="#1C1C1C"/> <path d="M120.877 27.3487C118.872 27.3487 117.201 26.8274 115.864 25.7847C114.527 24.7154 113.859 23.2317 113.859 21.3336C113.859 19.7563 114.367 18.4731 115.383 17.4839C116.425 16.468 117.856 15.8398 119.674 15.5992L126.651 14.6769V14.0352C126.651 12.8857 126.317 12.0035 125.649 11.3886C125.007 10.7737 124.045 10.4663 122.761 10.4663C121.478 10.4663 120.462 10.7737 119.714 11.3886C118.992 12.0035 118.564 12.7921 118.43 13.7545H113.779C113.939 11.6693 114.808 9.97171 116.385 8.66175C117.963 7.32506 120.101 6.65672 122.801 6.65672C125.475 6.65672 127.56 7.29833 129.057 8.58155C130.554 9.86477 131.303 11.7094 131.303 14.1154V20.8123C131.303 21.9885 131.356 23.1381 131.463 24.2609C131.597 25.3837 131.784 26.2526 132.025 26.8675H127.293C127.239 26.6269 127.186 26.2927 127.132 25.865C127.079 25.4372 127.039 24.9159 127.012 24.301C126.263 25.3436 125.355 26.1189 124.285 26.6269C123.216 27.1081 122.08 27.3487 120.877 27.3487ZM121.719 23.6193C123.029 23.6193 124.192 23.2049 125.207 22.3762C126.223 21.5207 126.731 20.3043 126.731 18.727C126.731 18.5132 126.718 18.3127 126.691 18.1255C126.691 17.9384 126.691 17.8448 126.691 17.8448L121.278 18.5666C119.433 18.834 118.511 19.6627 118.511 21.0529C118.511 21.8549 118.805 22.4831 119.393 22.9376C119.981 23.3921 120.756 23.6193 121.719 23.6193Z" fill="#1C1C1C"/> <path d="M135.507 26.8675V7.13792H140.079L140.039 9.98507C140.627 8.91572 141.442 8.10034 142.485 7.53893C143.528 6.95079 144.664 6.65672 145.893 6.65672C147.391 6.65672 148.607 7.03099 149.543 7.77954C150.478 8.50135 151.173 9.28999 151.628 10.1455C152.216 9.15633 153.058 8.32758 154.154 7.65923C155.25 6.99089 156.52 6.65672 157.964 6.65672C159.167 6.65672 160.209 6.84385 161.092 7.21813C161.974 7.5924 162.736 8.14044 163.377 8.86225C164.019 9.55733 164.473 10.4128 164.741 11.4287C165.035 12.4178 165.182 13.4872 165.182 14.6368V26.8675H160.49V15.3185C160.49 14.6501 160.423 14.0352 160.29 13.4738C160.156 12.8857 159.929 12.3911 159.608 11.9901C158.966 11.1881 158.017 10.7871 156.761 10.7871C155.478 10.7871 154.475 11.2282 153.753 12.1104C153.058 12.9926 152.711 14.2758 152.711 15.9601V26.8675H148.019V15.3185C148.019 14.6501 147.939 14.0352 147.778 13.4738C147.618 12.8857 147.364 12.3777 147.016 11.95C146.401 11.1747 145.492 10.7871 144.289 10.7871C143.006 10.7871 142.004 11.2282 141.282 12.1104C140.587 12.9926 140.239 14.2758 140.239 15.9601V26.8675H135.507Z" fill="#1C1C1C"/> <path d="M177.245 26.8675V0H182.137V22.3762H196.614V26.8675H177.245Z" fill="#1C1C1C"/> <path d="M204.607 27.3487C202.602 27.3487 200.931 26.8274 199.595 25.7847C198.258 24.7154 197.59 23.2317 197.59 21.3336C197.59 19.7563 198.097 18.4731 199.113 17.4839C200.156 16.468 201.586 15.8398 203.404 15.5992L210.382 14.6769V14.0352C210.382 12.8857 210.047 12.0035 209.379 11.3886C208.738 10.7737 207.775 10.4663 206.492 10.4663C205.209 10.4663 204.193 10.7737 203.444 11.3886C202.722 12.0035 202.295 12.7921 202.161 13.7545H197.509C197.67 11.6693 198.539 9.97171 200.116 8.66175C201.693 7.32506 203.832 6.65672 206.532 6.65672C209.205 6.65672 211.291 7.29833 212.788 8.58155C214.285 9.86477 215.033 11.7094 215.033 14.1154V20.8123C215.033 21.9885 215.087 23.1381 215.194 24.2609C215.327 25.3837 215.515 26.2526 215.755 26.8675H211.023C210.97 26.6269 210.916 26.2927 210.863 25.865C210.809 25.4372 210.769 24.9159 210.743 24.301C209.994 25.3436 209.085 26.1189 208.016 26.6269C206.946 27.1081 205.81 27.3487 204.607 27.3487ZM205.449 23.6193C206.759 23.6193 207.922 23.2049 208.938 22.3762C209.954 21.5207 210.462 20.3043 210.462 18.727C210.462 18.5132 210.449 18.3127 210.422 18.1255C210.422 17.9384 210.422 17.8448 210.422 17.8448L205.008 18.5666C203.164 18.834 202.241 19.6627 202.241 21.0529C202.241 21.8549 202.535 22.4831 203.123 22.9376C203.712 23.3921 204.487 23.6193 205.449 23.6193Z" fill="#1C1C1C"/> <path d="M230.226 27.3487C228.809 27.3487 227.552 27.0546 226.456 26.4665C225.387 25.8783 224.518 25.0763 223.85 24.0604L223.89 26.8675H219.238V0H223.97V9.74447C224.611 8.86225 225.454 8.12707 226.496 7.53893C227.539 6.95079 228.755 6.65672 230.145 6.65672C231.856 6.65672 233.38 7.11119 234.717 8.02014C236.08 8.90235 237.136 10.1321 237.885 11.7094C238.66 13.26 239.048 15.0244 239.048 17.0027C239.048 18.981 238.66 20.7588 237.885 22.3361C237.136 23.8866 236.094 25.1164 234.757 26.0254C233.42 26.9076 231.91 27.3487 230.226 27.3487ZM229.103 23.2183C230.787 23.2183 232.084 22.6168 232.993 21.4138C233.901 20.184 234.356 18.7137 234.356 17.0027C234.356 15.2917 233.901 13.8347 232.993 12.6317C232.084 11.402 230.787 10.7871 229.103 10.7871C227.98 10.7871 227.017 11.0812 226.215 11.6693C225.44 12.2307 224.852 12.9793 224.451 13.9149C224.05 14.8506 223.85 15.8799 223.85 17.0027C223.85 18.1255 224.05 19.1548 224.451 20.0904C224.852 21.0261 225.44 21.788 226.215 22.3762C227.017 22.9376 227.98 23.2183 229.103 23.2183Z" fill="#1C1C1C"/> <path d="M250.14 27.3487C248.242 27.3487 246.611 27.0145 245.248 26.3462C243.884 25.6778 242.815 24.809 242.04 23.7396C241.291 22.6703 240.863 21.5207 240.756 20.291H245.368C245.502 21.3068 245.996 22.1222 246.852 22.7371C247.734 23.3252 248.87 23.6193 250.26 23.6193C251.65 23.6193 252.653 23.3653 253.268 22.8574C253.883 22.3227 254.19 21.7212 254.19 21.0529C254.19 20.5449 253.99 20.1172 253.589 19.7696C253.214 19.3954 252.559 19.1548 251.624 19.0478L247.373 18.6468C245.341 18.4597 243.804 17.8582 242.761 16.8423C241.746 15.7997 241.238 14.5298 241.238 13.0327C241.238 11.7228 241.599 10.5866 242.32 9.62417C243.069 8.66175 244.085 7.92657 245.368 7.41863C246.651 6.91069 248.122 6.65672 249.779 6.65672C252.399 6.65672 254.538 7.27159 256.195 8.50135C257.853 9.70437 258.802 11.2817 259.042 13.2332H254.471C254.284 12.4045 253.802 11.7228 253.027 11.1881C252.279 10.6534 251.196 10.3861 249.779 10.3861C248.469 10.3861 247.467 10.6267 246.771 11.1079C246.103 11.5891 245.769 12.1639 245.769 12.8322C245.769 13.9283 246.638 14.5566 248.376 14.717L252.827 15.1581C254.885 15.3719 256.382 15.9868 257.318 17.0027C258.254 17.9918 258.721 19.2617 258.721 20.8123C258.721 21.8014 258.401 22.8039 257.759 23.8198C257.144 24.809 256.195 25.6511 254.912 26.3462C253.655 27.0145 252.065 27.3487 250.14 27.3487Z" fill="#1C1C1C"/> </g> <g transform="matrix(1.3119 0 0 1.3119 0 -3.808)"><path d="M19.751 2.90262C22.1893 2.90267 24.5556 3.6001 26.5938 4.91923C28.1668 5.93681 29.4663 7.25586 30.4551 8.84012C30.6613 9.17009 31.0223 9.37031 31.4102 9.3704H31.4336C31.499 9.36915 31.5655 9.36844 31.6309 9.36844C32.93 9.36847 34.1915 9.62308 35.3789 10.1253C36.5252 10.6103 37.5549 11.3042 38.4385 12.1878C39.322 13.0714 40.016 14.1009 40.501 15.2474C41.0032 16.4348 41.2578 17.6965 41.2578 18.9954C41.2578 20.2941 41.0031 21.5551 40.501 22.7425L40.498 22.7493C40.3359 23.1319 39.9568 23.3782 39.541 23.3782H1.34766C0.90508 23.378 0.512535 23.0979 0.364258 22.6809C0.124597 22.0064 2.97391e-05 21.2882 0 20.5511C0 18.8561 0.659677 17.2618 1.8584 16.0628C3.03046 14.8907 4.58771 14.2314 6.24316 14.2054C6.78197 14.1969 7.2398 13.808 7.33496 13.2776C7.4983 12.3652 7.76499 11.4659 8.12891 10.6057C8.76412 9.10346 9.67395 7.75504 10.832 6.59696C11.9901 5.4389 13.3389 4.52903 14.8408 3.89383C16.3963 3.23582 18.0488 2.90262 19.751 2.90262ZM23.8281 13.7649C22.7437 13.7649 21.8645 14.6434 21.8643 15.7278C21.8643 16.8124 22.7436 17.6917 23.8281 17.6917C24.9125 17.6915 25.792 16.8123 25.792 15.7278C25.7918 14.6435 24.9124 13.7651 23.8281 13.7649ZM30.8506 13.7649C29.7662 13.7649 28.8869 14.6434 28.8867 15.7278C28.8867 16.8124 29.766 17.6917 30.8506 17.6917C31.935 17.6915 32.8145 16.8123 32.8145 15.7278C32.8142 14.6435 31.9349 13.7651 30.8506 13.7649Z" fill="#1C1C1C"/></g> </g> </svg></a>
+  <nav class="crumbs" aria-label="Breadcrumb"><b>Platform</b><span class="sep" aria-hidden="true">/</span><span aria-current="page">Setup wizard</span></nav>
+</header>
+  <div class="banner gonecard hidden" id="gonebar" role="alert"><span class="title">Setup stopped running on the station</span><span>The arms may still be powered on. Support the arms, and if an arm is still moving, press your emergency stop. Then run this on the station again:</span><div class="term"><div class="termhead"><span class="termlabel">Terminal</span><button type="button" class="copy" data-copy="goneCmd" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="goneCmd"><span class="tk-cmd">dreamcli</span> setup</code></pre></div></div>
+<div class="layout">
+<aside class="side">
+  <nav class="progress" aria-label="Setup steps"><ol id="progress"></ol></nav>
+  <section class="details" aria-labelledby="detailsTitle">
+    <h2 id="detailsTitle">Station details</h2>
+    <div class="detail">Station: Dream-1 &middot; <b id="stationName">this station</b></div>
+    <div class="detail station col">
+      <span>Settings save to <code id="stationPath">~/.dreamlabs/station.yaml</code></span>
+      <span id="stationLoaded" class="loaded" hidden>Using your saved settings</span>
+    </div>
+    <div id="account" class="detail note"></div>
+  </section>
+</aside>
+<main>
+  <div>
+    <p class="stepof" id="stepOf"></p>
+    <h1 id="title" tabindex="-1">Setup wizard</h1>
+    <p class="sub" id="intro"></p>
+  </div>
+  <div id="offline" class="banner bad" hidden><span class="title">Can't load the 3D viewer.</span><span>This page needs an internet connection to load three.js from cdn.jsdelivr.net. Connect the station to the internet, then reload the page.</span></div>
+  <div id="agent" class="banner hidden" role="status"><span class="title">Stop your robot first.</span><span>Your robot is running and is using the arms and cameras. Run this command on the station, in its terminal or your SSH session, then reload this page:</span><div class="term"><div class="termhead"><span class="termlabel">Terminal</span><button type="button" class="copy" data-copy="agentCmd" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="agentCmd"><span class="tk-cmd">dreamcli</span> robot down</code></pre></div></div>
+
+  <div id="steps">
+  <section class="stepcard" id="wayCard">
+    <header><span class="step">1</span><h2>Choose setup method</h2></header>
+    <div class="body">
+      <p class="help">Choose how you want to set up this station.</p>
+      <div class="choices" id="ways">
+        <button class="choice on" id="wayWizard"><b>Use the setup wizard</b><span>Finds your arms and cameras, tests your driver under power, and writes your station file.</span></button>
+        <button class="choice" id="waySelf"><b>Set up the station myself</b><span>Get a station file to fill in and the commands to run it.</span></button>
+      </div>
+    </div>
+  </section>
+  <div class="actions" id="wayActions"><button class="primary next" id="wayNext">Continue</button></div>
+
+  <section class="card" data-step="0" id="step-0">
+    <header><span class="step">0</span><h2>Select robot</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <div class="banner selfwarn" id="selfWarn"><span class="title">Important</span><span>This path skips the setup wizard's checks. Nothing tests your arms, cameras, or settings before a run. For details on every step, see <a id="selfDocs" target="_blank" rel="noopener">Set it up yourself</a>.</span></div>
+      <div class="subcard">
+        <h3 class="ico ico-robot">Robot</h3>
+        <div class="robots" id="robots"></div>
+      </div>
+      <div id="custom" class="hidden">
+        <div class="subcard" id="armCard">
+          <h3 class="ico ico-arm">Arm model</h3>
+          <p class="help">Tells setup your arm's joints and where the gripper's tool point is.</p>
+          <div class="segmented" role="group" aria-label="Where the arm model comes from">
+            <button id="armOurs">From Dream Labs models</button><button id="armUrdf">From my URDF</button>
+          </div>
+          <div id="armList" class="hidden">
+            <label class="field" for="armSelect">Model</label>
+            <select id="armSelect"></select>
+            <p class="note" id="armOursSub" style="margin-top:8px"></p>
+          </div>
+          <div id="urdfBox" class="hidden">
+            <div class="dropzone" id="urdfDrop">
+              <b>Your arm's URDF: a .zip of it with its meshes, or its folder</b>
+              <p class="note">Drop it here, or choose it. Next you'll click your gripper's tool point on a 3D view of the arm.</p>
+              <div class="actions"><label class="button" for="urdfFile">Choose .zip</label><input id="urdfFile" type="file" accept=".zip,.urdf,.xml" class="visually-hidden"><label class="button" for="urdfFolder">Choose folder</label><input id="urdfFolder" type="file" webkitdirectory class="visually-hidden"></div>
+            </div>
+          <div id="urdfPick" class="hidden" style="margin-top:12px">
+            <p class="note" id="urdfPickAsk"></p>
+            <div class="devices" id="urdfPickList"></div>
+          </div>
+          <p class="note" id="urdfDrawn"></p>
+          <div id="urdfEnd" class="hidden">
+            <h3 class="urdfask" id="urdfAsk"></h3>
+            <div class="urdfviews"><div class="view ref hidden" id="yamView"></div><div class="view pick edit" id="urdfView"></div></div>
+            <p class="note" id="urdfLinks"></p>
+            <div id="urdfSpare" class="hidden"></div>
+            <div class="actions" id="urdfEndActions" style="margin-top:0"><button class="primary" id="urdfYes">Yes, it ends there</button><button id="urdfBaseBtn">It's mounted on another link</button></div>
+            <div id="urdfTool" class="hidden">
+              <p class="legend"><span><i class="x"></i>x: direction the fingers close</span><span><i class="y"></i>y: up</span><span><i class="z"></i>z: out of the gripper</span></p>
+              <p class="note">Line up your arm's axes with the YAM's above. Drag an arrow to move along it, or a ring to turn around it. To enter an exact value, click it. Positions are in millimeters and turns in degrees, in the frame of your arm's end link.</p>
+              <div class="urdfpad" id="urdfPad"></div>
+              <div class="actions"><button class="primary" id="urdfAdd">Set tool center point</button><button id="urdfFlip">Flip up and down</button><button id="urdfReset">Reset to start</button><button id="urdfBack">Change end link</button><span class="note" id="urdfNote"></span></div>
+              <p><button class="quiet" id="urdfSkip">Skip calibration (not advised)</button></p>
+              <div id="tcpSaved" class="hidden">
+                <p>Your arm file is saved. In your station file, replace <code>REPLACE_ARM</code> in <code>custom.ik</code> with this path:</p>
+                <div class="term"><div class="termhead"><span class="termlabel file">station.yaml</span><button type="button" class="copy" data-copy="tcpIk" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="tcpIk"></code></pre></div>
+                <p class="note">To change it, move the marker and click Set tool center point again. To stop dreamcli tcp, press Control-C in the terminal or SSH session it runs in.</p>
+              </div>
+            </div>
+          </div>
+          </div>
+        </div>
+        <div class="subcard reqblock" id="driverBox">
+          <h3 class="ico ico-driver">Driver <span class="req" id="driverReq">Required</span></h3>
+          <p class="help">The Python class that reads and moves one arm. Setup tests it against the arm model in the next steps.</p>
+          <div class="driverstart" id="customHelp">
+            <p class="driverstart-title">Start your driver from these</p>
+            <div class="actions"><a class="button" id="templateLink" href="/driver_template.py" target="_blank" rel="noopener">Driver template</a><a class="button" id="exampleLink" target="_blank" rel="noopener">Example driver (reBot)</a><a class="button" id="docsLink" target="_blank" rel="noopener">Your own robot (docs)</a></div>
+            <p class="note">Your driver reads and writes one arm: joint angles in radians, as your arm model defines them, and the gripper from 0 (closed) to 1 (open). The next steps test it against the arm model.</p>
+          </div>
+          <div class="actions"><button id="driverChoose"></button><span class="note">or <button class="linkish accent" id="driverTypedOpen">enter an installed package</button></span></div>
+          <p class="picked hidden" id="driverPicked"></p>
+          <div class="classes hidden" id="driverClasses"></div>
+          <div class="typed hidden" id="driverTypedBox"><input id="customDriver" placeholder="my_robot.driver:MyArm" aria-label="Your driver, package.module:Class"><button id="driverUse">Use it</button></div>
+        </div>
+      </div>
+      <div class="subcard" id="calibCard">
+        <h3 class="ico ico-calib">Calibration</h3>
+        <p class="help" id="calibHelp"></p>
+        <div id="so101" class="hidden">
+          <div class="so101check hidden" id="so101Check"><span id="so101CheckText" aria-live="polite"></span><button class="linkish accent" id="so101CheckAgain">Check again</button></div>
+          <div class="devices" id="so101Files"></div>
+          <p class="lookbox hidden" id="so101None">Setup looked in <code id="so101Dir"></code> and found none. Run LeRobot's calibration on each arm, then <button class="linkish accent" id="so101Look">look again</button>, or point to the files below.</p>
+          <div class="row c2">
+            <div><label class="field" for="so101Left">Left arm file</label><div class="typed"><input id="so101Left" placeholder=".../so101_follower/left.json"><button id="so101LeftAdd">Add</button></div></div>
+            <div><label class="field" for="so101Right">Right arm file</label><div class="typed"><input id="so101Right" placeholder=".../so101_follower/right.json"><button id="so101RightAdd">Add</button></div></div>
+          </div>
+          <details class="more"><summary>Which files to choose</summary>
+          <p class="note">Choose the files you recorded your data with. <code>lerobot-calibrate</code> writes one file per arm. Each arm must match one of these files. If an arm doesn't match, setup won't use it, because your data and your arm would describe different poses.</p>
+        </details>
+        </div>
+      </div>
+      <div id="embodimentBox" class="subcard hidden">
+        <h3 class="ico ico-embodiment">Embodiment</h3>
+        <p class="help">Pick the one your fine-tune was trained on.</p>
+        <select id="embodiment" class="mono" aria-label="Embodiment"></select>
+        <p class="note chips" id="embodimentCams"></p>
+        <p class="note" id="embodimentNote"></p>
+        <p class="note hidden" id="newBox">When you click Continue, setup registers this embodiment on your account, named after your arm. It has your arm's joints and the three cameras Dream Labs base models use: one that sees the whole scene and one on each wrist. You choose each camera's role in Set up cameras. Data you upload for a fine-tune goes under this embodiment.</p>
+      </div>
+      <div id="selfBox" class="selfway hidden">
+        <div class="subcard">
+          <h3 class="num">Fill in the station file</h3>
+          <ul class="bullets">
+            <li>Save this file as <code id="selfPath"></code>.</li>
+            <li>Replace every value that starts with <code>REPLACE_</code>. Leave the others as they are.</li>
+            <li>Each <code>home</code> value starts at <code>0.0</code>. You will measure the real values in step <span id="homeStep"></span>.</li>
+          </ul>
+          <div class="term"><div class="termhead"><span class="termlabel file">station.yaml</span><button type="button" class="copy" data-copy="selfYaml" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="selfYaml"></code></pre></div>
+          <div class="valuetable" role="table" aria-label="How to find each value">
+            <div class="vrow vhead" role="row"><span>Value</span><span>How to find it</span></div>
+            <div class="vrow" role="row" id="selfCanRow"><code>can_channel</code><span>Run <code>ip link</code>. Each arm's CAN adapter appears as a link, such as <code>can0</code>.</span></div>
+            <div class="vrow" role="row"><code>home</code><span>Each arm's joint angles at its home position, in radians. Leave them at <code>0.0</code> for now and measure the real values in step <span id="homeStepRow"></span>.</span></div>
+            <div class="vrow" role="row"><span>Camera <code>device</code></span><span>Run <code>ls -l /dev/v4l/by-path/</code> and use the path for each camera. For a network camera, use its <code>rtsp://</code> address.</span></div>
+            <div class="vrow" role="row"><span>Intel RealSense camera</span><span>Replace <code>device</code> with <code>serial</code>. To find the serial number, run <code>rs-enumerate-devices</code>.</span></div>
+            <div class="vrow" role="row"><span>Your own camera class</span><span>Replace <code>device</code> with <code>source: module:Class</code>.</span></div>
+          </div>
+        </div>
+        <div id="selfTcp" class="subcard hidden">
+          <h3 class="num">Set up your arm from its URDF</h3>
+          <p>Run this on the station, in a second terminal or SSH session, and open the address it prints in your browser. You mark your gripper's tool point on a 3D drawing, and it saves the arm file to use in <code>custom.ik</code>.</p>
+          <div class="term"><div class="termhead"><span class="termlabel">Terminal</span><button type="button" class="copy" data-copy="selfTcpCmd" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="selfTcpCmd"><span class="tk-cmd">dreamcli</span> tcp</code></pre></div>
+        </div>
+        <div class="subcard">
+          <h3 class="num">Check the file without moving the arms</h3>
+          <p>The model runs, but nothing is sent to the arms. The log shows each arm's joint readings once per second.</p>
+          <div class="term"><div class="termhead"><span class="termlabel">Terminal</span><button type="button" class="copy" data-copy="selfDry" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="selfDry"></code></pre></div>
+        </div>
+        <div class="subcard" id="selfHome">
+          <h3 class="num">Set each arm's home</h3>
+          <p>Leave the dry run running.</p>
+          <ol class="steps">
+            <li><span>Move each arm by hand into its home pose, the position it starts every run from.</span></li>
+            <li><span>Copy each arm's six joint readings from the log into its <code>home</code> in <code>station.yaml</code>.</span></li>
+            <li><span>Press Control-C to stop the dry run.</span></li>
+          </ol>
+        </div>
+        <div class="subcard">
+          <h3 class="num">Run the station</h3>
+          <p>This path runs the station from the terminal only.</p>
+          <div class="term"><div class="termhead"><span class="termlabel">Terminal</span><button type="button" class="copy" data-copy="selfRun" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="selfRun"></code></pre></div>
+        </div>
+        <div class="actions selfdone"><button class="primary" id="selfClose">Finish</button></div>
+      </div>
+      <div class="actions" id="pickActions"><button class="primary next blocked" id="pickRobot">Continue</button><span class="note" id="pickNeed" aria-live="polite"></span><span class="note" id="pickNote"></span></div>
+      <div class="err" id="pickErr" role="alert"></div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="1" id="step-1">
+    <header><span class="step">1</span><h2>Connect arms</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <div class="subcard" id="adaptersCard">
+        <div class="cardhead"><h3 class="num">Find adapters</h3><span class="note hidden" id="untickNote">Uncheck anything that isn't part of the robot.</span></div>
+        <div class="release" id="findBox">
+          <p class="help">Plug both arms' USB adapters into this computer and turn on the arms.</p>
+          <div class="actions"><button class="primary" id="findAdapters">Find adapters</button></div>
+        </div>
+        <div id="adapterList" class="col hidden" style="gap: 12px">
+          <p class="note hidden" id="scanNote"></p>
+          <div class="adapters">
+            <div id="devices" role="group" aria-label="Adapters on this computer"></div>
+            <details class="typedrow" id="typedArmBox">
+              <summary>Don't see an arm?</summary>
+              <p class="note">Unplug it and plug it back in. The list refreshes on its own. If it still doesn't appear, enter the address your driver uses to connect to it, such as an IP address (<code>192.168.1.20</code>), a CAN link (<code>can0</code>) or a serial port (<code>/dev/ttyUSB0</code>).</p>
+              <div class="typed"><input id="typedArm" placeholder="192.168.1.20" aria-label="The arm's address"><button id="addArm">Add Arm</button></div>
+            </details>
+          </div>
+          <details id="otherDevices" class="more hidden"><summary>Other devices on this station (<span id="otherCount">0</span>)</summary>
+            <p class="note">These can't be your robot's arms, so setup never opens them.</p>
+            <ul class="note" id="otherList"></ul>
+          </details>
+          <details class="more"><summary>How setup names adapters</summary>
+            <p class="note">Each arm connects through a USB adapter. Setup names each adapter by its serial number, so the arms can't swap places after you replug them or restart. If an adapter has no serial number of its own, setup names it by its USB port instead, so keep it in that port.</p>
+          </details>
+        </div>
+        <div class="err" id="armsErr" role="alert"></div>
+      </div>
+      <div class="subcard" id="armsCard">
+        <div class="cardhead"><h3 class="num">Find arms</h3><span class="seen"><span class="eyeicon" aria-hidden="true"></span>Seen from behind the robot</span></div>
+        <div class="banner" id="limpNote" hidden><span class="title">This arm has no brakes</span><span>When the wizard turns off the motors, the arm drops. Support the arm with your hand when finding the arms and moving to home position.</span></div>
+        <div id="releaseBox" class="release">
+          <div class="actions"><button class="primary" id="openArms" disabled>Find arms</button><span class="note" id="openNote" aria-live="polite"></span></div>
+        </div>
+        <div id="wiggle" class="hidden" style="display: flex; flex-direction: column; gap: 16px">
+          <div class="ask" id="wiggleAsk" aria-live="polite"></div>
+          <div id="armCards" class="armcards" aria-live="off"></div>
+          <p class="note">Angles are in degrees. A joint lights up when it's more than 5&deg; from where it started.</p>
+          <div id="crossed" class="banner hidden"></div>
+          <div class="armsbar">
+            <button id="swapSides" class="hidden"><span class="swapicon" aria-hidden="true"></span>Swap arms</button>
+            <button id="gripSwitch" class="primary hidden">Switch gripper to MIT</button>
+            <button class="hidden" id="lookAgain">Start over</button>
+          </div>
+        </div>
+        <details class="more" id="settingsBox"><summary>Advanced arm settings</summary>
+          <div class="row c2" style="margin-top: 10px">
+            <div><label class="field" for="setLeft">Left arm</label><textarea id="setLeft" spellcheck="false"></textarea></div>
+            <div><label class="field" for="setRight">Right arm</label><textarea id="setRight" spellcheck="false"></textarea></div>
+          </div>
+        </details>
+      </div>
+      <div class="subcard hidden" id="udev">
+        <h3>Give each arm a permanent connection name</h3>
+        <p class="help">When the computer restarts, it can assign <code>can0</code> and <code>can1</code> in a different order, which swaps the left and right arms. This rule names each arm's connection after its adapter's serial number, so each arm keeps the same name.</p>
+        <div class="pin"><span class="badge">1</span><div>Run this command on the robot's computer:</div></div>
+        <div class="term"><div class="termhead"><span class="termlabel">Terminal</span><button type="button" class="copy" data-copy="udevText" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="udevText"></code></pre></div>
+        <div class="pin"><span class="badge">2</span><div>Keep going. The names take effect at the next reboot, so don't unplug the adapters: that resets the arms' CAN bus. If you replace an adapter, run the command again.</div></div>
+        <p class="note" id="udevNote"></p>
+        <div class="startover"><button id="udevScan">Scan again</button></div>
+      </div>
+      <div class="actions" id="armsActions"><button class="primary next hidden" id="armsDone">Continue</button><span class="note" id="armsDoneNeed" aria-live="polite"></span></div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="2" id="step-2">
+    <header><span class="step">2</span><h2>Set up cameras</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <div class="subcard" id="camCard">
+        <div class="cardhead">
+          <h3>Set up each camera</h3>
+          <div class="camtools"><button class="linkish hidden" id="camAdvanced" aria-expanded="false" aria-controls="gallery">Advanced settings</button></div>
+        </div>
+        <p class="help">Take a picture from every camera and give each one its role. Then line each camera up with the reference laid over its picture. Dream-1 is sensitive to where each wrist camera points.</p>
+        <div class="banner refwarn hidden" id="refWarn" role="status">
+          <span class="title">Showing a YAM example, not your training views</span>
+          <span>We couldn't load the data <code id="refWarnModel"></code> was trained on. The example shows where cameras usually go. For an exact match, compare against your own dataset.</span>
+          <div class="actions"><button class="dark" id="refUseMine">Use my dataset</button><button id="refRetry">Try again</button><button class="linkish" id="refDetails" aria-expanded="false">Show details</button></div>
+          <pre class="hidden" id="refWarnDetail"></pre>
+        </div>
+        <div class="err" id="refErr" role="alert"></div>
+        <div class="viewbar hidden" id="viewBar">
+          <div class="segmented" role="radiogroup" aria-label="Compare with"><button role="radio" id="refYam">YAM example</button><button role="radio" id="refMine">My dataset</button></div>
+        </div>
+        <div id="datasetBox" class="col hidden" style="gap: 12px">
+          <div>
+            <label class="field" for="datasetPath">LeRobot v2.1 dataset folder on the station</label>
+            <div class="typed"><input id="datasetPath" placeholder="/data/my_robot_dataset"><button id="useDataset">Use dataset</button></div>
+            <p class="note" id="datasetNote"></p>
+          </div>
+          <div class="err" id="datasetErr" role="alert"></div>
+          <p class="note">Use the dataset you recorded on this robot for your fine-tune. Setup shows its first frames next to each camera, so you can match your camera angles to the views your model learned from. Your data stays on this station; nothing is uploaded or saved.</p>
+          <div id="datasetKeys" class="row c3 hidden"></div>
+        </div>
+        <div id="swap" class="banner bad hidden"></div>
+        <p class="note" id="shootNote"></p>
+        <div class="camlist" id="gallery"></div>
+        <div class="actions" id="shootActions"><button class="primary" id="shootAll">Take pictures</button><button class="blocked hidden" id="liveViews">Show live views</button><button class="linkish accent hidden" id="camMissing">A camera is missing</button></div>
+        <div id="typedCamBox" class="ask hidden">
+          <p class="note">Enter any address OpenCV can open, like a network camera stream (rtsp://192.168.1.50/stream1) or a /dev/video path. For a camera that only its maker's SDK can read, enter your own class instead, as module:Class or my_cams.py:Class: Class(camera) opens it, read() returns (ok, frame) with a BGR picture, and release() closes it.</p>
+          <div class="typed"><input id="typedCam" placeholder="rtsp://192.168.1.50/stream1" aria-label="Your camera's address or class"><button id="addCam">Add camera</button></div>
+        </div>
+        <div class="err" id="camErr" role="alert"></div>
+      </div>
+      <div class="actions" id="camsActions"><button class="primary next blocked" id="camsDone">Continue</button><span class="note" id="camsDoneNeed" aria-live="polite"></span></div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="3" id="step-3">
+    <header><span class="step">3</span><h2>Move to home</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <div class="subcard">
+        <p class="lead" id="homeLead">Move each arm to its home pose.</p>
+        <div class="banner" id="homeLimpNote" hidden><span class="title">This arm has no brakes</span><span>When the wizard turns off the motors, the arm drops. Support the arm with your hand when finding the arms and moving to home position.</span></div>
+        <div class="pair">
+          <div class="view" id="homeViewLeft"></div>
+          <div class="view" id="homeViewRight"></div>
+        </div>
+        <p class="note">The drawing shows your arms as your driver reads them. If it doesn't match your real arms, a joint's zero, direction, or units is wrong. Fix that before you continue. Drag a drawing to turn it, right-drag to move it, and scroll to zoom.</p>
+        <div id="gripBox" class="ask hidden">
+          <p class="lead">Gripper range</p>
+          <p class="help" id="gripHelp">The grippers are relaxed too. Open both grippers all the way by hand, then click Record open. Close both all the way, then click Record closed.<span id="gripStop"> Each gripper then stops just short of its limit, so the motor never pushes against it.</span></p>
+          <div class="actions" id="gripActions"><button id="gripOpen">Record open</button><button id="gripClosed">Record closed</button></div>
+          <p class="note" id="gripNote"></p>
+        </div>
+        <div class="actions"><button class="primary" id="homeOk">Set home pose</button><span class="note" id="homeNote"></span></div>
+        <div class="err" id="homeErr" role="alert"></div>
+      </div>
+      <div class="actions" id="homeActions"><button class="primary next blocked" id="homeNext">Continue</button><span class="note" id="homeNextNeed" aria-live="polite"></span></div>
+    </div>
+  </section>
+
+  <section class="card later hidden" data-step="4" id="reachCard">
+    <header><span class="step">4</span><h2>Set reach area</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <p class="lead">Move each hand across the whole area it should work in.</p>
+      <p class="help">Paint one solid area in front of each arm. Stop short of your camera mount so it stays outside the area. Dream-1 keeps the hand's targets inside this area. If an arm still heads past the edge, it stops there for the rest of that move.</p>
+      <div class="pair">
+        <div>
+          <div class="reachhead"><b>Left arm</b><span class="note" id="reachArea-left"></span><button id="reachClear-left">Clear</button></div>
+          <div class="reachmap"><canvas id="reachCanvas-left" role="img" aria-label="The left arm's reach area, seen from above"></canvas><span class="hand hidden" id="reachHand-left"></span></div>
+        </div>
+        <div>
+          <div class="reachhead"><b>Right arm</b><span class="note" id="reachArea-right"></span><button id="reachClear-right">Clear</button></div>
+          <div class="reachmap"><canvas id="reachCanvas-right" role="img" aria-label="The right arm's reach area, seen from above"></canvas><span class="hand hidden" id="reachHand-right"></span></div>
+        </div>
+      </div>
+      <p class="note">Top view. The arm's base is at the center, with a ring every 10 cm. The area limits the hand at any height. It doesn't protect the elbow.</p>
+      <p class="note" id="reachHint"></p>
+      <div class="actions"><button class="primary next blocked" id="reachDone">Continue</button><span class="note" id="reachDoneNeed" aria-live="polite"></span><button id="reachSkip">Skip this step</button></div>
+      <div class="err" id="reachWarn" role="alert"></div>
+      <div class="err" id="reachErr" role="alert"></div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="5" id="step-5">
+    <header><span class="step">5</span><h2>Test joints</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <div class="subcard">
+        <p class="lead">Test that the joints move correctly.</p>
+        <p class="help">The arms move slowly under power: first each joint a little, then each hand. Watch that the real arms move the same way as the drawings.</p>
+        <div class="pair">
+          <div class="col" style="gap: 12px"><div class="view" id="powerViewLeft"></div><div class="results" id="resultsLeft"></div></div>
+          <div class="col" style="gap: 12px"><div class="view" id="powerViewRight"></div><div class="results" id="resultsRight"></div></div>
+        </div>
+        <div id="motionBanner" class="banner hidden" role="status"></div>
+        <div id="motionCause" class="cause hidden">
+          <p class="where" id="causeWhere"></p>
+          <p class="lead" id="causeTitle"></p>
+          <p class="impact" id="causeImpact"></p>
+          <p class="fix"><b>How to fix:</b> <span id="causeFix"></span></p>
+          <p class="fix" id="causeGoOn"></p>
+        </div>
+        <div class="actions" id="motionActions">
+          <button class="primary" id="motionGo">Start test</button><button class="primary hidden" id="motionRetry">Run test again</button>
+          <span id="release" class="hidden" style="display: contents"><button id="releaseBtn">Turn off motors</button><span class="note" id="releaseText"></span></span>
+        </div>
+        <div class="results" id="results"></div>
+        <div class="err" id="motionErr" role="alert"></div>
+      </div>
+      <div class="actions" id="motionNext"><button class="primary next hidden" id="motionDone">Continue</button></div>
+    </div>
+  </section>
+
+  <section class="card later" data-step="6" id="step-6">
+    <header><span class="step">6</span><h2>Save station</h2><span class="pill" data-pill></span></header>
+    <div class="summary" data-summary></div>
+    <div class="body">
+      <div class="subcard">
+        <p class="help" id="saveWhere"></p>
+        <p class="banner good hidden" id="savedLine" role="status"></p>
+        <p class="note hidden" id="saveCustom">Your driver, arm model, and embodiment go in the <code>custom</code> section of your station file, where you can edit them. To check the file without moving the arms, run <code id="customRun"></code>.</p>
+        <div id="saveWarn" class="banner hidden"></div>
+        <div class="actions"><button class="primary" id="saveBtn">Save station</button></div>
+        <div class="err" id="saveErr" role="alert"></div>
+        <div id="saved" class="hidden" role="status" style="display: flex; flex-direction: column; gap: 12px">
+          <details><summary>Show file</summary><div class="term" style="margin-top: 8px"><div class="termhead"><span class="termlabel file">station.yaml</span><button type="button" class="copy" data-copy="savedYaml" aria-label="Copy to the clipboard" title="Copy"></button></div><pre><code id="savedYaml"></code></pre></div></details>
+        </div>
+      </div>
+      <div class="actions hidden" id="finishActions"><button class="primary next" id="finish">Continue</button></div>
+    </div>
+  </section>
+  </div>
+</main>
+</div>
+
+<dialog id="safety" aria-labelledby="safetyTitle">
+  <div class="in">
+    <h2 id="safetyTitle">Before the arms move</h2>
+    <ol>
+      <li>Clear the workspace.</li>
+      <li>Stand outside the arms' reach.</li>
+      <li>Keep a hand on the emergency stop or power switch.</li>
+    </ol>
+    <label class="confirm"><input type="checkbox" id="safeTick"> I've done all three</label>
+    <div class="actions"><button class="primary" id="safeGo" disabled>Start moving</button><button id="safeCancel">Cancel</button></div>
+  </div>
+</dialog>
+<dialog id="askDialog" aria-labelledby="askTitle">
+  <div class="in">
+    <h2 id="askTitle"></h2>
+    <p class="help" id="askText"></p>
+    <div class="actions"><button id="askNo">Go back</button><button class="primary" id="askYes"></button></div>
+  </div>
+</dialog>
+<dialog id="skipAsk" aria-labelledby="skipAskTitle">
+  <div class="in">
+    <h2 id="skipAskTitle">Continue without a passing test?</h2>
+    <p class="help">If you skip these checks, your robot may not perform as well.</p>
+    <div class="results" id="skipFailed"></div>
+    <p class="lead" id="skipGoOn"></p>
+    <div class="actions"><button class="primary" id="skipBack">Go back</button><button id="skipGo">Skip anyway</button></div>
+  </div>
+</dialog>
+<dialog id="reachAsk" aria-labelledby="reachAskTitle">
+  <div class="in">
+    <h2 id="reachAskTitle">Skip the reach area?</h2>
+    <p class="help">Without a reach area, the arms can move anywhere, including into your camera mount. Setting one makes runs safer and more reliable.</p>
+    <div class="actions"><button class="primary" id="reachBack">Go back</button><button id="reachSkipGo">Skip anyway</button></div>
+  </div>
+</dialog>
+<dialog id="driverDialog" aria-labelledby="driverDialogTitle">
+  <div class="in">
+    <h2 id="driverDialogTitle">Choose your driver file</h2>
+    <p class="help">A .py file on the station, the robot computer where setup runs, not on your laptop. Open folders until you find it.</p>
+    <div class="files">
+      <div class="filebar"><button id="driverUp" aria-label="Up one folder">&uarr; Up</button><code id="driverDir"></code></div>
+      <div class="filelist" id="driverList"></div>
+    </div>
+    <p class="note" id="driverDialogNote"></p>
+    <div class="actions"><button id="driverDialogClose">Cancel</button></div>
+  </div>
+</dialog>
+<dialog id="tcpSkip" aria-labelledby="tcpSkipTitle">
+  <div class="in">
+    <h2 id="tcpSkipTitle">Skip the tool center point?</h2>
+    <p class="help">This isn't recommended. Dream-1 positions your gripper by this point, so without it, hand movements may miss their target. Your arm file records that you skipped it, and every start shows a warning.</p>
+    <label class="confirm"><input type="checkbox" id="tcpSkipTick"> I understand the hand may miss its target</label>
+    <div class="actions"><button class="primary" id="tcpSkipBack">Go back</button><button id="tcpSkipGo" disabled>Skip anyway</button></div>
+  </div>
+</dialog>
+<footer class="foot"><p class="note" id="version"></p></footer>
+<div class="stopbar hidden" id="stopbar"><span class="phase" id="stopPhase" role="status"></span><button id="stopBtn">STOP</button></div>
+<div class="holdbar hidden" id="holdbar"><span id="holdText"></span><button id="holdRelease">Turn off motors</button><span class="err" id="holdErr"></span></div>
+
+<script src="/setup_page.js"></script>
+<!-- three.js 0.170.0 from the CDN, pinned by version and by hash. Without internet the page says so. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  },
+  "integrity": {
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js": "sha384-IDC7sAMAIMB/TZ6dgKKPPAKZ2bXXXP8+FBMBC8cU319eBhKITx+PaalhfDkDNH28",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js": "sha384-aJoe4qqS/DgF2jh9njAuvA6QIveJYoCuYOfYjdFY8P3eawzmc9bEQ40jq2TvOyuP",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/STLLoader.js": "sha384-1EfRoRFlW0okJLwii+CC5clEMVSDeI/MFRIPbyUpGQnNQP+Szo3cgWrhC6r9rHBg",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/OBJLoader.js": "sha384-RKqc/KL7HrXk9eZXJ3lGhyR3x7c1FYpZUuvbF33bV7CwKDjRzddX4JsSu/bxlfAE",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/ColladaLoader.js": "sha384-6wa4CgH2qQNACbi5B/X0haZftttTv1zM17UdMnS2uLzM9JMNTQVTnFZ/pacp7y1Q",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js": "sha384-Lq1Wl94so5JCKGDvezrdVMJhdeKQkwb8iwRo59QrPPd61CnrCJZLxYmFlQ8ZuOKR",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js": "sha384-wOjwauvHlJO7K6APr7FmMGH2nupQa3Ndzas9bJZhsAMOK055efJud8ns4aYmASKv",
+    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/TGALoader.js": "sha384-VDQ48jjrtMQHGq9keGZpwHQSKB0DJk2aYk779RjRQqeExPnQiMHKvFVYxJo5VQRG"
+  }
+}
+</script>
+<script type="module" src="/setup_wizard_v2.js" onerror="document.getElementById('offline').hidden = false"></script>
+</body>
+</html>

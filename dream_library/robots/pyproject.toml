@@ -1,0 +1,143 @@
+[project]
+name = "dream-robots"
+version = "0.8.0"
+description = "Public inference control loop for a bimanual YAM, Makers Arm, Metal arm or SO-101 driven by a dream policy."
+readme = "README.md"
+license = "Apache-2.0"
+# As the library that ships it (../pyproject.toml): the shared contracts need 3.11, the arm driver's pins stop at 3.13.
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "Dream Labs" }]
+keywords = ["dream", "dreamzero", "robotics", "control-loop", "inference", "yam", "i2rt", "makers", "metal", "so101"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Hardware",
+    "Typing :: Typed",
+]
+dependencies = [
+    "dreamlabs-client>=1.0.5,<2",
+    # [faceblur]: faces are blurred at capture (robots.cameras) before any frame leaves the box; the detector
+    # is opencv + numpy, both already here. Base dreamlabs-shared is contracts-only, so no database stack rides in.
+    "dreamlabs-shared[faceblur]",
+    "numpy>=1.24",
+    "opencv-python-headless>=4.8",
+    "pyyaml>=6.0",
+    # Rollouts (robots.rollouts): every run is saved as a LeRobot v2.1 episode, VP9 video through PyAV's bundled
+    # libvpx (BSD; the wheel's x264 is GPL and is never opened) and the table as parquet. PyAV 13 has no add_stream_from_template and 14 writes
+    # an unreadable remux; 15 and later are tested.
+    "av>=15",
+    "pyarrow>=17",
+]
+
+[project.optional-dependencies]
+# mujoco: forward kinematics of the YAM (robots.kinematics) on the same model i2rt ships.
+hardware = ["i2rt", "mujoco>=3.1"]
+# live: Live View (dream.LiveViewClient, which the station runs): PyAV's libvpx encodes VP8, OpenCV resizes and blurs.
+live = ["dreamlabs-client[live]"]
+# makers: the Makers Arm's CAN bus (robots.robstride). Its end-effector speed clamp also needs dream's IK, which the
+# `dream` distribution ships (dream_library/vendor/dream_ik) and no index carries.
+makers = ["python-can[serial]>=4.5"]
+# metal: the Metal arm's CAN bus (robots.damiao, opened as robots.robstride opens a Makers Arm's); the same IK note.
+metal = ["python-can[serial]>=4.5"]
+# so101: the SO-101's servo bus, LeRobot's own (robots.feetech). LeRobot needs Python 3.12 and brings torch, so it is
+# the one extra a station installs on purpose.
+so101 = ["lerobot[feetech]>=0.5 ; python_version >= '3.12'"]
+
+[project.scripts]
+# `dreamcli setup` / `dreamcli robot up|down|log`: the station command line (robots.cli).
+dreamcli = "robots.cli:main"
+
+[project.urls]
+Repository = "https://github.com/dreamlabs-co/dreamlabs"
+Changelog = "https://github.com/dreamlabs-co/dreamlabs/blob/main/dream_library/robots/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    # doxytools: `doxygen` + `dot` console scripts (pinned binaries fetched on first use).
+    "doxytools",
+    # The real YAM model in tests/test_kinematics.py; the arm XML itself still needs i2rt (the hardware extra).
+    "mujoco>=3.1",
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "types-PyYAML>=6.0",
+    # The station's tests build the real dream.LiveViewClient and the real client's record-only link
+    # (tests/test_station.py, tests/test_end_to_end.py), here as well so CI's `uv sync --group dev` has them.
+    "av>=13",
+    "websockets>=13",
+    # The rollouts tests read an episode back with it (tests/test_rollouts.py); a main dependency as well.
+    "pyarrow>=17",
+    # The Makers and Metal arms' tests drive the real bus code over a fake adapter (their extras), and their station
+    # tests run the dream client's IK and the arm's FK on dream's IK, from ../vendor/dream_ik (VENDOR.md there); jax
+    # 0.7.1 has no release for Python 3.10, which requires-python leaves out.
+    "python-can[serial]>=4.5",
+    "dream-ik ; python_version >= '3.11'",
+]
+
+# The hardware extra resolves i2rt from its repository, whose ruckig pin is a source-only release that builds only
+# under scikit-build-core < 0.10 (the `dream` distribution ships i2rt from ../vendor/i2rt instead, see VENDOR.md there).
+[tool.uv]
+# Supply-chain cooldown: resolve only releases at least a week old.
+exclude-newer = "1 week"
+build-constraint-dependencies = ["scikit-build-core<0.10"]
+# dream-ik pins pyroki and jaxls to commits on GitHub; these overrides, with the sources below, install the vendored
+# copies of those commits instead, as dream_client does. pyliblzfse, which pyroki lists for an old viser and never
+# imports, has no Linux wheel, so it is left out rather than compiled.
+override-dependencies = [
+    "pyroki ; python_version >= '3.11'",
+    "jaxls ; python_version >= '3.11'",
+    "pyliblzfse ; sys_platform == 'never'",
+]
+
+[tool.uv.sources]
+doxytools = { path = "../../infra/docs/doxytools", editable = true }
+dreamlabs-client = { path = "../dream_client", editable = true }
+dream-ik = { path = "../vendor/dream_ik/packages/dream_ik" }
+pyroki = { path = "../vendor/pyroki" }
+jaxls = { path = "../vendor/jaxls" }
+dreamlabs-shared = { path = "../../shared", editable = true }
+i2rt = { git = "https://github.com/i2rt-robotics/i2rt.git", rev = "4e462ecc435491a46f9bceb465237afb41d7b66f" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/robots"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 119
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+strict = true
+# numpy's stubs use the PEP 695 `type` statement; ruff's py310 target keeps the syntax 3.10-safe.
+python_version = "3.12"
+files = ["src/robots"]
+# Where `shared` is on disk (the face blurring at capture imports shared.faceblur). The interpreter finds it
+# through the editable install, but that install is an import hook a static analyser cannot follow; the
+# repository root is where the flat package really sits, so mypy is told directly.
+mypy_path = "../.."
+
+# Neither websockets nor PyAV nor pyarrow is type-checked here; mypy treats their symbols as Any.
+[[tool.mypy.overrides]]
+module = ["av", "av.*", "websockets", "websockets.*", "pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
+
+# dream's vendored IK (robots.kinematics.DreamKinematics imports it lazily) ships no type information.
+[[tool.mypy.overrides]]
+module = ["dream_ik", "dream_ik.*"]
+ignore_missing_imports = true

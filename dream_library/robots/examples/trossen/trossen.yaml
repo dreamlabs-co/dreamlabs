@@ -1,0 +1,45 @@
+# The Trossen Stationary AI on its FaaS fine-tune: configs/custom.example.yaml filled in, with trossen.py beside it.
+#
+# First, the arms left idle:  set custom.driver to trossen.py:ReadOnlyArm, then
+#   dreamcli robot run --config trossen.yaml --checkpoint <your fine-tune> --task "..." --dry-run
+# It logs what each arm reads; copy each arm's reading at rest into its `home` below. Then trossen.py:Arm, without
+# --dry-run, with a person at the e-stop.
+
+body: custom
+
+custom:
+  driver: trossen.py:Arm
+  # dream's model of this arm: the WXAI chain, the refit tool frame, the jaw's opening as the 7th value of <side>_arm.
+  ik: trossen_wb_faas
+  # The embodiment the fine-tune was trained on, <username>/<name> as dream.DreamClient().get_embodiments() lists it.
+  embodiment: <username>/<name>
+  # No grip_scale: the dream client puts the jaw's opening (0 to 0.044 m, as recorded) into <side>_arm from the grip.
+
+# Each follower arm's IP address. `home` is required: one joint angle per joint in radians (the arm's six), where
+# every run starts and ends.
+follower_r:
+  can_channel: 192.168.1.4
+  home: null
+follower_l:
+  can_channel: 192.168.1.5
+  home: null
+
+# The roles the fine-tune's data recorded: overhead = observation.images.camera_main, wrist_l = _left, wrist_r = _right.
+# 16:9, as the model takes 640x360: the kit's RealSense D405s send 1280x720 at up to 15 fps (the model reads 5).
+cameras:
+  - {name: overhead, device: 0, width: 1280, height: 720, fps: 15}
+  - {name: wrist_l, device: 2, width: 1280, height: 720, fps: 15}
+  - {name: wrist_r, device: 4, width: 1280, height: 720, fps: 15}
+
+task: "pick up the cup and place it on the plate"
+
+# Recorded at 30 fps, played at 20 Hz, every body's action rate. 48 rows per reply, 9 frames at 5 fps.
+control_hz: 20
+action_horizon: 48
+stale_after_s: 0.2
+max_stall_ticks: 240
+obs_window: 9
+obs_fps: 5.0
+max_ee_speed_m_s: 0.6
+# The grip force cap reads a gripper effort, which this driver does not report.
+grip_force_cap: 0
