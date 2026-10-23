@@ -43,8 +43,8 @@ def eef(width: int) -> tuple[tuple[str, int], ...]:
     return pose + (("left_arm", width), ("right_arm", width))
 
 
-## Per robot: its example, dream's arm, its fine-tune's embodiment (faas_ddade1a95a3f0031 and faas_1e7f98780a6e4e7f,
-## checkpoint-2300) and its camera roles.
+## Per robot: its example, dream's arm, its fine-tune's embodiment (as its trained checkpoint records it)
+## and its camera roles.
 ROBOTS: dict[str, dict[str, Any]] = {
     "seeed_rebot": {
         "ik": "seeed_faas",

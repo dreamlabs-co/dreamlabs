@@ -96,10 +96,10 @@ class Account(dream.DreamClient):
 
     def get_models(self) -> list[Model]:
         return [
-            Model("dreamlabs/dream-1-flagship", "public", "dreamlabs/dream-1-flagship", "yam", True, CREATED),
-            Model("dream-1-ft:aa-my-arm", "mine", "dreamlabs/dream-1-flagship", "emb_mine", True, CREATED),
-            Model("dream-1-ft:bb-so101", "mine", "dreamlabs/dream-1-flagship", "emb_so101", True, CREATED),
-            Model("dream-1-ft:cc-shared", "public", "dreamlabs/dream-1-flagship", "emb_bob", True, CREATED),
+            Model("dreamlabs/dream-1-base", "public", "dreamlabs/dream-1-base", "yam", True, CREATED),
+            Model("dream-1-ft:aa-my-arm", "mine", "dreamlabs/dream-1-base", "emb_mine", True, CREATED),
+            Model("dream-1-ft:bb-so101", "mine", "dreamlabs/dream-1-base", "emb_so101", True, CREATED),
+            Model("dream-1-ft:cc-shared", "public", "dreamlabs/dream-1-base", "emb_bob", True, CREATED),
         ]
 
 
@@ -374,7 +374,7 @@ def test_a_fine_tune_of_another_embodiment_is_refused_naming_both_and_what_to_pi
     monkeypatch.setattr(bodies, "check_model", CHECK)
     with pytest.raises(errors.ConfigError, match=refusal):
         run.policy_config(cfg, "dream-1-ft:bb-so101")
-    for runs in ("dream-1-ft:aa-my-arm", "dreamlabs/dream-1-flagship", "dream-1-ft:cc-shared", "not-listed"):
+    for runs in ("dream-1-ft:aa-my-arm", "dreamlabs/dream-1-base", "dream-1-ft:cc-shared", "not-listed"):
         CHECK(cfg, runs)
     new_arm = dataclasses.replace(cfg, custom=dataclasses.replace(cfg.custom, embodiment="alice/new-arm"))
     with pytest.raises(errors.ConfigError, match=r"your account has no fine-tune of 'alice/new-arm' yet"):
@@ -418,7 +418,7 @@ def test_a_reach_area_on_a_joint_run_is_kept_and_warned_about(
 
 @pytest.mark.parametrize(
     "checkpoint",
-    ["dreamlabs/dream-1-flagship", "dream-1-ft:cc-shared", "not-listed"],
+    ["dreamlabs/dream-1-base", "dream-1-ft:cc-shared", "not-listed"],
     ids=["base", "shared", "unlisted"],
 )
 def test_joints_refuse_a_model_that_is_not_a_fine_tune_of_this_robot_naming_what_to_pick(
@@ -454,7 +454,7 @@ def test_joints_refuse_another_embodiments_fine_tune_and_a_robot_that_names_no_e
         CHECK(cfg, "dream-1-ft:bb-so101")
     new_arm = dataclasses.replace(cfg, custom=dataclasses.replace(cfg.custom, embodiment="alice/new-arm"))
     with pytest.raises(errors.ConfigError, match=r"or fine-tune one of 'alice/new-arm' first: your account has none"):
-        CHECK(new_arm, "dreamlabs/dream-1-flagship")
+        CHECK(new_arm, "dreamlabs/dream-1-base")
     monkeypatch.setattr(bodies.dream, "DreamClient", lambda: pytest.fail("asked the account"))
     makers = dataclasses.replace(cfg, body="makers", custom=None)
     with pytest.raises(errors.ConfigError, match=r"a makers config names no embodiment to match 'dream-1-ft:x' to"):
@@ -531,7 +531,7 @@ class JointHeadAPI(test_end_to_end.FakeDreamAPI):
             {
                 "id": "dream-1-ft:bb-so101",
                 "owner": "mine",
-                "base_model": "dreamlabs/dream-1-flagship",
+                "base_model": "dreamlabs/dream-1-base",
                 "embodiment": "emb_so101",
                 "servable": True,
                 "created_at": "2026-10-13T00:00:00Z",
@@ -634,7 +634,7 @@ METAL_ARM: dict[str, Any] = {
 }
 
 ## The model a zero-shot run asks for: a Dream Labs base model, trained on YAM arms.
-BASE = "dreamlabs/dream-1-flagship"
+BASE = "dreamlabs/dream-1-base"
 
 
 def metal_arm_file(folder: pathlib.Path) -> str:

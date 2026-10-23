@@ -238,7 +238,7 @@ class DreamContractTests(unittest.TestCase):
     def test_a_model_that_reads_hand_poses_is_reopened_on_the_station_keys(self):
         refusal = RuntimeError(
             "DA-5000 SERVE_FAULT (error): inference error: EEF checkpoint: send ik.arm and its speed cap "
-            "(docs/IK.md), or ['state.left_eef_xyz', 'state.left_eef_rot6']"
+            "or ['state.left_eef_xyz', 'state.left_eef_rot6']"
         )
         refusal.reason = "error"
         chunk = {"q_l_chunk": [[0.0] * 6 + [1.0]], "q_r_chunk": [[0.0] * 6 + [1.0]]}

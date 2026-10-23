@@ -13,7 +13,7 @@ Consumers:
   frame, before it is JPEG-encoded into the observation window `dream` posts to DreamAPI. This is the one that
   keeps face data off the API entirely - a face never leaves the box, so nothing the API or a serve touches,
   and nothing a future recording stores, can contain one. `face_blur` in the station config; on by default.
-- **the platform's public robots page** (its station and eval frame feeds): every frame re-served to the public
+- **the platform's public robots page** (its station camera feeds): every frame re-served to the public
   internet, scrubbed as the bytes arrive from the station.
 - **the DreamAPI gateway does NOT call this**: it forwards the observation to the serve verbatim and keeps no
   frame, and blurring the policy's INPUT server-side would be wrong twice (tens of ms on a real-time action
@@ -66,25 +66,23 @@ log = logging.getLogger("platform_api")
 ## The vendored YuNet weights; `models/README.md` records provenance, checksum and licence.
 _MODEL_PATH: str = os.path.join(os.path.dirname(__file__), "models", "face_detection_yunet_2026may.onnx")
 
-## Detector confidence floor, set from measurement, not taste. On live tabletop frames from YAM stations, false
-## positives -- shoes, a silicone tray, bench clutter -- score up to 0.54 at identifiable size (and 0.60 only below
-## #_MIN_FACE_SIDE_PX), while real faces of identifiable size score >=0.83 (p5 0.81) on reference videos. A floor of
-## 0.60 sits between the two bands but still blurs too much: skin-coloured clutter, hands and arms pass the skin gate
-## below. 0.75 keeps every face of identifiable size (>=0.83, and the hard-angle LFW set's p5 is 0.76, see
-## #_SURE_FACE_SCORE) and drops the 0.60-0.75 band where those live.
+## Detector confidence floor, tuned from measurement, not taste. On tabletop robot scenes, false positives -- shoes,
+## trays, bench clutter, and skin-coloured clutter, hands and arms that pass the skin gate below -- score below 0.75
+## at identifiable size, while real faces of identifiable size score >=0.83. 0.75 keeps every face of identifiable
+## size (>=0.83, and the hard-angle LFW set's p5 is 0.76, see #_SURE_FACE_SCORE) and drops the band below it where
+## those false positives lie.
 _SCORE_THRESHOLD: float = 0.75
 
-## A detection at or above this score is blurred whatever its colour. Measured: 600 LFW faces pasted into 1280x720
-## frames at 60-300 px scored p1 0.88; 554 of them tilted +-30 deg,
-## squashed for yaw/pitch, defocused and dimmed or tinted scored p5 0.76, p50 0.90; a station's toy steering wheel
-## (467 detections over 8 top-camera episodes) scored at most 0.84, p95 0.81. 0.85 is above every wheel frame.
+## A detection at or above this score is blurred whatever its colour. Measured on LFW faces pasted into 1280x720
+## frames at 60-300 px: p1 0.88 as pasted, and p5 0.76, p50 0.90 tilted +-30 deg, squashed for yaw/pitch, defocused
+## and dimmed or tinted; a toy steering wheel on a robot's camera scored at most 0.84. 0.85 is above the wheel.
 _SURE_FACE_SCORE: float = 0.85
 
 ## Below #_SURE_FACE_SCORE a detection is blurred only when at least this fraction of its box is skin-coloured
-## (#_skin_fraction). Same measurement: faces p5 0.70 in plain light (0.006 under a strong colour cast, which is why
-## the sure-face branch exists); the wheel p50 0.18, p95 0.22. With both rules, 100% of the plain faces and 95.1%
-## of the hard ones blur (the misses are extreme turns in tinted light scoring 0.60-0.85), and 1.5% of wheel
-## frames still do (against 100% under a single 0.60 bar with no skin gate).
+## (#_skin_fraction). Faces measure p5 0.70 in plain light (0.006 under a strong colour cast, which is why the
+## sure-face branch exists); the toy wheel's boxes measure well under 0.30. With both rules, every plain face and
+## nearly every hard one blurs (the misses are extreme turns in tinted light scoring 0.60-0.85), and the wheel
+## almost never does.
 _MIN_SKIN_FRACTION: float = 0.30
 
 ## The YCrCb chroma box counted as skin (the classic Chai & Ngan bounds). Chroma only, so it holds across skin

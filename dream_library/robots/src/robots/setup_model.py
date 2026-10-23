@@ -227,6 +227,18 @@ class ArmModel:
             for i, side in enumerate(self.sides)
         }
 
+    def warm_solve(self, ticks: int) -> float:
+        """Compiles solve() for paths of `ticks` rows, so the first solve of that length does not.
+
+        The first solve() of a length compiles dream's chunk IK: seconds of CPU that starve whatever else the process
+        runs, so a Metal arm powered at the time misses its grippers' 500 ms CAN timeout (fault 0xD). Called before
+        the arms are powered, it makes the sweep's own solves cheap.
+
+        @param ticks The path length to compile for (#robots.setup_motion.SWEEP_TICKS).
+        @return Seconds it took.
+        """
+        return float(self._ik.warmup(ticks))
+
     def chain(self) -> dict[str, Any]:
         """What the page's 3D view needs once: the links, how they hang together, and the joints.
 

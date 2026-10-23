@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!-- MakerMods Metal arm, kinematics only (joint1..joint6, no meshes, no gripper fingers).
      Source: metal-python-ros ef4181f1305cbcfc63431d3bcfb96f5fb7f72763,
-     metal_ros2/src/metal_description/urdf/metal_with_gripper.urdf (sha256 ad3cdb43efc45ad7757507a0985e63dc39c8388430be744406242bed31a55d4a),
+     metal_ros2/src/metal_description/urdf/metal_with_gripper.urdf,
      origins, axes and limits copied verbatim. The same chain as our Metal policy's. -->
 <robot name="metal">
   <link name="base_link"/>

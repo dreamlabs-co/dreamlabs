@@ -40,7 +40,7 @@ Robot descriptions and meshes copied into the wheel:
   BSD 3-Clause License, Copyright (c) 2016-2022 HangZhou YuShu TECHNOLOGY CO.,LTD.), Trossen WidowX AI
   (https://github.com/TrossenRobotics/trossen_arm_description, BSD 3-Clause License, Copyright (c) 2025 Trossen
   Robotics) and the YAM (i2rt, MIT License). The Bracketbot, Blue Worm Mantis, Galaxea, ROBO Robo-T and Seeed reBot
-  B601 descriptions were supplied by their makers for this purpose.
+  B601 descriptions are derived from their makers' own and used with their permission.
 
 Work the dream client derives from:
 

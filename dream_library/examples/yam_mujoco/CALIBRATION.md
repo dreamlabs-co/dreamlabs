@@ -5,7 +5,7 @@ The cameras and arm bases follow the YAM robot configuration of the pinned simul
 https://github.com/ARISE-Initiative/yamlab/blob/ec0455d2b4ce35f21fc126418ea5e74ac567133d/yamlab/configs/robot/yam.yaml
 `assets/sim-eval-yam.json` holds the values the simulator reads.
 
-This is STANDARD YAM. A YAM fitted with a GenRobot gripper and fisheye cameras is a
+This is STANDARD YAM. A YAM fitted with a third-party parallel gripper and fisheye cameras is a
 different embodiment with its own calibration, not this linear YAM gripper.
 
 Applied:

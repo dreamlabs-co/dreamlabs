@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!-- Bracketbot bracket_bot_manipulation.urdf (bb-sim manipulation.xml): base .. lj6_link only (7 movable joints; meshes and every other link
-     dropped), the FaaS EEF bake frame. Source sha256 15423aa5d35597541ec8bce67382616bffbb48dfaf69fb62c9279431a971dfaa. -->
+<!-- Bracketbot bracket_bot_manipulation.urdf: base .. lj6_link only (7 movable joints; meshes and every other link
+     dropped), the FaaS EEF bake frame. -->
 <robot name="bracketbot_faas_left">
   <link name="base">
     </link>

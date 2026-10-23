@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!-- Blue Worm Mantis bw_std_description std_auto.urdf: C_Link .. A_right_Degree7_link only (7 movable joints; meshes and every other link
-     dropped), the FaaS EEF bake frame. Source sha256 ff67402f5f44b1e59a1c76a2804ecd7443ced77a0454e6cb3a14eadef78e43a1. -->
+     dropped), the FaaS EEF bake frame. -->
 <robot name="mantis_faas_right">
   <link name="C_Link">
     </link>

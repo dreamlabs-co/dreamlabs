@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
-<!-- ROBO Robo-Tv2_dreamlabs.urdf (the vendor upload, robo/robo-t/urdf): R.ShoulderFixed .. R.Gripper only (7
+<!-- ROBO Robo-T v2, from the vendor's URDF: R.ShoulderFixed .. R.Gripper only (7
      movable joints; meshes and every other link dropped), the FaaS EEF bake frame. Axes turned over and limits
-     mirrored for R.WristRoll, R.WristYaw, then limits {"R.Elbow": [-0.1, 2.3562], "R.ShoulderRotate": [-0.2745, 3.3161]}, as the training-side
-     robo_t_faas twin. Source sha256 b0b8a8ed00021042aa12b928a9e3e9b4e2233eb696a2d8a7cd873acb2a69f1d2. -->
+     mirrored for R.WristRoll, R.WristYaw, then limits {"R.Elbow": [-0.1, 2.3562], "R.ShoulderRotate": [-0.2745, 3.3161]}, as the
+     robo_t_faas embodiment has them. -->
 <robot name="robo_t_faas_right">
   <link name="R.ShoulderFixed">
     

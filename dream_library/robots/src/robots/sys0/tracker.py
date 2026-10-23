@@ -1,8 +1,7 @@
 """One arm's System 0 tick: the plan in, a motor command out, through a supervisor that can always hold the arm.
 
 Pure logic, no I/O: the caller (`robots.sys0.motors`) reads the arm, passes the time, the measured state and the
-plan, and writes what comes back. The code is the tracker the bundled policy was trained against, with its
-constants:
+plan, and writes what comes back. The code is the tracker the bundled policy expects, with its constants:
 
 - **The reference.** #Plan is the loop's timeline for one tick: the command it just submitted, at its tick time,
   then the rows still buffered, one per tick from then. ArmTracker.tick() samples it (sample()) at now and every
@@ -236,7 +235,7 @@ class Supervisor:
 def decode(
     action: npt.NDArray[np.float64], q_ref: npt.NDArray[np.float64], joint_range_rad: npt.NDArray[np.float64]
 ) -> MotorCommand:
-    """The motor command a policy action stands for (`hybrid_torque_full`).
+    """The motor command a policy action stands for.
 
     @param action The action, `[7]`, in `[-1, 1]`: six joint torques as fractions of #TORQUE_FRACTION of the limit,
         then a gripper residual, which the station leaves unused (the module docstring, *The gripper*).

@@ -212,7 +212,7 @@ page says why (`setup_session.GRIPPER_SKIPPED`).
 ## What each mistake looks like
 
 These are the mistakes planted in fake drivers in `tests/test_setup_flow.py`, each in the left arm's driver of a YAM
-homed at the start of an episode of our data; each is caught where the table says, and a clean driver passes every
+homed at the start of a recorded episode; each is caught where the table says, and a clean driver passes every
 check on the YAM, the Maker Arm, the Metal Arm and a robot of one's own. "Your eyes" means every check passes, and
 only the operator sees it: at home, where the drawing does not look like the real arm, or during the powered checks. `tests/test_setup_bus_arms.py` runs
 every step to Save on a Metal Arm and an SO-101 through their real drivers on the bus fakes, limp by hand, then starts

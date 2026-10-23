@@ -74,7 +74,7 @@ PLAIN = "metalarm-eef"
 
 BASE = "dreamlabs/dream-1-beta"
 
-YAM_FINE_TUNE = "dream-1-ft:1d845dea-yam"
+YAM_FINE_TUNE = "dream-1-ft:12345678-yam"
 
 BETA = "dream-1-ft:5e6f7a8b-beta"
 
@@ -313,7 +313,7 @@ def test_an_arm_measured_past_the_margin_of_a_limit_is_solved_back_inside_it(
     server: FakeDreamAPI, connection: dict[str, Any], arm: str
 ) -> None:
     """Recorded arms often rest just past the margin dream keeps inside each joint limit; the solve is clipped to the
-    margined limits, as the sim eval's decode is, though dream's seam blend is off."""
+    margined limits, as dream's own decode is, though dream's seam blend is off."""
     with ik_client(connection, arm) as client:
         solver = client._ik._solver
         path = joint_path(client, arm, seed=3)
@@ -526,7 +526,7 @@ YAM_EEF_CONFIG: dict[str, Any] = {
 }
 
 
-def test_a_flagship_on_a_yam_reads_its_own_joints_its_hand_poses_and_its_grip_and_runs_its_joint_answer(
+def test_a_base_model_on_a_yam_reads_its_own_joints_its_hand_poses_and_its_grip_and_runs_its_joint_answer(
     server: FakeDreamAPI, connection: dict[str, Any]
 ) -> None:
     """On a YAM the joints and the gripper are the arm's own, the client adds the poses and the grip, and head
@@ -618,7 +618,7 @@ def yam_observation(path: npt.NDArray[np.float64]) -> dict[str, Any]:
     return observation
 
 
-def test_on_a_yam_the_eef_head_solves_a_flagships_tool_poses_in_strict_mode(
+def test_on_a_yam_the_eef_head_solves_a_base_models_tool_poses_in_strict_mode(
     server: FakeDreamAPI, connection: dict[str, Any]
 ) -> None:
     """A YAM station's EEF head: strict on the pose body, the base model's answer (no `<side>_gripper`) passes, and the
@@ -1494,7 +1494,7 @@ def test_a_model_trained_on_yam_arms_runs_on_a_beta_robot_with_six_zero_joints_i
         "prompt",
         "embodiment",
     }
-    assert sent["embodiment"] == "other_embodiment", "the serve withholds the state that is not this arm's"
+    assert sent["embodiment"] == "other_embodiment", "the model ignores the state of an arm that is not its own"
     for i, side in enumerate(SIDES):
         assert sent[f"state.{side}_arm"] == [0.0] * 6
         assert np.allclose(sent[f"state.{side}_gripper"], [0.25]) and np.allclose(sent[f"state.{side}_grip"], [0.25])

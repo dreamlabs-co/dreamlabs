@@ -33,7 +33,7 @@ import pytest
 os.environ.setdefault("DREAM_LOG_DIR", os.path.join(tempfile.gettempdir(), "dream-tests", "logs"))
 
 ## The checkpoint every test routes to; opaque to the client.
-CHECKPOINT = "s3://ckpt/test-dreamzero"
+CHECKPOINT = "s3://ckpt/test-model"
 
 ## Rows per action chunk the fake returns.
 HORIZON = 4

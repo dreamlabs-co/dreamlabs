@@ -339,8 +339,7 @@ REASON_HELP: dict[Reason, CustomerHelp] = {
         "Send the same request again.",
     ),
     GatewayFaultReason.STEERING_UNAVAILABLE: CustomerHelp(
-        "The gateway requires its System-2 planner, which guides the model from the camera frames, on every "
-        "request, and the planner is not in force for this checkpoint, so the request was not run.",
+        "This checkpoint needs a gateway feature that is not turned on, so the request was not run.",
         "Nothing on your side fixes it: contact Dream Labs with the checkpoint id and the error message.",
     ),
     GatewayFaultReason.CANNOT_SCALE: CustomerHelp(

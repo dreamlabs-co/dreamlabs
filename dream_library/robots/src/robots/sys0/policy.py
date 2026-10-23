@@ -1,19 +1,19 @@
 """The System 0 network: the observation it reads and the bundled weights, evaluated with numpy.
 
-The tracker is a PPO-trained actor: an MLP of two 256-wide ELU
-layers from a 98-float observation to a 7-float action in `[-1, 1]`, one network for both arms. A station runs only
-its deterministic mean, so the weights ship as arrays in `tracker.npz` beside this module and the forward pass is
+The tracker is an MLP of two 256-wide ELU
+layers from a 98-float observation to a 7-float action in `[-1, 1]`, one network for both arms. The weights ship as
+arrays in `tracker.npz` beside this module and the forward pass is
 three matrix products: no PyTorch on the box, and about 30 microseconds a call.
 
 `tracker.npz` holds `w0`, `b0`, `w1`, `b1`, `w2`, `b2` (each dense layer's weight `[out, in]` and bias, float32),
-`obs_mean` and `obs_std` (the normaliser, `[OBS_DIM]`) and `meta`, a JSON string (`actuator`, `iteration`, the
+`obs_mean` and `obs_std` (the normaliser, `[OBS_DIM]`) and `meta`, a JSON string (`actuator`, the
 `sha256` of the checkpoint it came from). A station with a tracker of its own trained for the same observation and
 action replaces the file with one in this form; load() refuses a file whose widths do not fit.
 
-The observation is SONIC's tracker input at arm scale, per arm: the measured joints and gripper `q`, the joint
+The observation, per arm: the measured joints and gripper `q`, the joint
 velocities scaled by #VEL_SCALE, the previous action, and the reference now and at the next #FUTURE_FRAMES
-look-ahead steps of #FUTURE_DT_S, each as its error from `q`. It is normalised with the running mean and standard
-deviation frozen at training, clipped to +-#OBS_CLIP.
+look-ahead steps of #FUTURE_DT_S, each as its error from `q`. It is normalised with the file's `obs_mean` and
+`obs_std`, clipped to +-#OBS_CLIP.
 
 @see Policy, act(), observation(), load()
 """
@@ -30,7 +30,7 @@ import numpy.typing as npt
 ARM_JOINTS: int = 6
 ## Width of one arm's slot: six joints and the normalised gripper.
 ARM_DOF: int = 7
-## Look-ahead reference frames in the observation, and their spacing in seconds (SONIC: 10 frames, 0.1 s apart).
+## Look-ahead reference frames in the observation, and their spacing in seconds.
 FUTURE_FRAMES: int = 10
 FUTURE_DT_S: float = 0.1
 ## Joint velocities enter the network scaled by this (rad/s to order one).
@@ -45,13 +45,13 @@ WEIGHTS_PATH: pathlib.Path = pathlib.Path(__file__).with_name("tracker.npz")
 
 @dataclasses.dataclass(frozen=True)
 class Policy:
-    """A frozen tracker's arrays: normaliser, dense layers, and the training metadata.
+    """A frozen tracker's arrays: normaliser, dense layers, and the file's metadata.
 
     Attributes:
     - layers: `(weight, bias)` per dense layer, float32, weight `[out, in]`; ELU between them, none after the last.
     - obs_mean: Mean the observation is normalised with, `[OBS_DIM]`.
     - obs_std: Standard deviation it is normalised with, `[OBS_DIM]`.
-    - meta: What the file records: `actuator`, `iteration`, `sha256` and the training settings.
+    - meta: What the file records: such as `actuator` and `sha256`.
 
     @see load(), act()
     """
@@ -63,13 +63,13 @@ class Policy:
 
 
 def act(net: Policy, obs: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """The network's deterministic action for one observation.
+    """The network's action for one observation.
 
     @param net The tracker.
     @param obs The observation, `[OBS_DIM]`, from observation().
     @return The action, `[ARM_DOF]`, clipped to `[-1, 1]`.
     """
-    # float32 first, as training packed it: the normaliser then sees the same values training did.
+    # float32 first, the precision the normaliser's arrays are stored in.
     x = np.clip((obs.astype(np.float32) - net.obs_mean) / net.obs_std, -OBS_CLIP, OBS_CLIP).astype(np.float32)
     for index, (weight, bias) in enumerate(net.layers):
         x = x @ weight.T + bias

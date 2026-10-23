@@ -35,6 +35,7 @@ While a joint is nudged the page highlights it in the drawing, one joint at a ti
 
 import dataclasses
 import functools
+import logging
 import math
 import pathlib
 import threading
@@ -1101,6 +1102,10 @@ def test_a_powered_open_whose_other_arm_fails_lets_the_opened_one_go_again() -> 
         return opener(robot, cfg, side)
 
     station.session._opener = right_fails
+    # The sweep's IK warm-up is done, as it is by the time an operator gets here: the arms open on this call itself.
+    warm = station.session._ik_warm
+    assert warm is not None
+    warm.join()
     with pytest.raises(OSError, match="no reply"):
         station.session.start_motion()
     left = station.rig.handles[-1]
@@ -1133,6 +1138,122 @@ def test_a_sweep_move_out_of_reach_is_shrunk_and_said_or_skipped() -> None:
     assert motion.state == "done", motion.error
     assert any("ran at half size" in note["text"] for note in motion.notes)
     assert calls["n"] > len(setup_motion.SWEEP_MOVES)
+
+
+def test_picking_the_robot_compiles_the_sweeps_ik_and_no_arm_is_powered_until_it_is_done(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """choose() compiles the IK for #SWEEP_TICKS rows on its own thread; start_motion() answers at once while it
+    still runs, and the powered checks wait for it, as their first phase, before an arm is powered. Every sweep solve
+    is that length, so none compiles under power, where a Metal arm's grippers would miss their CAN timeout (fault
+    0xD)."""
+    arm_model = model("metal")
+    warmed: list[int] = []
+    lengths: list[int] = []
+    release = threading.Event()
+    real_warm, real_solve = arm_model.warm_solve, arm_model.solve
+
+    def warm_solve(ticks: int) -> float:
+        assert release.wait(30.0)
+        warmed.append(ticks)
+        return real_warm(ticks)
+
+    def solve(targets: dict[str, Any], start: dict[str, Any]) -> dict[str, Any]:
+        lengths.extend(t.shape[0] for t in targets.values())
+        return real_solve(targets, start)
+
+    monkeypatch.setattr(arm_model, "warm_solve", warm_solve)
+    monkeypatch.setattr(arm_model, "solve", solve)
+    station = Station("metal")
+    assert station.session.model_state == "ready" and warmed == []
+    station.find_arms()
+    station.set_home()
+    station.session.start_motion()
+    status = station.session.status()
+    assert status["motion"]["state"] == "running" and status["motion"]["phase"] == setup_motion.POWER_PHASE
+    assert status["checks_on"] and status["holding"] == []
+    assert not any(arm.powered for arm in station.rig.arms.values()) and warmed == []
+    release.set()
+    assert station.session.wait_motion(120.0)
+    assert warmed == [setup_motion.SWEEP_TICKS]
+    assert station.session.motion is not None and station.session.motion.state == "done"
+    assert station.session.status()["holding"] == ["left", "right"]
+    assert lengths and set(lengths) == {setup_motion.SWEEP_TICKS}
+
+
+def test_an_arm_that_does_not_open_after_the_warm_up_fails_the_checks_in_the_pages_words(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the arms open on the checks' thread (the warm-up still ran at Start), an arm that does not open fails the
+    run with the explanation the page shows, the one that opened is let go, and nothing holds."""
+    arm_model = model("metal")
+    release = threading.Event()
+    real_warm = arm_model.warm_solve
+
+    def warm_solve(ticks: int) -> float:
+        assert release.wait(30.0)
+        return real_warm(ticks)
+
+    monkeypatch.setattr(arm_model, "warm_solve", warm_solve)
+    station = Station("metal")
+    station.find_arms()
+    station.set_home()
+    real_open = station.rig.open
+
+    def open_right_fails(robot: setup_session.Robot, cfg: Any, side: str) -> Any:
+        if side == "right":
+            raise errors.ConfigError("the right arm's adapter went away")
+        return real_open(robot, cfg, side)
+
+    monkeypatch.setattr(station.session, "_opener", open_right_fails)
+    station.session.start_motion()
+    release.set()
+    assert station.session.wait_motion(120.0)
+    motion = station.session.motion
+    assert motion is not None and motion.state == "failed"
+    assert motion.error == "the right arm's adapter went away"
+    assert not any(arm.powered for arm in station.rig.arms.values())
+    assert station.session.status()["holding"] == []
+
+
+def test_a_warmed_model_solves_a_sweep_path_without_compiling(caplog: pytest.LogCaptureFixture) -> None:
+    """After warm_solve(SWEEP_TICKS) a sweep-length solve compiles nothing; another length still does, which shows the
+    check would see a compile."""
+    import jax
+
+    arm_model = model("metal")
+    arm_model.warm_solve(setup_motion.SWEEP_TICKS)
+
+    def compiles(ticks: int) -> int:
+        caplog.clear()
+        targets = {
+            side: np.broadcast_to(arm_model.tool(arm_model.rests[side], side), (ticks, 4, 4)).copy()
+            for side in arm_model.sides
+        }
+        with caplog.at_level(logging.WARNING), jax.log_compiles(True):
+            arm_model.solve(targets, dict(arm_model.rests))
+        return sum("Compiling jit(_solve_chunk)" in record.getMessage() for record in caplog.records)
+
+    assert compiles(setup_motion.SWEEP_TICKS) == 0
+    assert compiles(setup_motion.SWEEP_TICKS + 1) == 1
+
+
+def test_a_failed_ik_warm_up_only_logs_and_the_powered_checks_still_run(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A warm-up that raises leaves the wizard as it was before the warm-up existed: the powered checks still run, the
+    sweep compiling as before, and a warning says so."""
+
+    def broken(ticks: int) -> float:
+        raise RuntimeError("no XLA here")
+
+    monkeypatch.setattr(model("yam"), "warm_solve", broken)
+    with caplog.at_level(logging.WARNING, logger="robots.setup_session"):
+        station = Station("yam")
+        station.find_arms()
+        station.set_home()
+        assert station.motion().state == "done"
+    assert any("IK warm-up skipped (no XLA here)" in record.getMessage() for record in caplog.records)
 
 
 def test_home_outside_the_urdfs_range_is_named_and_the_custom_robot_needs_no_settings() -> None:

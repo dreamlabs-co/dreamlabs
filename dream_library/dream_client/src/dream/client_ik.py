@@ -89,8 +89,7 @@ EEF_STATE_PARTS = ("arm", "eef_xyz", "eef_rot6", "grip")
 PROPRIO_TEST_ENV = "DREAM_PROPRIO_TEST"
 PROPRIO_TEST_MODES = ("raw", "zero", "avg", "avg_hand", "avg_all")
 
-## For the test switch: the base model's state at normalized 0, (q01 + q99) / 2 of yam_eef_joint in the base
-## model checkpoint's dataset statistics.
+## For the test switch: the base model's state at normalized 0, the middle of its state range.
 PROPRIO_AVG = {
     "state.right_arm": (0.0826, 1.7384, 1.5751, -0.0177, -0.0166, 0.045),
     "state.right_eef_xyz": (0.3017, 0.1342, 0.1645),

@@ -341,7 +341,7 @@ def test_c07r_every_shape_spec_keeps_its_meaning(server: FakeDreamAPI, connectio
 
 
 ## A fine-tune of the one-arm body, as get_models() answers it: the body's config rides on the model.
-FT_CHECKPOINT = "dream-1-ft:1d845dea-arm"
+FT_CHECKPOINT = "dream-1-ft:12345678-arm"
 FT_EMBODIMENT_ID = "emb_0123456789abcdef"
 
 

@@ -6,10 +6,9 @@
      - limits are the station follower's soft limits in DM radians, inside the CAD limits;
      - joint1 sits 0.03965 m above base_link, not 0.08465: base_link is the frame the EEF heads were trained in, 45 mm
        above the B601 base plate, so the table lands where the YAM head saw it.
-     The axes are the 9/25 golden take's wrist-camera signs (every vendor RS axis flipped, wrist roll included).
-     Until 10/01 this file had the RS variant's links (lerobot-robot-seeed-b601 1.0.5 00-arm-rs_asm-v3.urdf, the model
-     our B601 teleop loads): upper arm 236 mm vs 264 mm here, fingertip 31 mm apart (median) on 96
-     recorded station poses. A test pins its FK to golden poses from the vendor DM file. -->
+     The axes follow the signs the arm's wrist camera shows (every vendor RS axis flipped, wrist roll included).
+     The RS variant's links (lerobot-robot-seeed-b601 1.0.5 00-arm-rs_asm-v3.urdf) differ: upper arm 236 mm vs
+     264 mm here. A test pins its FK to golden poses from the vendor DM file. -->
 <robot name="b601_dm">
   <link name="base_link"/>
   <link name="link1"/>

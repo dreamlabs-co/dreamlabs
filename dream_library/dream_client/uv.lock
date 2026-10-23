@@ -527,7 +527,7 @@ requires-dist = [
 
 [[package]]
 name = "dreamlabs-client"
-version = "1.0.5"
+version = "1.0.8"
 source = { editable = "." }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },

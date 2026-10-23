@@ -183,7 +183,7 @@ YAM_ARM = ArmSpec(
 
 # Metal: the vendor chain (assets/metal.urdf). TCP 0.135 m along link6 x with its axes relabelled
 # into YAM's link_6 convention (z along the fingers): the frame the model's eef keys live in, as in
-# our Metal policy and the simulation evaluation's EEF space.
+# our Metal policy and the simulator's EEF space.
 METAL_ARM = ArmSpec(
     urdf=ASSETS / "metal.urdf",
     joints=tuple(f"joint{i}" for i in range(1, 7)),
@@ -193,7 +193,7 @@ METAL_ARM = ArmSpec(
     rest_weight=(0.15, 0.3, 0.3, 0.3, 0.3, 0.3),  # our Metal teleop's rest weights
     max_speed=(4.5, 4.5, 4.5, 12.0, 12.0, 12.0),  # our Metal teleop's speed cap
     # The shoulder turns the other way from YAM's (Metal 0 to -3.14 rad, YAM 0 to +3.65), as in
-    # our Metal policy and the simulation evaluation's EEF space.
+    # our Metal policy and the simulator's EEF space.
     joint_sign=(1.0, -1.0, 1.0, 1.0, 1.0, 1.0),
     link_radius=0.04,
     jaw=None,
@@ -288,14 +288,14 @@ def _faas_side(
 
 
 # The FaaS EEF beta robots: FK of each spec on the recorded joints of the run's
-# upload gives its eef labels to 0.0004 mm and 0.0001 deg. The sim eval's <twin>_faas specs, Trossen's TCP refit.
+# upload gives its eef labels to 0.0004 mm and 0.0001 deg. The simulator's <robot>_faas specs, Trossen's TCP refit.
 _RAD2 = float(np.radians(2.0))
 _APPROACH_X = _tool_axes((1.0, 0.0, 0.0), (0.0, 1.0, 0.0))  # flange x = approach, y = jaw: Metal's relabel
 _R1 = ("shoulder_pitch", "shoulder_roll", "shoulder_yaw", "elbow", "wrist_roll", "wrist_pitch", "wrist_yaw")
 _ROBO = ("Shoulder", "ShoulderRotate", "ArmRoll", "Elbow", "WristRoll", "WristPitch", "WristYaw")
 
 # Trossen WidowX AI: each arm in its own base_link, TCP along link_6 x with its axes relabelled into YAM's convention.
-# 0.146062 m, not the 0.1476 of the bake's notes: the labels of the Trossen EEF bake 1006b sit 1.538 mm closer to the
+# 0.146062 m, not the nominal 0.1476: the labels of the Trossen EEF bake sit 1.538 mm closer to the
 # flange on every frame. Rest: both arms' first-frame median, wrist roll 0. The jaw is the carriage (m).
 TROSSEN_ARM = ArmSpec(
     urdf=ASSETS / "wxai.urdf",
@@ -523,7 +523,7 @@ FAAS_ARMS: dict[str, dict[str, ArmSpec]] = {
 
 
 def _zero_shot_arm(robot: str, side: str, rest: tuple[float, ...]) -> ArmSpec:
-    """One side of a zero-shot sim robot: the simulation evaluation's arm split writes its arm on a root
+    """One side of a zero-shot sim robot: the simulator's arm split writes its arm on a root
     ``served_base`` at YAM's arm base pose for that side, joints joint1..6 (joint1..7 for a 7-joint arm with no
     joint locked), jaws jaw_drive and jaw_f1.., and a ``tcp`` link in YAM's TCP convention, so its EEF poses mean
     what YAM's do. ``rest`` (the sim's, one value per joint) is kept 0.1 rad inside the URDF limits. A five-joint
@@ -706,9 +706,9 @@ EMBODIMENTS: dict[str, Embodiment] = {
         for robot, rest in _ZERO_SHOT_REST.items()
     },
 }
-# yamumi (YAM's arms with GenRobot's DAS gripper) for a YAM checkpoint: the TCP sits where YAM's does against its
-# fingertips, the robot files' rule (the sim's TIP_PAST_TCP_M): 7.9 mm short of the DAS fingertip midpoint at
-# half its widest gap, (0, 41.5, 189.2) mm in link_6. YAM's own TCP is 134.7 mm out, its fingertips 142.6 mm.
+# yamumi (YAM's arms with a third-party parallel gripper) for a YAM checkpoint: the TCP sits where YAM's does against
+# its fingertips, the robot files' rule (the sim's TIP_PAST_TCP_M): 7.9 mm short of that gripper's fingertip midpoint
+# at half its widest gap, (0, 41.5, 189.2) mm in link_6. YAM's own TCP is 134.7 mm out, its fingertips 142.6 mm.
 EMBODIMENTS["yamumi"] = EMBODIMENTS["yam"].model_copy(
     update={
         "arm": YAM_ARM.model_copy(update={"tools": {"tcp": ToolPose(offset=(0.0, 0.0415, 0.1813), rotation=_IDENTITY)}})
@@ -730,38 +730,33 @@ class ServeSpec(BaseModel):
 
     tool: str = "tcp"  # the frame every EEF checkpoint's eef keys are in (the eef_tcp bake)
     # Savitzky-Golay over the chunk's hand targets before the solve: the EEF head is 2.3x noisier
-    # than the joint head, and unsmoothed its targets put 2 of 3 ticks on the speed cap (our eef-ik branch).
+    # than the joint head, and unsmoothed its targets put 2 of 3 ticks on the speed cap.
     smooth_window: int = 15  # ticks, odd; 0 = off
     smooth_polyorder: int = 3
     # Each new chunk eases in from the last command over this many ticks instead of jumping to its plan: the
-    # chunk seam carries most of the large steps in sim (09/29, rows q1388-q1390). 0 = no ease-in (the clip to the
-    # margined limits and the speed cap still hold). 12 (09/30 sim hill
-    # climb, with contract v1.2): the step into a new chunk went from 5.5x an average step to 0.4x; 6 gave 0.8x.
+    # chunk seam carries most of the large steps in sim. 0 = no ease-in (the clip to the margined limits and the
+    # speed cap still hold). 12: the step into a new chunk went from 5.5x an average step to 0.4x; 6 gave 0.8x.
     seam_blend_ticks: int = 12
     # "tick" solves the chunk tick by tick (warm start, a pull to the last tick) then eases it in (seam_blend_ticks).
     # "traj" solves every tick of every arm in one problem: velocity and acceleration costs along the chunk, and the
     # last two commands fixed as its history, so it continues the arm's motion with no ease-in (which braked the arm
-    # to 0.39x its speed at every seam in the 2026-10-17 replays), and the two arms kept ``interarm_margin`` apart
+    # to 0.39x its speed at every seam in offline replays), and the two arms kept ``interarm_margin`` apart
     # where ``Embodiment.side_base`` says where they stand. Offline replays of teleop on five arms (Metal, Makers,
-    # Seeed reBot, SO-101, YAM; 2026-10-17), the head's error modelled as a drifting chunk bias plus jitter: joint
+    # Seeed reBot, SO-101, YAM), the head's error modelled as a drifting chunk bias plus jitter: joint
     # jerk -93..-95%, direction flips -91%, joint error vs the demonstration -3..-47%, the median hand error within
     # +0.6 mm; on exact targets the median hand error is 0.1-0.8 mm higher. About 20 ms a chunk against 12. The
-    # robot stacks pick "traj" themselves (the dream client's ik.solve: robot results in
-    # our IK notes); dream's own default, which sim eval's decode runs, stays "tick" until a simulation A/B: on exact
-    # sim targets traj's smoothing round-trips hand paths 7-16 mm off where tick holds 2 mm (an internal test).
+    # robot stacks pick "traj" themselves (the dream client's ik.solve); dream's own default, which the simulator's
+    # decode runs, stays "tick": on exact sim targets traj's smoothing round-trips hand paths 7-16 mm off where tick
+    # holds 2 mm.
     solve: str = "tick"
-    # The trajectory solve's smoothing: velocity 20 / acceleration 100 / jerk 200, history weight 5x (three history
-    # rows). On a Metal (2026-10-18, same robot, task, model and code): speed-cap clamps per chunk 1.65-2.06 against
-    # 2.73 on tick, joint jerk 436-1557 deg/s^3, direction flips 0.10-0.49/s. A lighter 5 / 50 / 100 / 1x, chosen
-    # offline for a faster step response (a still arm stepped ~0.1 rad arrives in 9-16 rows instead of 15-37; the
-    # velocity cost in radians outweighs the pose cost in metres on small arms such as SO-101), was worse on that
-    # Metal: clamps 3.09-3.79, jerk 879-2207 deg/s^3, flips 0.45-0.80/s, worse than tick on the speed cap. The weak
-    # history weight lets a new chunk start off the arm's motion, which the speed cap then clips.
-    # 2026-10-18, YAM: 20 / 100 braked the arm over each chunk's last rows (0.88 of the demonstrated hand speed, tick
-    # 0.98) and slowed its answer to a correction (a 3 cm step reached 90% in 13.5 rows, Metal worst 28, tick 11).
-    # Velocity 5 and acceleration 50, jerk and history weight unchanged: 0.95, 11 rows (Metal worst 16), the arms
-    # still kept apart under a pull of the hands together; the sim playground, the same 100 YAM tasks: 49 against tick's 49
-    # in the same run (20 / 100: 46 against 52).
+    # The trajectory solve's smoothing. Velocity 20 / acceleration 100 / jerk 200, history weight 5x (three history
+    # rows) hit the speed cap less often than tick on a Metal arm, with less jerk and fewer direction flips. A lighter
+    # 5 / 50 / 100 / 1x, chosen offline for a faster step response (the velocity cost in radians outweighs the pose
+    # cost in metres on small arms such as SO-101), was worse there than tick on the speed cap: the weak history
+    # weight lets a new chunk start off the arm's motion, which the speed cap then clips. On a YAM, 20 / 100 braked
+    # the arm over each chunk's last rows and slowed its answer to a correction; velocity 5 and acceleration 50, jerk
+    # and history weight unchanged, kept close to the demonstrated hand speed and tick's step response, and the arms
+    # still kept apart under a pull of the hands together.
     traj_vel_weight: float = 5.0  # joint velocity, every tick
     traj_acc_weight: float = 50.0  # joint acceleration, every tick
     # Joint jerk, every tick, and with three history rows across the seam too; a third history row without a jerk

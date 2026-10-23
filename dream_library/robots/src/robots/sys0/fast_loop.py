@@ -4,8 +4,8 @@ This is not a second control loop. The station's control loop (`robots.control`)
 (`robots.sys0.motors`) decide what each motor is told; i2rt's two threads per arm are the transport that carries
 that block onto the CAN bus and brings the motors' state back. Stock i2rt takes 16.5 ms to do that round trip.
 For a position target that delay hardly matters, because the motor's own PD acts on it in the firmware. For a
-torque it is most of the problem: System 0 answers what it measured one round trip ago, and it was trained behind
-this faster transport (its checkpoint's `motor_loop` is `fast`), so with System 0 the arms are opened with it.
+torque it is most of the problem: System 0 answers what it measured one round trip ago, and it expects
+this faster transport, so with System 0 the arms are opened with it.
 
 Measured on a YAM, a torque written into i2rt's
 command block shows up in the state the host reads 16.5 ms later, about 9 ms of it in i2rt itself:

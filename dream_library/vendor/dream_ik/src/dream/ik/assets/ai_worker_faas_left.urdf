@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!-- ROBOTIS AI Worker ffw_sg2_follower.urdf (models/aiworker): arm_base_link .. arm_l_link7 only (7 movable joints; meshes and every other link
-     dropped), the FaaS EEF bake frame. Source sha256 c5ec27133805e2ec1bdbd3c290f563dda0835cf2e22224b6e29a5f0216dbf9eb. -->
+<!-- ROBOTIS AI Worker ffw_sg2_follower.urdf: arm_base_link .. arm_l_link7 only (7 movable joints; meshes and every other link
+     dropped), the FaaS EEF bake frame. -->
 <robot name="ai_worker_faas_left">
   <link name="arm_base_link">
     </link>

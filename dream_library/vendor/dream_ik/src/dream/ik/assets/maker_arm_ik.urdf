@@ -5,8 +5,7 @@
      https://github.com/makermods-robotics/maker-arm-sdk, fetched 2026-09-29), joint origins and axes verbatim except:
      - ik_base_joint (fixed, new root): y-up -> z-up about x, then a half turn about z, so the base frame is YAM's
        (x forward, y left, z up); our Maker Arm viewer turns the vendor model the same way to draw it.
-     - link_006_joint (wrist_yaw) axis flipped: the arm reports it opposite to the vendor axis (wrist_yaw -1,
-       seen on a Maker Arm station 2026-09-19).
+     - link_006_joint (wrist_yaw) axis flipped: the arm reports it opposite to the vendor axis (wrist_yaw -1).
      - revolute limits = the station follower's soft limits, not the CAD's.
      - the two prismatic finger joints dropped: dream.ik solves the six arm joints only.
      Written on 2026-09-30. -->

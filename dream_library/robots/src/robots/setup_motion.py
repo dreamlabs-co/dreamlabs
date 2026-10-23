@@ -90,6 +90,14 @@ SWEEP_OUT_S: float = 1.0
 SWEEP_HOLD_S: float = 0.6
 SWEEP_BACK_S: float = 1.0
 
+## Rows in every sweep move's IK path (out, held, back), the one chunk length the sweep solves: the IK compiles per
+## length, so the wizard compiles this one before the arms are powered (#robots.setup_model.ArmModel.warm_solve).
+SWEEP_TICKS: int = (
+    round(SWEEP_OUT_S * setup_model.MOTION_HZ)
+    + round(SWEEP_HOLD_S * setup_model.MOTION_HZ)
+    + round(SWEEP_BACK_S * setup_model.MOTION_HZ)
+)
+
 ## A sweep target the IK misses by more than this is out of reach from home, metres and radians.
 REACH_POS_M: float = 0.005
 REACH_ANG_RAD: float = math.radians(3.0)
@@ -116,6 +124,9 @@ HOLD_CHECK_RAD: float = math.radians(3.0)
 ## Most the gripper may move in the hold check, on its 0 closed to 1 open scale.
 HOLD_CHECK_GRIPPER: float = 0.15
 
+## The run's phase while its `power` opens the arms: the wait for the sweep's IK warm-up, then the opening.
+POWER_PHASE: str = "waiting for the IK to finish compiling, then powering the arms"
+
 _log = logging.getLogger(__name__)
 
 
@@ -126,7 +137,8 @@ class Stopped(Exception):
 class Motion:
     """The powered checks, on their own thread: the hold check, home, the nudges, then the sweep.
 
-    Runs only after the operator confirmed the safety popup, on arms opened powered (each holds where it is):
+    Runs only after the operator confirmed the safety popup, on arms opened powered (each holds where it is), or
+    opened first by its `power` once the sweep's IK warm-up ends (#POWER_PHASE):
     the arm is sent its own position and must not move (a driver that reads and writes differently moves here); both
     go slowly to their home; each joint of each arm is nudged #NUDGE_RAD and back, and each gripper a little; then
     both arms run the same small end-effector sweep from home (#SWEEP_MOVES), solved with dream's IK and judged by
@@ -147,7 +159,7 @@ class Motion:
       stood, not at rest.
     - stop_cut: True once STOP let every arm go during a park (press_stop()).
     - parking: The arms whose park runs or is still to run while #state is `parking`.
-    - phase: What runs now.
+    - phase: What runs now; #POWER_PHASE while `power` opens the arms (the wait for the sweep's IK warm-up).
     - results: Every check done: `{"group", "side", "label", "finding"}`.
     - notes: What the wizard changed and why, in plain words, each for one arm: `{"side", "text"}`, and `move`
       with `skipped` for a sweep move it shrank or skipped, or a lifting joint's tracking advice; a note about both
@@ -165,18 +177,23 @@ class Motion:
         *,
         clock: Callable[[], float],
         sleep: Callable[[float], Any],
+        power: Callable[[], dict[str, Any]] | None = None,
     ) -> None:
         """Binds the opened arms and the home pose; nothing moves until run().
 
         @param body The config's `body`, for its #robots.setup_checks.Tolerance.
         @param model The arm's URDF.
-        @param arms Per side, the arm, opened powered.
+        @param arms Per side, the arm, opened powered; empty when `power` opens them.
         @param home Per side, the home joints.
         @param clock Monotonic clock, seconds.
         @param sleep Blocking sleep, seconds.
+        @param power Opens the arms powered and returns them per side; run() calls it first, on its thread, so the
+            session can wait there for the sweep's IK warm-up (a compile would starve a powered arm) while the page's
+            request has already answered. Its failure fails the run with its words (#error). None: `arms` are open.
         """
         self._model = model
         self._arms = arms
+        self._power = power
         self._home = home
         self._clock = clock
         self._sleep = sleep
@@ -224,6 +241,11 @@ class Motion:
         """Runs every powered check in order; both arms end holding at home or where they stopped, or let go."""
         self.state = "running"
         try:
+            if self._power is not None:
+                self.phase = POWER_PHASE
+                if self._stop.is_set():
+                    raise Stopped("stopped by the operator")
+                self._arms = self._power()
             for side, arm in self._arms.items():
                 start = np.abs(setup_checks.reading_of(arm.read(), self._clock()).joints - self._home[side])
                 self._reach[side] = np.maximum(start, SWEEP_MAX_TURN_RAD) + TOO_FAR_MARGIN_RAD

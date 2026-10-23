@@ -206,7 +206,7 @@ def test_a_sweep_move_shrunk_below_the_tolerance_is_judged_by_where_the_hand_end
 
 
 def test_a_turn_allows_twice_the_shift_and_only_a_lifting_joint_behind_its_move_is_weight() -> None:
-    # Nadine's YAM: "turn about y" turned 114% with the tool 1.5 cm off (1.0 cm limit), joint 3 2.1 degrees off.
+    # A YAM: "turn about y" turned 114% with the tool 1.5 cm off (1.0 cm limit), joint 3 2.1 degrees off.
     pose = np.eye(4)
     sent = (pose, setup_model.pose_offset(pose, (0.0, 0.0, 0.0), (0.0, math.radians(10.0), 0.0)))
     swung = setup_model.pose_offset(pose, (0.015, 0.0, 0.0), (0.0, math.radians(11.4), 0.0))

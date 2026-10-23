@@ -324,7 +324,7 @@ The same arms also take `reach`: the area the hand's targets are kept inside, se
 
 The same arms also take `region`: a box the whole arm stays inside, `{"lo": [x, y, z], "hi": [x, y, z]}` in the arm's base frame, metres, any value `null` for an open face and either key left out for all open. It bounds every link and the grasp point, so a `lo` z at the table lets the hand reach the table while no link goes through it, a `lo` x keeps the arm from reaching behind its base, and a `hi` y on the right arm (or `lo` y on the left) keeps it out of the other arm's half. The dream client clips the hand targets 2 cm inside, its IK keeps the arm 2 cm in, and a row that would leave the box by more than 1 cm, or put any point of the arm inside a `keep_out` obstacle, holds the arm where it is (the dream client's `ik` key `region`). Without the key there is no box; a malformed value fails at load.
 
-The top-level key `ik_solve` picks how the dream client turns an `eef` run's tool poses into joints: `traj` (every body's default) solves the whole chunk at once with the arm's last three commands as history, at dream's velocity 5 / acceleration 50 weights, and `tick` solves the chunk row by row (the dream client's `ik` key `solve`). The client compiles `traj` on a thread when it starts and solves its first chunks with `tick` until it is ready, so a slow machine meets the station's start-up deadlines. In our evaluation on a YAM (one checkpoint, 27 scenarios) `traj` scored 0.62 against `tick`'s 0.61.
+The top-level key `ik_solve` picks how the dream client turns an `eef` run's tool poses into joints: `traj` (every body's default) solves the whole chunk at once with the arm's last three commands as history, at dream's velocity 5 / acceleration 50 weights, and `tick` solves the chunk row by row (the dream client's `ik` key `solve`). The client compiles `traj` on a thread when it starts and solves its first chunks with `tick` until it is ready, so a slow machine meets the station's start-up deadlines. On a YAM `traj` did as well as `tick` in our tests, so keep the default.
 
 ```yaml
 follower_r:
@@ -425,7 +425,7 @@ src/robots/
     ├── tracker.py     one arm's tick: the plan in, shaped; a supervised MIT-mode command out (pure logic)
     ├── motors.py      ArmMotors (one arm's 250 Hz tracker and the stale-block check), MotorPath (the writer for the ramp, the trackers after it)
     ├── arm_process.py open_arms(), RemoteArm: each arm in a process of its own with its tracker, so the 4 ms tick never waits on the agent
-    └── fast_loop.py   i2rt's motor loops sped up at runtime, as the network was trained behind them
+    └── fast_loop.py   i2rt's motor loops sped up at runtime, the transport the network expects
 ```
 
 Every quantity carries its unit: `control_hz`, `action_timeout_s`, `timestamp_s`,
@@ -445,7 +445,7 @@ plan = loop.plan  # PlanSnapshot: the rows still to run and the last 3 s of comm
 
 ## The seam with dream
 
-`dream` forwards the observation verbatim to a dreamzero serve behind DreamAPI and returns
+`dream` forwards the observation verbatim to the model's serve behind DreamAPI and returns
 the serve's action dict unchanged, so the key names are the ones the model reads: on a YAM, the parts and
 camera roles of its own embodiment config (`robots.adapter.YAM_EMBODIMENT`, the `embodiment` block the client is
 built with), as on every other body. `robots.adapter` converts in both directions and is the only place that knows
@@ -626,7 +626,7 @@ squeezing is regulated by `grip_force_cap` on the measured effort, not by roundi
 
 ## System 0
 
-On a YAM, `dreamcli robot up` (`python -m robots.station`) hands the arms' motors to System 0, a learned motor tracker (`robots.sys0`). Without it the command thread turns each row into a position target for the motors' own PD, and the measured arm reaches a row about 150 to 220 ms after it was asked to. With it, a small network trained with PPO in a model of the YAM's measured drivetrain, then on a real arm, looks at the measured joints and the next second of the plan and sets each joint's torque every 4 ms, with the firmware's stock damping left in place, so the arm follows the plan as it moves. The network ships in the package (`sys0/tracker.npz`, about 380 KB, evaluated with numpy; no GPU and no PyTorch on the box). It is the YAM's default; nothing about it is configurable: `dreamcli robot up nosys0` (`--no-sys0`) runs without it, and `dreamcli robot down` then `dreamcli robot up` or `dreamcli robot up nosys0` switches. Every other body runs without it, and asking one for it (`dreamcli robot up sys0`, `--sys0`) is refused at start. A station with a tracker of its own, trained for the same observation and action, replaces `tracker.npz` with a file of the same arrays (`robots.sys0.policy` lists them).
+On a YAM, `dreamcli robot up` (`python -m robots.station`) hands the arms' motors to System 0, a learned motor tracker (`robots.sys0`). Without it the command thread turns each row into a position target for the motors' own PD, and the measured arm reaches a row about 150 to 220 ms after it was asked to. With it, a small network looks at the measured joints and the next second of the plan and sets each joint's torque every 4 ms, with the firmware's stock damping left in place, so the arm follows the plan as it moves. The network ships in the package (`sys0/tracker.npz`, about 380 KB, evaluated with numpy; no GPU and no PyTorch on the box). It is the YAM's default; nothing about it is configurable: `dreamcli robot up nosys0` (`--no-sys0`) runs without it, and `dreamcli robot down` then `dreamcli robot up` or `dreamcli robot up nosys0` switches. Every other body runs without it, and asking one for it (`dreamcli robot up sys0`, `--sys0`) is refused at start. A station with a tracker of its own, trained for the same observation and action, replaces `tracker.npz` with a file of the same arrays (`robots.sys0.policy` lists them).
 
 What changes on the station when it is on:
 
@@ -696,7 +696,7 @@ the cameras and closes the client.
 
 ## Station agent
 
-`python -m robots.station --config station12.yaml [--task "..."] [--api-port 8091] [--host 127.0.0.1] [--inference-log PATH]`
+`python -m robots.station --config station.yaml [--task "..."] [--api-port 8091] [--host 127.0.0.1] [--inference-log PATH]`
 
 The API binds `127.0.0.1` unless `--host` says otherwise. `--host 0.0.0.0` exposes arm control (`POST /start` moves the arms) to the whole network with no password; the website and the live view do not need it, since the station dials out (`dream.LiveViewClient`).
 
@@ -711,7 +711,7 @@ cannot be restarted, and by a watchdog every 2 s while the station is idle, so t
 frozen scene between runs), exactly as `robots.run` would but for the cameras, and runs it in a task. A reader's
 capture thread survives a source that returns no frame for up to 2 s (a USB stall, a driver timeout) and stops
 only past that. SIGINT, SIGTERM or SIGHUP stops a running loop, switches the arms off (they go limp), closes the API server and
-exits. `debug_scripts/station_run.sh serve station12.yaml` keeps it in a tmux session with the
+exits. `debug_scripts/station_run.sh serve station.yaml` keeps it in a tmux session with the
 log at `~/robots-station.log`.
 
 `StationController` (`robots.station`) is the one owner of the arms and enforces three rules:
@@ -836,7 +836,7 @@ read or write fails is logged and left holding what it last accepted, the other 
 and the result is False; nothing raises for a follower fault
 mid-move. The agent's **Home** runs it off the event loop, and a failed one's `last_error` names the arm and why, and
 says to press Reset. The agent refuses it while a loop exists; `python -m robots.home --config
-station12.yaml` (or `station_run.sh home station12.yaml`) runs it standalone, exit code 0 when
+station.yaml` (or `station_run.sh home station.yaml`) runs it standalone, exit code 0 when
 both arms made it, 1 otherwise, and must not be run while a loop owns the arms.
 
 ### Live view

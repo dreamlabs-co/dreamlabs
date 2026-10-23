@@ -11,6 +11,9 @@ the return to the pose each arm was opened in before torque off. The loop runs o
 
 import asyncio
 import dataclasses
+import logging
+import threading
+import time
 from collections.abc import Iterator
 from typing import Any
 
@@ -480,11 +483,29 @@ class _Model:
     id = "dreamlabs/eef-model"
 
 
+class _ClientIK:
+    """A built client IK: its `traj` solve compiled, or still compiling (`traj_ready` clear) until a test sets it."""
+
+    def __init__(self, head: str = "eef", traj_ready: bool = True) -> None:
+        self.head = head
+        self.traj_ready = threading.Event()
+        if traj_ready:
+            self.traj_ready.set()
+
+
+def _platform_with_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(station.dream, "DreamClient", lambda: type("C", (), {"get_models": lambda self: [_Model()]})())
+
+
+def _eef_config(**ik: Any) -> dict[str, Any]:
+    return {"checkpoint": _Model.id, "ik": {"arm": "metal", "head": "eef", **ik}, "action_hz": 20.0}
+
+
 def test_warm_client_ik_builds_the_clients_ik_for_the_configs_checkpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     """It builds one `ClientIK` from the config's `ik`, rate and embodiment and the checkpoint's platform record."""
     built: list[tuple[Any, ...]] = []
-    monkeypatch.setattr(station.dream, "DreamClient", lambda: type("C", (), {"get_models": lambda self: [_Model()]})())
-    monkeypatch.setattr(station.dream.client_ik, "ClientIK", lambda *args: built.append(args))
+    _platform_with_the_model(monkeypatch)
+    monkeypatch.setattr(station.dream.client_ik, "ClientIK", lambda *args: (built.append(args), _ClientIK())[1])
     ik = {"arm": "metal", "head": "eef"}
 
     station.warm_client_ik({"checkpoint": _Model.id, "ik": ik, "action_hz": 20.0, "embodiment": {"e": 1}})
@@ -492,6 +513,70 @@ def test_warm_client_ik_builds_the_clients_ik_for_the_configs_checkpoint(monkeyp
     assert len(built) == 1
     assert built[0][0] == ik and built[0][0] is not ik
     assert built[0][1:3] == (20.0, {"e": 1}) and isinstance(built[0][3], _Model)
+
+
+def test_warm_client_ik_waits_for_the_clients_traj_solve_before_the_arms_open(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The client compiles `traj` on a thread of its own once `tick` is done; an arm opened meanwhile lost its gripper
+    (0xD) to that trace, so the warm-up returns only once `traj_ready` is set."""
+    built = _ClientIK(traj_ready=False)
+    _platform_with_the_model(monkeypatch)
+    monkeypatch.setattr(station.dream.client_ik, "ClientIK", lambda *args: built)
+    threading.Timer(0.3, built.traj_ready.set).start()
+    started = time.monotonic()
+
+    with caplog.at_level(logging.INFO, logger="robots.station"):
+        station.warm_client_ik(_eef_config())
+
+    assert built.traj_ready.is_set() and time.monotonic() - started >= 0.3
+    assert "IK warm-up for dreamlabs/eef-model done" in caplog.text and "did not compile" not in caplog.text
+
+
+@pytest.mark.parametrize("ik", [{"head": "joint"}, {"solve": "tick"}])
+def test_warm_client_ik_does_not_wait_where_the_client_compiles_no_traj(
+    monkeypatch: pytest.MonkeyPatch, ik: dict[str, str]
+) -> None:
+    """A joint head, or a `tick` solve, compiles no `traj`, and `traj_ready` never comes: nothing waits for it."""
+    _platform_with_the_model(monkeypatch)
+    monkeypatch.setattr(station.dream.client_ik, "ClientIK", lambda *args: _ClientIK(ik.get("head", "eef"), False))
+    monkeypatch.setattr(station, "TRAJ_WARMUP_S", 5.0)
+    started = time.monotonic()
+
+    station.warm_client_ik(_eef_config(**ik))
+
+    assert time.monotonic() - started < 1.0
+
+
+def test_warm_client_ik_opens_the_arms_when_the_traj_solve_never_compiles(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A `traj` compile that fails or hangs is given #TRAJ_WARMUP_S, then logged; the station boots on and a Start
+    solves with `tick`, as the client does on its own."""
+    _platform_with_the_model(monkeypatch)
+    monkeypatch.setattr(station.dream.client_ik, "ClientIK", lambda *args: _ClientIK(traj_ready=False))
+    monkeypatch.setattr(station, "TRAJ_WARMUP_S", 0.1)
+
+    with caplog.at_level(logging.INFO, logger="robots.station"):
+        station.warm_client_ik(_eef_config())
+
+    assert "the traj solve did not compile" in caplog.text and "IK warm-up for dreamlabs/eef-model done" in caplog.text
+
+
+def test_warm_client_ik_without_a_checkpoint_compiles_with_a_model_the_account_lists(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`dreamcli setup` writes no `checkpoint` (a Start names the model), and the compile is the arm's, not the
+    model's: the warm-up takes the account's first model, so the arms do not open with nothing compiled."""
+    built: list[tuple[Any, ...]] = []
+    _platform_with_the_model(monkeypatch)
+    monkeypatch.setattr(station.dream.client_ik, "ClientIK", lambda *args: (built.append(args), _ClientIK())[1])
+
+    with caplog.at_level(logging.INFO, logger="robots.station"):
+        station.warm_client_ik({"ik": {"arm": "metal", "head": "eef"}, "action_hz": 20.0})
+
+    assert len(built) == 1 and isinstance(built[0][3], _Model)
+    assert "names no checkpoint" in caplog.text and "IK warm-up for dreamlabs/eef-model done" in caplog.text
 
 
 def test_warm_client_ik_does_nothing_without_ik(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -502,10 +587,12 @@ def test_warm_client_ik_does_nothing_without_ik(monkeypatch: pytest.MonkeyPatch)
 
 
 @pytest.mark.parametrize("models", [[], None])
+@pytest.mark.parametrize("checkpoint", [_Model.id, None])
 def test_warm_client_ik_only_logs_when_it_cannot_warm_up(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, models: list[Any] | None
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, models: list[Any] | None, checkpoint: str | None
 ) -> None:
-    """An unknown checkpoint or an unreachable platform leaves the compile to the Start, as before, and boots on."""
+    """An unknown checkpoint, an account with no model or an unreachable platform leaves the compile to the Start, as
+    before, and boots on."""
 
     def get_models(self: Any) -> list[Any]:
         if models is None:
@@ -514,6 +601,6 @@ def test_warm_client_ik_only_logs_when_it_cannot_warm_up(
 
     monkeypatch.setattr(station.dream, "DreamClient", lambda: type("C", (), {"get_models": get_models})())
 
-    station.warm_client_ik({"checkpoint": _Model.id, "ik": {"arm": "metal", "head": "eef"}, "action_hz": 20.0})
+    station.warm_client_ik({"checkpoint": checkpoint, "ik": {"arm": "metal", "head": "eef"}, "action_hz": 20.0})
 
     assert "IK warm-up skipped" in caplog.text

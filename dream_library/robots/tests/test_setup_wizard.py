@@ -156,9 +156,9 @@ BUILTIN_EMBODIMENTS = (
     "yam",
     "openyam",
     "makermods_metal",
-    "yam-umi",
+    "yam-alt-gripper",
     "so101-bimanual",
-    "dexmate-sharpa",
+    "acme-hand-arm",
     "seeed-rebot-b601-dm",
     "makermods_maker_arm",
 )
@@ -731,7 +731,7 @@ def test_a_resave_keeps_only_the_live_cameras_the_file_still_has(
     assert yaml.safe_load(target.read_text(encoding="utf-8"))["live"]["cameras"] == [names[1]]
 
 
-def test_a_save_over_another_bodys_file_starts_from_the_fleets_values(
+def test_a_save_over_another_bodys_file_starts_from_the_station_values(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
     target = tmp_path / "station.yaml"

@@ -9,7 +9,7 @@ nothing: it reads the observation dict and sends the 7-vector command. Grip forc
 System 0 (#robots.sys0) writes the arm a level below that: write_motor_command() swaps in a whole MIT-mode block the
 way i2rt's own command methods do, and set_motor_loop_hook() runs a check on i2rt's motor loop before every update,
 which is where a stalled tracker is caught. open_arm(fast_motor_loop=True) opens the arm behind
-#robots.sys0.fast_loop, the faster i2rt transport the tracker was trained behind.
+#robots.sys0.fast_loop, the faster i2rt transport the tracker expects.
 
 @see open_arm(), I2rtDriver
 """
@@ -220,7 +220,7 @@ def open_arm(cfg: config.ArmConfig, name: str, *, fast_motor_loop: bool = False)
 
     @param cfg Arm config: CAN channel, gripper type, the driver settings and the home pose.
     @param name `"left"` or `"right"`, for messages.
-    @param fast_motor_loop Run i2rt's motor loops faster (#robots.sys0.fast_loop), which System 0 was trained behind;
+    @param fast_motor_loop Run i2rt's motor loops faster (#robots.sys0.fast_loop), which System 0 expects;
         patched in before the robot starts its threads.
     @return A #robots.followers.FollowerArm over an #I2rtDriver.
     @throws ConfigError Its home does not list #JOINTS angles, or i2rt is not importable.

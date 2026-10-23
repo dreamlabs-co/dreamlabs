@@ -18,6 +18,7 @@ opened again, which holds each where it is (#robots.setup_motion).
 
 import dataclasses
 import datetime
+import functools
 import logging
 import math
 import os
@@ -141,8 +142,8 @@ OWN_ARM_LABELS: dict[str, str] = {
 }
 
 ## dream's arms the list leaves out as a second entry for an arm it has: `b601` is the reBot's URDF and tool point as
-## `seeed_faas`, which the reBot's checkpoints and example were made on; `yamumi` is the YAM's arm with GenRobot's DAS
-## gripper, the YAM tile's arm with another tool point.
+## `seeed_faas`, which the reBot's checkpoints and example were made on; `yamumi` is the YAM's arm with a third-party
+## parallel gripper, the YAM tile's arm with another tool point.
 SAME_ARM: dict[str, str] = {"b601": "seeed_faas", "yamumi": "yam"}
 
 NOT_ANSWERING_HELP = (
@@ -211,6 +212,26 @@ LIMP_NOTE = (
     "This arm has no brakes. When the wizard turns off the motors, the arm drops. Support the arm with your hand "
     "when finding the arms and moving to home position."
 )
+
+
+def warm_sweep_ik(model: setup_model.ArmModel) -> None:
+    """Compiles the sweep's IK once, on its own thread while the operator finds the arms, before any is powered.
+
+    The sweep's first solve compiles dream's chunk IK, seconds of CPU that starve the arm threads under power, so a
+    Metal arm's grippers miss their 500 ms CAN timeout (fault 0xD) at the first hand move and both arms park. Every
+    sweep path has #robots.setup_motion.SWEEP_TICKS rows, so compiling that length here (choose() starts it; the
+    powered checks wait for it before an arm is powered, Session._power_after_warm()) makes every sweep solve cheap.
+    The arms are limp or closed meanwhile, so the compile starves nothing that times out. Any failure only logs: the
+    sweep then compiles as before.
+
+    @param model The robot's model, just built.
+    """
+    try:
+        took_s = model.warm_solve(setup_motion.SWEEP_TICKS)
+    except Exception as exc:
+        _log.warning("setup: IK warm-up skipped (%s); the sweep compiles it under power", exc)
+        return
+    _log.info("setup: IK warm-up for the %s sweep done in %.1f s, before the arms are powered", model.spec, took_s)
 
 
 def body_of(robot: Robot) -> bodies.Body:
@@ -667,6 +688,7 @@ class Session:
         self._peak: dict[str, float] = {}
         self._motion_arms: dict[str, Any] = {}
         self._motion_thread: threading.Thread | None = None
+        self._ik_warm: threading.Thread | None = None
         self.uncalibrated: set[str] = set()
         self.calibration: so101_calibration.ArmCalibration | None = None
         self.calibrated: dict[str, dict[str, Any]] = {}
@@ -704,7 +726,12 @@ class Session:
             with self.lock:
                 self.model_state, self.model_error = "error", f"{type(exc).__name__}: {exc}"
             raise
+        # Not a daemon: an exit mid-compile (Ctrl-C right after the pick) waits the few seconds left rather than
+        # tearing the interpreter down under XLA, which crashes.
+        warm = threading.Thread(target=warm_sweep_ik, args=(model,), name="setup-ik-warm")
+        warm.start()
         with self.lock:
+            self._ik_warm = warm
             if self.robot == robot:
                 self.model, self.model_state = model, "ready"
 
@@ -1227,7 +1254,13 @@ class Session:
         return bool(self._motion_arms)
 
     def start_motion(self) -> None:
-        """After the safety popup, opens both arms again powered and runs the powered checks on a thread."""
+        """After the safety popup, opens both arms again powered and runs the powered checks on a thread.
+
+        While the sweep's IK warm-up that choose() started (warm_sweep_ik()) still compiles, the arms are not opened
+        here: the checks' thread waits for it and opens them then (_power_after_warm()), so nothing compiles while an
+        arm is powered, and this call answers at once, with the wait as the checks' first phase
+        (#robots.setup_motion.POWER_PHASE).
+        """
         with self.lock:
             robot = self._require_robot()
             model = self._require_model()
@@ -1252,24 +1285,62 @@ class Session:
                     f"the {' and '.join(dead)} arm stopped answering while it held: hold both arms up with your hands "
                     "and click Turn off motors first"
                 )
-            if not arms:
+            warm = self._ik_warm
+            power: Callable[[], dict[str, Any]] | None = None
+            if not arms and warm is not None and warm.is_alive():
+                power = functools.partial(self._power_after_warm, robot, configs, warm)
+            elif not arms:
                 self.bank.close()
                 try:
-                    for side, cfg in configs.items():
-                        arms[side] = self._opener(robot, cfg, side)
-                except Exception as exc:
-                    # The one that opened goes limp again: closed, it would hold under power with nothing driving it.
-                    for arm in arms.values():
-                        _let_go_quietly(arm)
-                    if isinstance(exc, errors.RobotsError):
-                        raise ValueError(setup_devices.explain(exc)) from exc
-                    raise
+                    arms = self._open_powered(robot, configs)
+                except errors.RobotsError as exc:
+                    raise ValueError(setup_devices.explain(exc)) from exc
             self._motion_arms = arms
             self.motion = setup_motion.Motion(
-                robot.body, model, arms, dict(self.home), clock=self._clock, sleep=self._sleep
+                robot.body, model, arms, dict(self.home), clock=self._clock, sleep=self._sleep, power=power
             )
             self._motion_thread = threading.Thread(target=self._run_motion, name="setup-motion", daemon=True)
             self._motion_thread.start()
+
+    def _open_powered(self, robot: Robot, configs: dict[str, Any]) -> dict[str, Any]:
+        """Opens both arms powered, under the lock.
+
+        @param robot The robot picked.
+        @param configs Per side, the arm's config (arm_config()).
+        @return Per side, the arm, holding where it is.
+        @throws Exception What an arm's open raised, for the caller to put in the page's words
+            (#robots.setup_devices.explain); the one that opened is let go again, since closed it would hold under
+            power with nothing driving it.
+        """
+        arms: dict[str, Any] = {}
+        try:
+            for side, cfg in configs.items():
+                arms[side] = self._opener(robot, cfg, side)
+        except Exception:
+            for arm in arms.values():
+                _let_go_quietly(arm)
+            raise
+        return arms
+
+    def _power_after_warm(self, robot: Robot, configs: dict[str, Any], warm: threading.Thread) -> dict[str, Any]:
+        """Opens both arms powered once the sweep's IK warm-up ends; the powered checks' first step
+        (#robots.setup_motion.Motion's `power`), on their thread.
+
+        @param robot The robot picked.
+        @param configs Per side, the arm's config, as start_motion() built them.
+        @param warm The warm-up thread choose() started.
+        @return Per side, the arm, opened powered; they are the session's held arms from here.
+        @throws Exception What an arm's open raised (_open_powered()); the run ends `failed` with its explanation
+            (#robots.setup_devices.explain) as its error, which the page shows.
+        """
+        if warm.is_alive():
+            _log.info("setup: the powered checks wait for the sweep's IK warm-up before an arm is powered")
+            warm.join()
+        with self.lock:
+            self.bank.close()
+            arms = self._open_powered(robot, configs)
+            self._motion_arms = arms
+        return arms
 
     def _run_motion(self) -> None:
         motion = self.motion

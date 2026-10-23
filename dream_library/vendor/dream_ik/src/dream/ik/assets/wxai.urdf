@@ -1,7 +1,6 @@
 <?xml version="1.0"?>
 <!-- Trossen WidowX AI follower arm, base_link .. link_6 only (joint_0..5; carriage, camera, meshes dropped),
-     from TrossenRobotics/trossen_arm_description 21d8b360 urdf/generated/wxai/wxai_follower.urdf
-     (sha256 10176fc822f77783b2f46f2103d300740b80e8d1397b4d306d5aa0aea60e16bf). -->
+     from TrossenRobotics/trossen_arm_description 21d8b360 urdf/generated/wxai/wxai_follower.urdf. -->
 <robot name="wxai">
   <link name="base_link">
     </link>

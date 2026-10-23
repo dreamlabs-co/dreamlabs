@@ -4,7 +4,7 @@ The IK the `dream` client runs for an EEF checkpoint (the `ik` config key, `drea
 
 A verbatim copy of these paths of Dream Labs' model code at commit `13ec9d33d1d0b4b7ca23fb3678f0b6fd43b3923c` (dream-ik 0.3.1): `packages/dream_ik/` (the `dream-ik` wheel's `pyproject.toml` and `README.md`) and every file of `src/dream/ik/` that pyproject force-includes (`__init__.py`, `specs.py`, `solver.py`, `decode.py` and the URDFs under `assets/`; not `serve.py`, which needs torch). 0.3.1 is the trajectory solve at velocity 5 / acceleration 50, `ServeSpec.fences` off by default, and `decode.extend_poses`, which the client pads a `traj` chunk with; it is on top of 0.3.0 (the opt-in trajectory solve, `ServeSpec.solve` `traj`, that the `ik` key's `solve` turns on, and `Region`, that its `region` builds), the zero-shot sim robots' arm models, a FaaS EEF fine-tune reading its robot's own joints, dream-ik 0.2.3 (per-station obstacles, a camera mount being the station's `keep_out`), the ten FaaS EEF beta robots (an arm spec per side), the Makers Arm, and, with the seam blend off, the solve still clipped to the margined limits and speed capped.
 
-Verbatim except comments and docstrings reworded for the public copy (no internal paths, repositories or tracker ids); re-vendoring brings the originals back, and the public copy's leak check flags them, so make the same change in the source first.
+Verbatim except some comments and docstrings, reworded here; make the same change in the source before re-vendoring.
 
 Two libraries the solver needs are vendored beside it, each a verbatim copy at the commit `packages/dream_ik/pyproject.toml` pins, and each MIT licensed (their `LICENSE` ships inside the package):
 

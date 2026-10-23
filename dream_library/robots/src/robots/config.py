@@ -200,8 +200,8 @@ ACTION_SPACES = typing.get_args(wire.ActionSpace)
 ## client's `ik` key `solve`).
 IK_SOLVES = ("tick", "traj")
 ## What an `eef` run of every body solves with when neither the config's `ik_solve` nor `dreamcli robot up --ik-solve`
-## names one: `traj`, the trajectory solve at the model code's velocity 5 / acceleration 50 (on a YAM, Unseen Task
-## v3.2 at the same checkpoint: 0.62 against tick's 0.61 and the 20 / 100 weights' 0.53 on the same scenarios). The
+## names one: `traj`, the trajectory solve at the model code's velocity 5 / acceleration 50 (on a YAM it did as well
+## as `tick` or better, and better than heavier velocity / acceleration weights, at the same checkpoint). The
 ## client compiles it on a thread and solves the first chunks with `tick` until it is ready (dream.client_ik), so a
 ## slow machine still meets the station's start-up deadlines.
 DEFAULT_IK_SOLVE: str = "traj"

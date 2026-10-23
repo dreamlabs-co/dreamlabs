@@ -66,8 +66,7 @@ _SESSION_KEYS = ("checkpoint", "embodiment", "robot")
 _ROBOT_KEY = "robot"
 
 ## The robot a model trained on YAM arms runs on, as the serve reads it: `yam`, its own arm, or `other_embodiment`,
-## any other, on which the serve withholds the model's state (all zeros, the input it saw under its state dropout in
-## training) and answers no joint head.
+## any other, on which the serve withholds the model's state (all zeros) and answers no joint head.
 YAM = "yam"
 OTHER_EMBODIMENT = "other_embodiment"
 ROBOTS = (YAM, OTHER_EMBODIMENT)

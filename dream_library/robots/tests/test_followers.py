@@ -450,7 +450,7 @@ def test_from_config_opens_an_anvil_gripper_as_the_linear_4310_that_drives_it(mo
     assert calls[0]["gripper_type"] == "linear_4310"
 
 
-def test_from_config_applies_the_fleet_driver_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_from_config_applies_the_station_driver_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     """ee_mass reaches get_yam_robot; temp export, gravity comp factor and the SDK limiter are set on the
     driver."""
     calls: list[dict[str, Any]] = []
@@ -660,7 +660,7 @@ def test_torque_off_raises_when_the_channel_cannot_be_opened_after_closing_the_d
 # --- config: the driver settings ----------------------------------------------------------------
 
 
-def test_arm_config_driver_settings_default_to_the_fleet_values(tmp_path: pathlib.Path) -> None:
+def test_arm_config_driver_settings_default_to_the_station_values(tmp_path: pathlib.Path) -> None:
     """The defaults: ee_mass 0.62 kg, gravity comp factor 1.0, the SDK gripper force limit off, temps on."""
     cfg = test_config.load_variant(tmp_path, follower_r={"can_channel": "can_right"})
 

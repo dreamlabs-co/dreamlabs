@@ -603,7 +603,7 @@ def test_missing_file_raises_os_error(tmp_path: pathlib.Path) -> None:
 # Policy window keys
 
 
-def test_policy_window_defaults_to_the_fleets_values(tmp_path: pathlib.Path) -> None:
+def test_policy_window_defaults_to_the_station_values(tmp_path: pathlib.Path) -> None:
     """640x360 policy frames, nine of them, sampled at 5 fps, when the file says nothing."""
     cfg = load_variant(tmp_path)
 
@@ -734,7 +734,7 @@ def load_with(tmp_path: pathlib.Path, overrides: dict[str, Any]) -> config.AppCo
     return config.load(write_config(tmp_path, {**copy.deepcopy(FULL_CONFIG), **overrides}))
 
 
-def test_exposure_is_managed_with_the_fleet_defaults_when_the_section_is_absent(tmp_path: Any) -> None:
+def test_exposure_is_managed_with_the_station_defaults_when_the_section_is_absent(tmp_path: Any) -> None:
     cfg = load_with(tmp_path, {})
     assert cfg.exposure == config.ExposureConfig(
         managed=True, target_median=90.0, limit_us=None, seed_us=None, smooth_idle=True

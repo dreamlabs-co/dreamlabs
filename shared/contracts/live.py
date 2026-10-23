@@ -17,10 +17,10 @@ Four layers, top to bottom:
   body raises `ValueError`, which the link answers with #CLOSE_PROTOCOL.
 - The close codes (#CLOSE_CODES) and the constants both ends share. The node's admission limits and the
   agent's encoder knobs are private to their products and live in their own `constants.py`.
-- The api seam: the bodies of `POST /internal/live/authorize` (#AuthorizeRequest,
-  #AuthorizeResponse) and `POST /internal/live/reports` (#Report, #LinkReport, #PromptReport, #ReportResponse,
-  #Revocation), declared once so the node posts exactly what the api parses, and decode_token_secret(), the one
-  reading of `LIVE_TOKEN_SECRET` both ends apply so they share the same HMAC key.
+- The api seam: the bodies of the node's authorize call (#AuthorizeRequest, #AuthorizeResponse) and its reports
+  (#Report, #LinkReport, #PromptReport, #ReportResponse, #Revocation), declared once so the node posts exactly
+  what the api parses, and decode_token_secret(), the one reading of `LIVE_TOKEN_SECRET` both ends apply so they
+  share the same HMAC key.
 
 A record-only link is the robot link narrowed to two messages: a `hello` with `record_only` set (the dream client's
 recorder, which no viewer ever sees) is followed by binary units whose payload is one JPEG each and by
@@ -887,7 +887,7 @@ def parse_message(data: str | bytes, types: dict[str, type[Message]]) -> Message
 
 
 class AuthorizeRequest(pydantic.BaseModel):
-    """`POST /internal/live/authorize`, node to api: may this key link this robot.
+    """The authorize call, node to api: may this key link this robot.
 
     Attributes:
     - key_hash: sha256 hex of the api key on the upgrade.
@@ -1020,7 +1020,7 @@ class RatingStored(pydantic.BaseModel):
 
 
 class Report(pydantic.BaseModel):
-    """`POST /internal/live/reports`, node to api: one node's whole snapshot.
+    """The report, node to api: one node's whole snapshot.
 
     Attributes:
     - node_id: The reporting node; the api accepts only the ids in its `LIVE_NODES`.
@@ -1182,7 +1182,7 @@ def viewer_path(node_id: str, robot_id: str) -> str:
 
     @param node_id The node holding the robot, from `live_links`.
     @param robot_id The robot to watch.
-    @return The path; Caddy routes it to the node by its `/live/n/<node_id>/` prefix.
+    @return The path; the live origin routes it to the node by its `/live/n/<node_id>/` prefix.
     """
     return f"/live/n/{node_id}/robots/{robot_id}/view"
 

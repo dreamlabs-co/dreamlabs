@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!-- Enactic OpenArm v2.urdf (models/openarm): openarm_left_base_link .. openarm_left_ee_base_link only (7 movable joints; meshes and every other link
-     dropped), the FaaS EEF bake frame. Source sha256 d3cf256488c95556f15a6c372cc8258884edc987df8af943e36a1bdfbfe8444b. -->
+<!-- Enactic OpenArm v2.urdf: openarm_left_base_link .. openarm_left_ee_base_link only (7 movable joints; meshes and every other link
+     dropped), the FaaS EEF bake frame. -->
 <robot name="openarm2_faas_left">
   <link name="openarm_left_base_link">
     </link>

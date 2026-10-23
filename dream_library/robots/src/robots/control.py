@@ -1848,8 +1848,8 @@ class _CommandWriter:
     """The loop's command path: runs each tick's submitted command out to both arms at `command_hz`.
 
     i2rt applies every `command_joint_pos` straight to the motor PD, so a row re-sent as-is at
-    the row rate is a position staircase, and the policies were trained on the motion a
-    command thread makes of a row instead. This is that thread. Each command period it takes
+    the row rate is a position staircase; a row should reach the arm as the motion a
+    command thread makes of it instead. This is that thread. Each command period it takes
     the newest submission, moves linearly from where the previous run had got to toward it over
     `window_s = clamp(gap between the last two submits, 1 / command_hz, command_interp_max_s)`
     seconds (a row submitted every 33 ms is reached in about eight 4 ms steps), and writes both

@@ -1,7 +1,7 @@
 """The EEF head decoded to joints, on any CPU: the torch-free half of the serving contract.
 
 What every consumer of a served EEF head runs for itself (exec ``"eef"``): a robots station through the
-``dream-ik`` wheel from packages/dream_ik, our sim evals through ``dream.ik``. The serve never solves (since
+``dream-ik`` wheel from packages/dream_ik, our simulator through ``dream.ik``. The serve never solves (since
 2026-10-10). Three steps on the head's absolute tool poses: Savitzky-Golay over the hand path, the chunk solve from the
 joints the chunk continues at (under the arm's and the caller's speed caps), and the seam blend that eases in from them.
 Only numpy, scipy, ``.solver`` and ``.specs`` here: no torch, nothing else of dream.

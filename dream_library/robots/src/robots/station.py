@@ -112,6 +112,11 @@ KEY_REFUSED_REASON = envelope.UnauthorizedReason.DISABLED.value
 
 _log = logging.getLogger(__name__)
 
+## How long warm_client_ik() waits for the client's `traj` solve to compile after its `tick` solve, seconds: about 5 s
+## on a station's CPU, up to 20 on one slow core (`dream.client_ik.ClientIK`). Past it the arms open anyway, and a
+## Start solves with `tick` until the compile ends, as the client does on its own.
+TRAJ_WARMUP_S = 60.0
+
 
 def warm_client_ik(dream_config: dict[str, Any]) -> None:
     """Compiles the dream client's IK once, while the arms are still closed.
@@ -119,27 +124,46 @@ def warm_client_ik(dream_config: dict[str, Any]) -> None:
     Every Start builds a fresh client, and its `ClientIK` compiles dream's solver on first use: about 9 s on a
     station's CPU that starve the arm thread, so a Metal arm's grippers miss their 500 ms CAN timeout (fault 0xD) and
     the run stops after 0 chunks. The compile is cached for the life of the process (a second `ClientIK` takes about
-    0.01 s), so building one here, before the arms open, makes each Start's cheap. Any failure only logs: a Start then
-    compiles as before.
+    0.01 s), so building one here, before the arms open, makes each Start's cheap. The client compiles its `traj`
+    solve on a thread of its own once `tick` is done, seconds more whose trace starves the arm thread the same way, so
+    this also waits for that compile (#TRAJ_WARMUP_S) before the arms open. The compile is the arm's, not the
+    model's, so a station file that names no `checkpoint` (`dreamcli setup` writes none: a Start names the model)
+    warms up with the first model the account lists. Any failure only logs: a Start then compiles as before.
 
-    @param dream_config The station's config from `robots.run.policy_config`; without `ik` or `checkpoint` nothing
-        is done.
+    @param dream_config The station's config from `robots.run.policy_config`; without `ik` nothing is done.
     """
     ik, checkpoint = dream_config.get("ik"), dream_config.get("checkpoint")
-    if ik is None or checkpoint is None:
+    if ik is None:
         return
     from dream import client_ik
 
     started_s = time.monotonic()
     try:
-        model = next((m for m in dream.DreamClient().get_models() if m.id == checkpoint), None)
-        if model is None:
-            _log.warning("IK warm-up skipped: %s is not among the account's models; a Start compiles it", checkpoint)
-            return
-        client_ik.ClientIK(dict(ik), dream_config["action_hz"], dream_config.get("embodiment"), model)
+        models = dream.DreamClient().get_models()
+        if checkpoint is None:
+            model = next(iter(models), None)
+            if model is None:
+                _log.warning("IK warm-up skipped: the account lists no model; a Start compiles it")
+                return
+            _log.info("IK warm-up with %s: the station file names no checkpoint; the compile is the arm's", model.id)
+            checkpoint = model.id
+        else:
+            model = next((m for m in models if m.id == checkpoint), None)
+            if model is None:
+                _log.warning(
+                    "IK warm-up skipped: %s is not among the account's models; a Start compiles it", checkpoint
+                )
+                return
+        built = client_ik.ClientIK(dict(ik), dream_config["action_hz"], dream_config.get("embodiment"), model)
     except Exception as exc:
         _log.warning("IK warm-up skipped (%s); a Start compiles it", exc)
         return
+    compiles_traj = built.head == "eef" and ik.get("solve", "traj") == "traj"
+    if compiles_traj and not built.traj_ready.wait(TRAJ_WARMUP_S):
+        _log.warning(
+            "IK warm-up: the traj solve did not compile in %.0f s; the arms open and a Start runs tick until it does",
+            TRAJ_WARMUP_S,
+        )
     _log.info("IK warm-up for %s done in %.1f s, before the arms open", checkpoint, time.monotonic() - started_s)
 
 

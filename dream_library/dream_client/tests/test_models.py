@@ -33,7 +33,7 @@ CATALOG = [
         "embodiment_config": None,
     },
     {
-        "id": "dream-1-ft:1d845dea-nb1",
+        "id": "dream-1-ft:12345678-nb1",
         "owner": "mine",
         "base_model": "dreamlabs/dream-1-beta",
         "embodiment": "yam",
@@ -43,7 +43,7 @@ CATALOG = [
         "embodiment_config": None,
     },
     {
-        "id": "dream-1-ft:7c1a90e2-arm",
+        "id": "dream-1-ft:abcdef01-arm",
         "owner": "mine",
         "base_model": "dreamlabs/dream-1-beta",
         "embodiment": "emb_0123456789abcdef",
@@ -78,7 +78,7 @@ def test_list_models_returns_the_catalog(platform: FakePlatform) -> None:
             cameras=["overhead", "wrist_l", "wrist_r"],
         ),
         models.Model(
-            id="dream-1-ft:1d845dea-nb1",
+            id="dream-1-ft:12345678-nb1",
             owner="mine",
             base_model="dreamlabs/dream-1-beta",
             embodiment="yam",
@@ -87,7 +87,7 @@ def test_list_models_returns_the_catalog(platform: FakePlatform) -> None:
             cameras=["overhead", "wrist_l", "wrist_r"],
         ),
         models.Model(
-            id="dream-1-ft:7c1a90e2-arm",
+            id="dream-1-ft:abcdef01-arm",
             owner="mine",
             base_model="dreamlabs/dream-1-beta",
             embodiment="emb_0123456789abcdef",
@@ -113,7 +113,7 @@ def test_a_model_whose_bodys_parts_are_withheld_says_so(platform: FakePlatform) 
 
 
 def test_a_model_listed_without_its_date_reads_none(platform: FakePlatform) -> None:
-    """A Dream Labs model the platform lists without `created_at` (PLATFORM_HIDE_MODEL_DATES) reads None, not a
+    """A Dream Labs model the platform lists without `created_at` (while it hides model dates) reads None, not a
     refusal; the account's own fine-tune keeps its date."""
     platform.catalog = [{k: v for k, v in CATALOG[0].items() if k != "created_at"}, CATALOG[1]]
     public, mine = models.list_models(api_key=KEY)
@@ -139,8 +139,8 @@ def test_host_defaults_to_the_platform_url_from_credentials(
     (tmp_path / "credentials").write_text(f"DREAM_API_KEY={KEY}\nDREAM_API_URL={platform.url}\n", encoding="utf-8")
     assert [model.id for model in models.list_models()] == [
         "dreamlabs/dream-1-beta",
-        "dream-1-ft:1d845dea-nb1",
-        "dream-1-ft:7c1a90e2-arm",
+        "dream-1-ft:12345678-nb1",
+        "dream-1-ft:abcdef01-arm",
     ]
 
 

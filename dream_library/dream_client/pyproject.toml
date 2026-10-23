@@ -1,6 +1,6 @@
 [project]
 name = "dreamlabs-client"
-version = "1.0.5"
+version = "1.0.8"
 description = "Policy client for DreamAPI's /v1/get_action gateway: observation out, action chunk in."
 readme = "README.md"
 license = "Apache-2.0"

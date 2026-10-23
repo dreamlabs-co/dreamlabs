@@ -116,7 +116,7 @@ def _path(clock: conftest.ManualClock | None = None) -> tuple[motors.MotorPath, 
 # --- the network -----------------------------------------------------------------------------------------
 
 
-def test_bundled_network_answers_what_the_fleet_checkpoint_answers() -> None:
+def test_bundled_network_answers_what_the_station_checkpoint_answers() -> None:
     """Golden actions from the tracker's PyTorch checkpoint, for three fixed observations."""
     net = policy.load()
     golden = {
