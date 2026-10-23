@@ -1,6 +1,6 @@
 [project]
 name = "dreamlabs-client"
-version = "1.0.8"
+version = "1.0.9"
 description = "Policy client for DreamAPI's /v1/get_action gateway: observation out, action chunk in."
 readme = "README.md"
 license = "Apache-2.0"
@@ -72,6 +72,9 @@ jaxls = { path = "../vendor/jaxls" }
 [tool.uv]
 # Supply-chain cooldown: resolve only releases at least a week old.
 exclude-newer = "1 week"
+# certifi 2026.10.19 drops the eMudhra emSign root CAs after their private-key incident; the cooldown would
+# otherwise hold the fix back a week (python/discuss.python.org topic 109576).
+exclude-newer-package = { certifi = false }
 # An editable install carries a copy of `shared.datasets` and `shared.faceblur` (the force-include below), and in a venv
 # that also installs dreamlabs-shared editable (the data service's, the repository root's) that copy is what `import
 # shared.datasets` finds; so uv rebuilds this package whenever those sources change, and the copy never goes stale.

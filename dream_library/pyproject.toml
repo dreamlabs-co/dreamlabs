@@ -1,6 +1,6 @@
 [project]
 name = "dreamlabs"
-version = "1.0.17"
+version = "1.0.18"
 description = "The dream library: the robots package with its dreamcli station command, and the DreamAPI policy client (import dream, from dreamlabs-client), as one pip install."
 readme = "README.pypi.md"
 license = "Apache-2.0"
@@ -52,7 +52,7 @@ dependencies = [
     "click<8.2.0",
     "dm-env==1.6",
     # The client, with what its dataset checks and its live view need; the same major as the gateway accepts.
-    "dreamlabs-client[datasets,live]>=1.0.8,<2",
+    "dreamlabs-client[datasets,live]>=1.0.9,<2",
     "einops>=0.7 ; python_version >= '3.11'",
     "jax==0.7.1 ; python_version >= '3.11'",
     "jax-dataclasses==1.6.3 ; python_version >= '3.11'",
@@ -168,6 +168,9 @@ testpaths = ["tests"]
 [tool.uv]
 # Supply-chain cooldown: resolve only releases at least a week old.
 exclude-newer = "1 week"
+# certifi 2026.10.19 drops the eMudhra emSign root CAs after their private-key incident; the cooldown would
+# otherwise hold the fix back a week (python/discuss.python.org topic 109576).
+exclude-newer-package = { certifi = false }
 
 # The client from this tree, not from an index: the venv runs the code the two wheels are built from.
 [tool.uv.sources]

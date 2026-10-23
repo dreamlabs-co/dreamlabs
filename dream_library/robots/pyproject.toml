@@ -86,6 +86,9 @@ dev = [
 [tool.uv]
 # Supply-chain cooldown: resolve only releases at least a week old.
 exclude-newer = "1 week"
+# certifi 2026.10.19 drops the eMudhra emSign root CAs after their private-key incident; the cooldown would
+# otherwise hold the fix back a week (python/discuss.python.org topic 109576).
+exclude-newer-package = { certifi = false }
 build-constraint-dependencies = ["scikit-build-core<0.10"]
 # dream-ik pins pyroki and jaxls to commits on GitHub; these overrides, with the sources below, install the vendored
 # copies of those commits instead, as dream_client does. pyliblzfse, which pyroki lists for an old viser and never
