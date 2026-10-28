@@ -6,8 +6,8 @@ arrays in `tracker.npz` beside this module and the forward pass is
 three matrix products: no PyTorch on the box, and about 30 microseconds a call.
 
 `tracker.npz` holds `w0`, `b0`, `w1`, `b1`, `w2`, `b2` (each dense layer's weight `[out, in]` and bias, float32),
-`obs_mean` and `obs_std` (the normaliser, `[OBS_DIM]`) and `meta`, a JSON string (`actuator`, the
-`sha256` of the checkpoint it came from). A station with a tracker of its own trained for the same observation and
+`obs_mean` and `obs_std` (the normaliser, `[OBS_DIM]`) and `meta`, a JSON string (the widths `act_dim` and
+`hidden`, and `torque_lowpass_hz`). A station with a tracker of its own trained for the same observation and
 action replaces the file with one in this form; load() refuses a file whose widths do not fit.
 
 The observation, per arm: the measured joints and gripper `q`, the joint
@@ -51,7 +51,7 @@ class Policy:
     - layers: `(weight, bias)` per dense layer, float32, weight `[out, in]`; ELU between them, none after the last.
     - obs_mean: Mean the observation is normalised with, `[OBS_DIM]`.
     - obs_std: Standard deviation it is normalised with, `[OBS_DIM]`.
-    - meta: What the file records: such as `actuator` and `sha256`.
+    - meta: What the file records: such as the network's widths.
 
     @see load(), act()
     """

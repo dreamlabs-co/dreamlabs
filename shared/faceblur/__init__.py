@@ -61,7 +61,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-log = logging.getLogger("platform_api")
+log = logging.getLogger("shared.faceblur")
 
 ## The vendored YuNet weights; `models/README.md` records provenance, checksum and licence.
 _MODEL_PATH: str = os.path.join(os.path.dirname(__file__), "models", "face_detection_yunet_2026may.onnx")

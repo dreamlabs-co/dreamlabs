@@ -17,7 +17,7 @@ Where DreamAPI and the platform are, and the key for both, are the credentials f
 read once at start; the config holds the hardware and the loop.
 
 ```bash
-python -m robots.station --config station12.yaml [--api-port 8091] [--task "..."] [--no-sys0] [--eef|--no-eef]
+python -m robots.station --config station.yaml [--api-port 8091] [--task "..."] [--no-sys0] [--eef|--no-eef]
     [--ik-solve tick|traj]
 ```
 

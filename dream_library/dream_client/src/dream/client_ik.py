@@ -15,12 +15,10 @@ itself.
 
 Per call: the tool pose of each arm, from forward kinematics of its measured joints `state.<side>_arm`, is added to the
 observation, and a beta robot's joints and gripper drive go out in the checkpoint's units. A model trained on YAM arms
-(the Dream-1 base models) is sent zeros in its joint slots on every one of these arms but the YAM: another arm's
-joints are out of its range whatever their signs, and the model does better on them with zeros;
-the hand pose and the gripper sent are the arm's own. Each request also names the robot `other_embodiment`
-(`dream.client`, the `robot` config key's default here), on which the serve withholds the whole state, joints, hand
-pose and grip alike: the model reads none of it, and the hand pose sent is only the anchor its answer is composed
-on. On a YAM (`ik` arm `yam`, for a base model that reads each hand's pose
+(the Dream-1 base models) is sent zeros in its joint slots on every one of these arms but the YAM; the hand pose and
+the gripper sent are the arm's own. Each request also names the robot `other_embodiment` (`dream.client`, the `robot`
+config key's default here), on which the serve may ignore the arm's state; the hand pose sent is the anchor the
+model's answer is composed on. On a YAM (`ik` arm `yam`, for a base model that reads each hand's pose
 beside the joints) the model reads the arm's own joints and gripper, the client adds the poses and `<side>_grip`, and
 head `joint` runs the model's joint answer, which is this arm's. With head `eef` the reply's tool poses are
 filtered over the whole chunk (dream's

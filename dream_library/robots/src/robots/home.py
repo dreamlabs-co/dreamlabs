@@ -13,7 +13,7 @@ whatever it last accepted, the other arm finishes its move, and the return value
 arm did not make it, and why. Nothing here raises for a follower fault mid-move.
 
 ```bash
-python -m robots.home --config station12.yaml    # exit 0 when both arms reached home, 1 otherwise
+python -m robots.home --config station.yaml    # exit 0 when both arms reached home, 1 otherwise
 ```
 """
 

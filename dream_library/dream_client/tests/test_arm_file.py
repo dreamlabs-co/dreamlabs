@@ -224,7 +224,7 @@ def test_a_bad_arm_file_is_a_config_error(tmp_path: pathlib.Path, changes: dict[
 def test_a_continuous_joint_on_the_chain_turns_a_full_turn_each_way(
     tmp_path: pathlib.Path, limit: str, speed: float
 ) -> None:
-    """A continuous joint, as a URDF writes a hand mount that turns without end (a Vega-1's L_hand_mount_roll,
+    """A continuous joint, as a URDF writes a hand mount that turns without end (a humanoid's hand mount roll,
     2026-10-18: `dreamcli tcp` refused it), is solved as a revolute one within [-pi, pi] at its velocity, at most
     YAM's: pyroki builds the arm from the cut URDF, which it refuses with no limits on a continuous joint, and the
     arm's poses are Metal's."""
@@ -260,29 +260,38 @@ def test_a_joint_the_file_holds_still_is_cut_at_its_zero(tmp_path: pathlib.Path)
     assert np.allclose(ours.fk(q[:, :5]), metal.fk(q), atol=1e-6)
 
 
-## Dexmate's Vega-1 with dexterous hands on a continuous mount roll, as the platform draws it: in this repository, not
-## the library's copy.
-VEGA = [
-    path
-    for path in sorted((pathlib.Path(__file__).resolve().parents[3] / "platform" / "web" / "urdf").glob("*/vega_1*"))
-    if b'<joint name="L_hand_mount_roll" type="continuous"' in path.read_bytes()
-]
+## A made-up humanoid's left side, base to hand: a three-joint torso, the arm's seven joints on it, and the hand on a
+## mount that turns without end (`continuous`, no limits), as a humanoid's URDF may write it.
+HUMANOID_LEFT = (
+    '<robot name="humanoid"><link name="base"/>'
+    + "".join(
+        f'<link name="{child}"/>'
+        f'<joint name="{joint}" type="{"continuous" if joint == "L_hand_roll" else "revolute"}">'
+        f'<parent link="{parent}"/><child link="{child}"/><origin xyz="0 0 0.1"/><axis xyz="0 {i % 2} {1 - i % 2}"/>'
+        + ("" if joint == "L_hand_roll" else '<limit lower="-1.5" upper="1.5" velocity="2"/>')
+        + "</joint>"
+        for i, (joint, parent, child) in enumerate(
+            [("torso_j1", "base", "torso_1"), ("torso_j2", "torso_1", "torso_2"), ("torso_j3", "torso_2", "torso_3")]
+            + [(f"L_arm_j{n}", "torso_3" if n == 1 else f"L_arm_{n - 1}", f"L_arm_{n}") for n in range(1, 8)]
+            + [("L_hand_roll", "L_arm_7", "L_hand")]
+        )
+    )
+    + "</robot>"
+)
 
 
-@pytest.mark.skipif(not VEGA, reason="the Vega-1 URDF is beside the platform's web app only")
-def test_the_vega_1_left_arm_builds_through_its_continuous_hand_mount(tmp_path: pathlib.Path) -> None:
-    """The chain `dreamcli tcp` refused on a Vega-1 (2026-10-18), base to left_hand_C_MC: a three-joint torso, the
+def test_a_humanoids_left_arm_builds_through_its_continuous_hand_mount(tmp_path: pathlib.Path) -> None:
+    """A humanoid's chain like the one `dreamcli tcp` refused (2026-10-18), base to hand: a three-joint torso, the
     arm's seven and the hand mount's continuous roll. It builds either way a person answers the page: every joint
     moving (eleven, the mount within a full turn), or the torso and the mount held still (the arm's own seven), whose
     poses are the eleven's with those at 0."""
-    (vega_urdf,) = VEGA
-    (tmp_path / "vega.urdf").write_bytes(vega_urdf.read_bytes())
-    vega = {**METAL, "urdf": "vega.urdf", "base": "base", "flange": "left_hand_C_MC"}
+    (tmp_path / "humanoid.urdf").write_text(HUMANOID_LEFT)
+    humanoid = {**METAL, "urdf": "humanoid.urdf", "base": "base", "flange": "L_hand"}
     arm = [f"L_arm_j{i}" for i in range(1, 8)]
-    held = ["torso_j1", "torso_j2", "torso_j3", "L_hand_mount_roll"]
+    held = ["torso_j1", "torso_j2", "torso_j3", "L_hand_roll"]
     rest = [0.0] * 11  # every joint's zero is inside its limits
-    (tmp_path / "all.json").write_text(json.dumps({**vega, "rest": rest}))
-    (tmp_path / "arm.json").write_text(json.dumps({**vega, "rest": rest[:7], "fixed": held}))
+    (tmp_path / "all.json").write_text(json.dumps({**humanoid, "rest": rest}))
+    (tmp_path / "arm.json").write_text(json.dumps({**humanoid, "rest": rest[:7], "fixed": held}))
     every = arm_file.register(str(tmp_path / "all.json"))
     own = arm_file.register(str(tmp_path / "arm.json"))
     assert dream_ik_specs.EMBODIMENTS[every].arm.joints == ("torso_j1", "torso_j2", "torso_j3", *arm, held[3])

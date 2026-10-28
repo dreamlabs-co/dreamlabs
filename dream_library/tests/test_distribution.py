@@ -156,14 +156,14 @@ def test_the_base_list_carries_the_vendored_ik_at_dreams_pins() -> None:
 def test_the_vendored_ik_is_the_commits_dream_ik_pins() -> None:
     """The copy of dream_ik holds exactly the files its pyproject force-includes, the umbrella ships that directory as
     `dream_ik`, and the vendored pyroki and jaxls are the commits dream-ik pins, named in VENDOR.md
-    with the source's."""
+    with dream-ik's version."""
     dream_ik = load(VENDORED_DREAM_IK / "packages" / "dream_ik" / "pyproject.toml")
     included = dream_ik["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
     source = VENDORED_DREAM_IK / "src" / "dream" / "ik"
     shipped = {str(path.relative_to(source)) for path in source.rglob("*") if path.is_file()}
     assert shipped == {target.removeprefix("dream_ik/") for target in included.values()}
     vendor_md = (VENDORED_DREAM_IK / "VENDOR.md").read_text(encoding="utf-8")
-    assert re.search(r"at commit `[0-9a-f]{40}`", vendor_md), "VENDOR.md names no source commit"
+    assert f"dream-ik {dream_ik['project']['version']}:" in vendor_md, "VENDOR.md names another dream-ik version"
     pins = [
         re.match(r"(pyroki|jaxls) @ git\+https://github\.com/[\w-]+/\1\.git@([0-9a-f]{40})$", spec)
         for spec in dream_ik["project"]["dependencies"]

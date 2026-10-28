@@ -99,7 +99,7 @@ def build_arm(cfg: config.ArmConfig) -> tuple[policy.Policy, kinematics.ArmKinem
     arm_kinematics = kinematics.ArmKinematics.from_config(cfg)
     net = policy.load()
     policy.act(net, np.zeros(policy.OBS_DIM))  # the first call's one-off costs land here, not on the first 4 ms tick
-    _log.info("System 0: %s tracker", net.meta.get("actuator"))
+    _log.info("System 0: tracker loaded")
     return net, arm_kinematics
 
 

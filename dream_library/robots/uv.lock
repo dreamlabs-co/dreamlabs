@@ -594,7 +594,7 @@ dev = [
 
 [[package]]
 name = "dreamlabs-client"
-version = "1.0.9"
+version = "1.0.14"
 source = { editable = "../dream_client" }
 dependencies = [
     { name = "numpy" },

@@ -173,23 +173,21 @@ def _open_policy(config: dict[str, Any] | None = None, api_key: str | None = Non
       and the client converts both ways and sends the gripper drive under the key `embodiment` names for it (so it
       needs `embodiment`); with head `joint` its joint answer comes back in radians. What the model reads follows from
       the body it was trained on, the `embodiment` of its record in `DreamClient.get_models()`: a model trained on
-      YAM arms (the Dream-1 base models, `yam`) is sent zeros in its joint slots (another arm's joints are out of its
-      range), each hand's tool pose, `state.<side>_gripper` from 0 closed to 1 open (send `state.<side>_grip`) and
-      the body's cameras as `overhead`, `wrist_l` and `wrist_r` (the one scene camera as `overhead`; so it needs
-      `embodiment`), with `robot` `"other_embodiment"` (below), so it reads none of that state, the hand pose and the
-      grip included: the hand pose sent is only the anchor its answer is composed on. It refuses head `joint`, whose
-      answer would be another robot's joints, for safety. The kinematics are the same that computed the poses the
-      model trained on, so every pose is in the training frame. Needs the library from the platform on Python 3.11
-      or newer; opening then takes a few seconds, compiling the solver once. Never sent.
+      YAM arms (the Dream-1 base models, `yam`) is sent zeros in its joint slots, each hand's tool pose,
+      `state.<side>_gripper` from 0 closed to 1 open (send `state.<side>_grip`) and the body's cameras as `overhead`,
+      `wrist_l` and `wrist_r` (the one scene camera as `overhead`; so it needs `embodiment`), with `robot`
+      `"other_embodiment"` (below): the hand pose sent is the anchor its answer is composed on. It refuses head
+      `joint`, whose answer would be another robot's joints, for safety. The kinematics are the same that computed the
+      poses the model trained on, so every pose is in the training frame. Needs the library from the platform on
+      Python 3.11 or newer; opening then takes a few seconds, compiling the solver once. Never sent.
     - `robot` (str, optional): the robot the model runs on, as a model trained on YAM arms reads it: `"yam"` (a YAM,
       the arm it was trained on) or `"other_embodiment"` (any other arm), sent on every request as the observation's
-      `embodiment` (never put it in your observation yourself). On `"other_embodiment"` the model is given none of
-      the arm's state, neither its joints, its hand pose nor its grip (it reads all zeros, as it sometimes did in
-      training), and answers no joints, only each hand's pose, composed on the hand pose the request carries;
-      `per_key`'s `action.right_arm` and `action.left_arm` come back as None. Left out, it is `"other_embodiment"`
-      when `ik` runs a model trained on YAM arms on an arm that is not a YAM (the client then sends that model zeros
-      for the joints), and nothing is sent otherwise. Given, it is sent as given: `"other_embodiment"` with IK of
-      your own (no `ik`) asks for the same, and refuses `ik` head `joint`.
+      `embodiment` (never put it in your observation yourself). On `"other_embodiment"` the serve may ignore the
+      arm's state, and the model answers no joints, only each hand's pose, composed on the hand pose the request
+      carries; `per_key`'s `action.right_arm` and `action.left_arm` come back as None. Left out, it is
+      `"other_embodiment"` when `ik` runs a model trained on YAM arms on an arm that is not a YAM (the client then
+      sends that model zeros for the joints), and nothing is sent otherwise. Given, it is sent as given:
+      `"other_embodiment"` with IK of your own (no `ik`) asks for the same, and refuses `ik` head `joint`.
     - `host` (str), `port` (int, 1 to 65535) and `scheme` (`"http"` or `"https"`): where the model is; by default
       those of `DREAM_GATEWAY_URL` in the credentials (`dream.credentials`: the environment, then
       `~/.dreamlabs/credentials`, then production, which is `https` on port 443).

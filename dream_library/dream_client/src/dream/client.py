@@ -66,7 +66,7 @@ _SESSION_KEYS = ("checkpoint", "embodiment", "robot")
 _ROBOT_KEY = "robot"
 
 ## The robot a model trained on YAM arms runs on, as the serve reads it: `yam`, its own arm, or `other_embodiment`,
-## any other, on which the serve withholds the model's state (all zeros) and answers no joint head.
+## any other, on which the serve may ignore the arm's state and answers no joint head.
 YAM = "yam"
 OTHER_EMBODIMENT = "other_embodiment"
 ROBOTS = (YAM, OTHER_EMBODIMENT)
@@ -75,8 +75,7 @@ ROBOTS = (YAM, OTHER_EMBODIMENT)
 ## observation that carries it.
 _EMBODIMENT_KEY = "embodiment"
 
-## The reply's joint head, which the serve answers as null on #OTHER_EMBODIMENT: another robot's joints are never
-## this arm's.
+## The reply's joint head, which the serve answers as null on #OTHER_EMBODIMENT.
 _JOINT_HEAD_KEYS = ("action.right_arm", "action.left_arm")
 
 ## Observation group whose entries are camera windows on the wire: a non-empty list of base64 JPEG strings, oldest
@@ -181,8 +180,8 @@ class PolicyClient:
         @param api_token The API key, sent as `Authorization: Bearer`; omitted when falsy.
         @param session_config `checkpoint` (required) and optionally `embodiment`, a shape spec or the embodiment
             config of the body the checkpoint was fine-tuned on, and `robot`, `"yam"` or `"other_embodiment"`, which
-            every request carries as its observation's `embodiment` (left out: `"other_embodiment"` when `ik` sends a
-            model trained on YAM arms zeros for another arm's joints, else nothing); nothing else.
+            every request carries as its observation's `embodiment` (left out: `"other_embodiment"` when `ik` runs a
+            model trained on YAM arms on an arm that is not a YAM, else nothing); nothing else.
         @param strict Check observations and actions against `session_config["embodiment"]`.
         @param scheme `http` (default) or `https`; `https` speaks TLS to a host fronted by a proxy that
             terminates it.
@@ -260,8 +259,8 @@ class PolicyClient:
                 widths = self._ik.reply_widths(self._checks.per_key_widths)
                 self._checks = dataclasses.replace(self._checks, observation=observation, per_key_widths=widths)
         ## The robot every request names in its observation's #_EMBODIMENT_KEY, or None to name none: `robot` as given,
-        ## else #OTHER_EMBODIMENT when the client sends a model trained on YAM arms zeros for another arm's joints
-        ## (`client_ik.ClientIK.yam_joints`), so the serve withholds the state that is not this arm's.
+        ## else #OTHER_EMBODIMENT when `ik` runs a model trained on YAM arms on an arm that is not a YAM
+        ## (`client_ik.ClientIK.yam_joints`).
         defaulted = OTHER_EMBODIMENT if self._ik is not None and self._ik.yam_joints is not None else None
         self._robot: str | None = robot if _ROBOT_KEY in config else defaulted
         if self._checks is not None and self._robot == OTHER_EMBODIMENT:
@@ -303,9 +302,9 @@ class PolicyClient:
         slow, and then stays quiet for five minutes unless the round trips recover first; the action is returned as
         usual. `warnings.filterwarnings("ignore", category=dream.DreamSlowNetworkWarning)` turns it off.
 
-        With a robot (the config's `robot`, or `"other_embodiment"` when `ik` sends a model trained on YAM arms zeros
-        for another arm's joints), the observation sent also carries it as `embodiment`. On `"other_embodiment"` the
-        model reads none of the arm's state and answers no joints: `per_key`'s `action.right_arm` and
+        With a robot (the config's `robot`, or `"other_embodiment"` when `ik` runs a model trained on YAM arms on an
+        arm that is not a YAM), the observation sent also carries it as `embodiment`. On `"other_embodiment"` the
+        serve may ignore the arm's state and the model answers no joints: `per_key`'s `action.right_arm` and
         `action.left_arm` come back as None, and the strict checks do not require them.
 
         @param observation The observation dict, keyed as the checkpoint reads it. A fine-tuned model: one

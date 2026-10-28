@@ -127,7 +127,7 @@ def test_bundled_network_answers_what_the_station_checkpoint_answers() -> None:
     for scale, expected in golden.items():
         obs = net.obs_mean + scale * net.obs_std * np.sin(np.arange(policy.OBS_DIM))
         np.testing.assert_allclose(policy.act(net, obs), expected, atol=2e-6)
-    assert net.meta["actuator"] == "hybrid_torque_full"
+    assert net.meta == {"act_dim": 7, "hidden": [256, 256], "torque_lowpass_hz": 0.0}
 
 
 def test_observation_is_state_then_errors_from_the_measured_pose() -> None:

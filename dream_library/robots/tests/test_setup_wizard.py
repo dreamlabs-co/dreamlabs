@@ -623,7 +623,7 @@ def test_an_so101_and_a_robot_of_ones_own_save_as_the_accounts_embodiment(
 ) -> None:
     """An SO-101 file carries its embodiment and each arm's calibration file, a custom one its `custom` section and
     the gripper ends its wizard measured; both load, pass policy_config, and register as the embodiment their
-    fine-tune was trained on, by its id: the platform refuses its name (JD W-2: an SO-101 station's Save failed so)."""
+    fine-tune was trained on, by its id: the platform refuses its name (an SO-101 station's Save failed so)."""
     pytest.importorskip("dream_ik", reason="dream's IK needs Python 3.11 or newer")
     if "so101_faas" not in setup_model.spec_names():
         pytest.skip("this dream IK has no so101_faas")
@@ -1861,39 +1861,39 @@ def test_dreamcli_tcp_opens_the_page_on_the_urdf_step_alone_and_set_it_up_myself
     assert "`dreamcli tcp`" in templates["custom"]["yaml"]
 
 
-## Shaped as Dexmate's Vega-1 with dexterous hands from its base to the left hand: a three-joint torso, the arm's seven
+## Shaped as a made-up humanoid with dexterous hands, base to left hand: a three-joint torso, the arm's seven
 ## joints on it, and the hand on a mount that turns without end (`continuous`, no limits), as its URDF writes it.
-VEGA_LEFT = (
-    '<robot name="vega"><link name="base"/>'
+HUMANOID_LEFT = (
+    '<robot name="humanoid"><link name="base"/>'
     + "".join(
         f'<link name="{child}"/>'
-        f'<joint name="{joint}" type="{"continuous" if joint == "L_hand_mount_roll" else "revolute"}">'
+        f'<joint name="{joint}" type="{"continuous" if joint == "L_hand_roll" else "revolute"}">'
         f'<parent link="{parent}"/><child link="{child}"/><origin xyz="0 0 0.1"/><axis xyz="0 {i % 2} {1 - i % 2}"/>'
-        + ("" if joint == "L_hand_mount_roll" else '<limit lower="-1.5" upper="1.5" velocity="2"/>')
+        + ("" if joint == "L_hand_roll" else '<limit lower="-1.5" upper="1.5" velocity="2"/>')
         + "</joint>"
         for i, (joint, parent, child) in enumerate(
             [("torso_j1", "base", "torso_1"), ("torso_j2", "torso_1", "torso_2"), ("torso_j3", "torso_2", "torso_3")]
             + [(f"L_arm_j{n}", "torso_3" if n == 1 else f"L_arm_{n - 1}", f"L_arm_{n}") for n in range(1, 8)]
-            + [("L_hand_mount_roll", "L_arm_7", "L_hand")]
+            + [("L_hand_roll", "L_arm_7", "L_hand")]
         )
     )
     + "</robot>"
 )
 
 
-## Each page script's words on the URDF end step for VEGA_LEFT: the chain it shows, what the map does not drive, and
-## the start of the line once the arm is built. Both pages ask the same per joint.
+## Each page script's words on the URDF end step for HUMANOID_LEFT: the chain it shows, what the map does not drive,
+## and the start of the line once the arm is built. Both pages ask the same per joint.
 PAGE_WORDS = {
     "setup_wizard.js": {
         "ends": "Your arm stands on base (blue) and ends at L_hand (green), 11 joints out. Not the end? Click the "
         "right link on the drawing.",
-        "undriven": "tester/vega does not drive 4 of them; answer for each below.",
+        "undriven": "tester/humanoid does not drive 4 of them; answer for each below.",
         "built": "Using",
     },
     "setup_wizard_v2.js": {
         "ends": "Your arm is mounted on base (blue) and ends at L_hand (green), 11 joints out. If that isn't the end, "
         "click the right link in the drawing.",
-        "undriven": "Your embodiment tester/vega doesn't drive 4 of them. Answer for each below.",
+        "undriven": "Your embodiment tester/humanoid doesn't drive 4 of them. Answer for each below.",
         "built": "Added",
     },
 }
@@ -1903,7 +1903,7 @@ PAGE_WORDS = {
 def test_dreamcli_tcp_names_each_chain_joint_the_stations_embodiment_does_not_drive_and_a_person_decides_it(
     tmp_path: pathlib.Path, platform: FakePlatform, script: str
 ) -> None:
-    """`dreamcli tcp` on a Vega-1 refused its hand mount, a continuous joint its embodiment does not drive
+    """`dreamcli tcp` on a humanoid's arm refused its hand mount, a continuous joint its embodiment does not drive
     (2026-10-18). The page now names each moving joint between base and end that the station file's embodiment
     (`custom.embodiment`, its `urdf.joints`) does not drive, and holds Yes until a person presses Moves or Held still
     on each: never the page (the TCP rule). The arm file records the held ones as `fixed`, and the arm is built
@@ -1912,19 +1912,19 @@ def test_dreamcli_tcp_names_each_chain_joint_the_stations_embodiment_does_not_dr
     (test_dreamcli_tcp_asks_about_every_chain_joint_when_it_has_no_joint_map_and_says_why_a_read_failed)."""
     pytest.importorskip("dream_ik.specs", reason="dream's IK needs Python 3.11 or newer")
     station = tmp_path / "station.yaml"
-    station.write_text("body: custom\ncustom:\n  embodiment: tester/vega\n", encoding="utf-8")
+    station.write_text("body: custom\ncustom:\n  embodiment: tester/humanoid\n", encoding="utf-8")
     arm = [f"L_arm_j{n}" for n in range(1, 8)]
     right = [f"R_arm_j{n}" for n in range(1, 8)]
-    vega = setup_fakes.account_embodiment(
-        "tester/vega", {**setup_fakes.EMBODIMENT, "urdf": {"joints": {"left_arm": arm, "right_arm": right}}}
+    humanoid = setup_fakes.account_embodiment(
+        "tester/humanoid", {**setup_fakes.EMBODIMENT, "urdf": {"joints": {"left_arm": arm, "right_arm": right}}}
     )
-    kwargs = {"host": "127.0.0.1", "port": 0, "ask_embodiments": lambda: [vega, *setup_fakes.EMBODIMENTS]}
+    kwargs = {"host": "127.0.0.1", "port": 0, "ask_embodiments": lambda: [humanoid, *setup_fakes.EMBODIMENTS]}
     keyless = dataclasses.replace(platform.account, api_key=None)
     assert setup_wizard.SetupServer(station, platform.account, **kwargs).joint_map() is None
     assert setup_wizard.TcpServer(station, keyless, **kwargs).joint_map() == {
-        "embodiment": "tester/vega",
+        "embodiment": "tester/humanoid",
         "joints": None,
-        "error": "could not read tester/vega's joints: your credentials hold no API key",
+        "error": "could not read tester/humanoid's joints: your credentials hold no API key",
     }
     unnamed = setup_wizard.TcpServer(tmp_path / "none.yaml", platform.account, **kwargs).joint_map()
     assert unnamed == {"embodiment": None, "joints": None, "error": None}
@@ -1932,8 +1932,8 @@ def test_dreamcli_tcp_names_each_chain_joint_the_stations_embodiment_does_not_dr
     server.start()
     try:
         base = f"http://127.0.0.1:{server.port}"
-        tree = json.loads(request(base, "POST", "/api/urdf", {"urdf": VEGA_LEFT})[2])
-        assert tree["joint_map"] == {"embodiment": "tester/vega", "joints": sorted(arm + right), "error": None}
+        tree = json.loads(request(base, "POST", "/api/urdf", {"urdf": HUMANOID_LEFT})[2])
+        assert tree["joint_map"] == {"embodiment": "tester/humanoid", "joints": sorted(arm + right), "error": None}
         show = ["urdfLinks", "urdfYes", "urdfSpare", "urdfNote"]
 
         def page(after: list[Any]) -> dict[str, Any]:
@@ -1943,7 +1943,7 @@ def test_dreamcli_tcp_names_each_chain_joint_the_stations_embodiment_does_not_dr
                 "base": base,
                 "show": show,
                 "call": "loadUrdf",
-                "args": ["Vega Left.urdf", VEGA_LEFT],
+                "args": ["Humanoid Left.urdf", HUMANOID_LEFT],
             }
             shown = run_page(tmp_path, {**scenario, "after": after})
             assert shown["errors"] == [], shown
@@ -1953,7 +1953,7 @@ def test_dreamcli_tcp_names_each_chain_joint_the_stations_embodiment_does_not_dr
         def pick(joint: str, held: bool) -> dict[str, list[Any]]:
             return {"press": ["urdfSpare", f'button[data-{"held" if held else "moves"}="{joint}"]', 0]}
 
-        spare = ["torso_j1", "torso_j2", "torso_j3", "L_hand_mount_roll"]
+        spare = ["torso_j1", "torso_j2", "torso_j3", "L_hand_roll"]
         asked = page([])
         words = PAGE_WORDS[script]
         assert asked["urdfLinks"]["text"] == f"{words['ends']} {words['undriven']}"
@@ -1961,14 +1961,14 @@ def test_dreamcli_tcp_names_each_chain_joint_the_stations_embodiment_does_not_dr
         assert asked["urdfSpare"]["children"] == 4
         assert asked["urdfSpare"]["text"].startswith("torso_j1: does your robot move this joint? MovesHeld still")
         assert page([pick(joint, True) for joint in spare[:3]])["urdfYes"]["disabled"], "the mount is still undecided"
-        written = tmp_path / setup_wizard.ARMS_DIR / "vega-left.json"
-        for mount_held, joints in ((True, arm), (False, [*arm, "L_hand_mount_roll"])):
-            picks = [pick(joint, True) for joint in spare[:3]] + [pick("L_hand_mount_roll", mount_held)]
+        written = tmp_path / setup_wizard.ARMS_DIR / "humanoid-left.json"
+        for mount_held, joints in ((True, arm), (False, [*arm, "L_hand_roll"])):
+            picks = [pick(joint, True) for joint in spare[:3]] + [pick("L_hand_roll", mount_held)]
             assert not page(picks)["urdfYes"]["disabled"], "every joint is decided"
             decided = page([*picks, "confirmEnd", ["addUrdf", "calibrated"]])
             still = spare if mount_held else spare[:3]
             assert decided["urdfNote"]["text"] == (
-                f"{words['built']} Vega Left.urdf: {len(joints)} joints ({', '.join(joints)}). Held still: "
+                f"{words['built']} Humanoid Left.urdf: {len(joints)} joints ({', '.join(joints)}). Held still: "
                 f"{', '.join(still)}."
             )
             assert json.loads(written.read_text())["fixed"] == still
@@ -1981,25 +1981,25 @@ def _refuse_embodiments() -> list[Any]:
     raise dream.DreamError("401 Unauthorized: the key was revoked")
 
 
-## A station file naming the Vega-1 embodiment.
-NAMES_VEGA = "body: custom\ncustom:\n  embodiment: tester/vega\n"
+## A station file naming the humanoid's embodiment.
+NAMES_HUMANOID = "body: custom\ncustom:\n  embodiment: tester/humanoid\n"
 
 
 @pytest.mark.parametrize(
     ("station_text", "ask", "error"),
     [
-        (NAMES_VEGA, lambda: [setup_fakes.account_embodiment("tester/vega")], None),
+        (NAMES_HUMANOID, lambda: [setup_fakes.account_embodiment("tester/humanoid")], None),
         ("body: custom\n", lambda: setup_fakes.EMBODIMENTS, None),
         (
-            NAMES_VEGA,
+            NAMES_HUMANOID,
             _refuse_embodiments,
             "could not list your account's embodiments: 401 Unauthorized: the key was revoked",
         ),
         (
-            NAMES_VEGA,
+            NAMES_HUMANOID,
             lambda: setup_fakes.EMBODIMENTS,
-            "your account has no embodiment 'tester/vega'; it has: tester/so101-pick, tester/so101, tester/my-arm, "
-            "tester/mine, tester/my-metal, tester/cams",
+            "your account has no embodiment 'tester/humanoid'; it has: tester/so101-pick, tester/so101, "
+            "tester/my-arm, tester/mine, tester/my-metal, tester/cams",
         ),
     ],
     ids=["no_urdf_joints", "no_embodiment", "read_failed", "no_such_embodiment"],
@@ -2018,17 +2018,17 @@ def test_dreamcli_tcp_asks_about_every_chain_joint_when_it_has_no_joint_map_and_
     server.start()
     try:
         base = f"http://127.0.0.1:{server.port}"
-        tree = json.loads(request(base, "POST", "/api/urdf", {"urdf": VEGA_LEFT})[2])
-        error = None if error is None else f"could not read tester/vega's joints: {error}"
+        tree = json.loads(request(base, "POST", "/api/urdf", {"urdf": HUMANOID_LEFT})[2])
+        error = None if error is None else f"could not read tester/humanoid's joints: {error}"
         assert (tree["joint_map"]["joints"], tree["joint_map"]["error"]) == (None, error)
-        chain = ["torso_j1", "torso_j2", "torso_j3", *[f"L_arm_j{n}" for n in range(1, 8)], "L_hand_mount_roll"]
+        chain = ["torso_j1", "torso_j2", "torso_j3", *[f"L_arm_j{n}" for n in range(1, 8)], "L_hand_roll"]
         held = [*chain[:3], chain[10]]
         scenario = {
             "script": script,
             "replies": {},
             "base": base,
             "call": "loadUrdf",
-            "args": ["Vega Left.urdf", VEGA_LEFT],
+            "args": ["Humanoid Left.urdf", HUMANOID_LEFT],
         }
         show = ["urdfLinks", "urdfYes", "urdfSpare", "urdfNote"]
         asked = run_page(tmp_path, {**scenario, "show": show, "after": []})
@@ -2047,7 +2047,7 @@ def test_dreamcli_tcp_asks_about_every_chain_joint_when_it_has_no_joint_map_and_
         )
         assert decided["errors"] == [], decided
         assert not decided["ids"]["urdfYes"]["disabled"], "every joint is decided"
-        assert json.loads((tmp_path / setup_wizard.ARMS_DIR / "vega-left.json").read_text())["fixed"] == held
+        assert json.loads((tmp_path / setup_wizard.ARMS_DIR / "humanoid-left.json").read_text())["fixed"] == held
     finally:
         server.stop()
 

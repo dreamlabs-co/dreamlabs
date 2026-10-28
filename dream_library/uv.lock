@@ -440,7 +440,7 @@ wheels = [
 
 [[package]]
 name = "dreamlabs"
-version = "1.0.18"
+version = "1.0.23"
 source = { editable = "." }
 dependencies = [
     { name = "av" },
@@ -543,7 +543,7 @@ dev = [
 
 [[package]]
 name = "dreamlabs-client"
-version = "1.0.9"
+version = "1.0.14"
 source = { editable = "dream_client" }
 dependencies = [
     { name = "numpy" },

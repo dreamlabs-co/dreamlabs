@@ -472,7 +472,7 @@ function chain() {
 // The chain's moving joints a person decides on (U.held): in `dreamcli tcp`, those the station's embodiment does not
 // drive (the server's `joint_map`, TcpServer.joint_map()), or every one when it has no joints to read; none in the
 // wizard (`joint_map` null), whose arm drives its whole chain. Never the page: a passive mount may be fixed, or may
-// turn (review, 2026-10-18: a Vega-1's hand mount roll, continuous in its URDF).
+// turn (a humanoid's hand mount roll, continuous in its URDF, say).
 function spare(links) {
   const map = U.tree.joint_map;
   if (!map) return [];
@@ -563,7 +563,7 @@ function renderUrdf() {
   $("urdfLinks").textContent = U.picking === "base" ? "Click the link your arm stands on."
     : !links ? `${name(U.end)} does not hang below ${name(U.base)}. Click the end of your arm.`
     : joints > U.tree.most_joints ? `${name(U.end)} is ${joints} joints out from ${name(U.base)}; an arm has at most ${U.tree.most_joints}. Click the link your gripper is mounted on.`
-    // A chain with no joint that moves is not an arm: building it fails only after the tool point is set (a YAM + UMI, say).
+    // A chain with no joint that moves is not an arm: building it fails only after the tool point is set (two links joined only by fixed joints, say).
     : !joints ? `No joint moves between ${name(U.base)} and ${name(U.end)}. Click the link your gripper is mounted on, or "It stands on another link" if ${name(U.base)} is not what your arm stands on.`
     : `Your arm stands on ${name(U.base)} (blue) and ends at ${name(U.end)} (green), ${joints} joints out. Not the end? Click the right link on the drawing.`
       + (!extra.length ? "" : U.tree.joint_map.joints ? ` ${U.tree.joint_map.embodiment} does not drive ${extra.length} of them; answer for each below.` : " Answer for each joint below.");

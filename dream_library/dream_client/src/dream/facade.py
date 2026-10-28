@@ -422,12 +422,12 @@ class DreamClient:
             default 20) and `sync_above_ms` (default 700), read by refill_due(); `kinematics`; `robot`, the robot the
             model runs on as a model trained on YAM arms reads it, `"yam"` (a YAM) or `"other_embodiment"` (any other
             arm), which every get_action() sends as the observation's `embodiment` (never put that key in your
-            observation): on `"other_embodiment"` the model is given none of the arm's state, neither its joints, its
-            hand pose nor its grip, and answers no joints, only each hand's pose, composed on the hand pose the
-            observation carries (`per_key`'s `action.right_arm` and `action.left_arm` are None); left out, it is
-            `"other_embodiment"` when `ik` runs a model trained on YAM arms on an arm that is not a YAM, and nothing is
-            sent otherwise; set it to `"other_embodiment"` to ask the same with IK of your own; and `ik`, which runs a
-            model that answers hand poses on an arm that is not a YAM: `{"arm": ..., "head": "eef"}`, the arm being
+            observation): on `"other_embodiment"` the serve may ignore the arm's state, and the model answers no
+            joints, only each hand's pose, composed on the hand pose the observation carries (`per_key`'s
+            `action.right_arm` and `action.left_arm` are None); left out, it is `"other_embodiment"` when `ik` runs a
+            model trained on YAM arms on an arm that is not a YAM, and nothing is sent otherwise; set it to
+            `"other_embodiment"` to ask the same with IK of your own; and `ik`, which runs a model that answers hand
+            poses on an arm that is not a YAM: `{"arm": ..., "head": "eef"}`, the arm being
             `"metal"`, `"makers"` or the path of an arm file, a JSON object with every one of these keys: `urdf` (your
             arm's URDF, a path relative to the arm file), `base` (the link the hand's pose is measured from, oriented x
             forward, y to the arm's left, z up), `flange` (the link the gripper is mounted on), `tcp` (`[x, y, z]`,
