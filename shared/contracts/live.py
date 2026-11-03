@@ -197,7 +197,8 @@ CLOSE_TOO_LARGE: int = 4009
 ## The node is being removed; reconnect elsewhere.
 CLOSE_DRAINING: int = 4010
 
-## A record-only `hello` reached a relay whose `LIVE_RECORD_ONLY` is off; the client stops recording for that policy.
+## A record-only `hello` reached a relay whose `LIVE_RECORD_ONLY` is off, or came with the key of a Zero Data Retention
+## account (#AuthorizeResponse `zdr`); the client stops recording for that policy.
 CLOSE_RECORD_OFF: int = 4011
 
 ## Every application close code by its name; the relay counts refusals by these names.
@@ -908,12 +909,17 @@ class AuthorizeResponse(pydantic.BaseModel):
     Attributes:
     - user_id: The owner of the key and the robot, the `user_id` a private viewer token must carry.
     - public: Whether `robots.public_at` is set, so the node admits public viewers; False without a robot id.
+    - zdr: Whether the owner is a Zero Data Retention account (`PLATFORM_ZDR`): the node refuses the key's
+      record-only links (`4011`) and stores nothing a robot link delivers, while still relaying it to viewers. Left
+      out of the JSON when False, so a platform with the flag off answers the bytes it did before the field; a node
+      older than the field refuses a body that carries it, closing the link `4001` rather than storing it.
     """
 
     model_config = pydantic.ConfigDict(extra="forbid")
 
     user_id: str
     public: bool
+    zdr: bool = pydantic.Field(default=False, exclude_if=lambda zdr: not zdr)
 
 
 class LinkReport(pydantic.BaseModel):
@@ -1070,6 +1076,10 @@ class ReportResponse(pydantic.BaseModel):
       their links: the node stops their video (not their pose) and says `live_paused` #VIDEO_OFF_OVER_CAP to their
       viewers until a report leaves them out. Left out of the JSON when empty, since a node older than the field
       forbids it.
+    - zdr: The reported robots whose owner is a Zero Data Retention account (#AuthorizeResponse `zdr`): the node stops
+      storing what their links deliver, so a link held since before its owner joined the list stops being stored
+      within one report. A link stays unstored for the rest of its life, whatever later reports say; the next link of
+      the robot takes the api's answer afresh. Left out of the JSON when empty, as `video_off`.
     """
 
     model_config = pydantic.ConfigDict(extra="forbid")
@@ -1077,6 +1087,7 @@ class ReportResponse(pydantic.BaseModel):
     revoke: list[Revocation]
     ratings: list[TrajectoryRating] = pydantic.Field(default_factory=list)
     video_off: list[str] = pydantic.Field(default_factory=list, exclude_if=lambda robot_ids: not robot_ids)
+    zdr: list[str] = pydantic.Field(default_factory=list, exclude_if=lambda robot_ids: not robot_ids)
 
 
 ## The #ViewerStatus `live_paused` of a robot whose video the node stopped because its owner is over the spend cap.
