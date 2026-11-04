@@ -12,6 +12,7 @@ Change the two together. -->
   <a href="https://dreamlabs.ai"><strong>Blog Post</strong></a> |
   <a href="https://platform.dreamlabs.ai"><strong>DreamAPI</strong></a> |
   <a href="https://platform.dreamlabs.ai/api-documentation"><strong>Documentation</strong></a>
+   <a href="https://discord.com/invite/Pz9Tkz4pBV"><strong>Discord</strong></a>
 </p>
 
 </div>
