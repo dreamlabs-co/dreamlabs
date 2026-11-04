@@ -166,18 +166,20 @@ def measure(stream: Any) -> dict[str, Any]:
     """A video stream's timing as its MP4 sample table states it, demuxed and never decoded.
 
     @param stream A PyAV video stream of a file opened with probe_options().
-    @return `{"fps", "frames", "duration_s", "variable"}`: the frame rate of the even step from the first sample
-        shown to the last (the demuxer's index), the number of samples shown, and the track's duration in seconds,
-        each None when the table does not state it; and whether the rate varies: a sample more than #HALF_FRAME of a
-        step from where that even rate puts it. A sample an edit list hides (the pre-roll an `ffmpeg -ss -c copy`
-        cut keeps) is not shown, so not counted. Not FFmpeg's `avg_frame_rate` (the samples over the track's
-        duration): a track that ends where its last sample starts, as the robots package's rollout videos do, puts
-        that n / (n - 1) too high, 34.3 fps for 8 frames at 30. Not the usual (median) step either: a 1/1000 s clock
-        (an MKV recording remuxed) starts 30 fps frames 33 or 34 ms apart, which reads as 30.3 fps, and nine steps of
-        1/30 s with one of 1.47/30 s read as 30 fps while the frames run at 28.7.
+    @return `{"fps", "frames", "duration_s", "variable", "hidden"}`: the frame rate of the even step from the first
+        sample shown to the last (the demuxer's index), the number of samples shown, and the track's duration in
+        seconds, each None when the table does not state it; whether the rate varies: a sample more than #HALF_FRAME
+        of a step from where that even rate puts it; and the samples an edit list hides (the pre-roll an
+        `ffmpeg -ss -c copy` cut keeps), which are not shown, so not counted in the rest. Not FFmpeg's
+        `avg_frame_rate` (the samples over the track's duration): a track that ends where its last sample starts, as
+        the robots package's rollout videos do, puts that n / (n - 1) too high, 34.3 fps for 8 frames at 30. Not the
+        usual (median) step either: a 1/1000 s clock (an MKV recording remuxed) starts 30 fps frames 33 or 34 ms
+        apart, which reads as 30.3 fps, and nine steps of 1/30 s with one of 1.47/30 s read as 30 fps while the frames
+        run at 28.7.
     """
     duration = stream.duration
     times = sorted(entry.timestamp for entry in stream.index_entries if not entry.is_discard)
+    hidden = sum(1 for entry in stream.index_entries if entry.is_discard)
     step = fractions.Fraction(times[-1] - times[0], len(times) - 1) if len(times) > 1 else 0
     spacing = float(step)
     return {
@@ -186,6 +188,7 @@ def measure(stream: Any) -> dict[str, Any]:
         "duration_s": float(duration * stream.time_base) if duration is not None else None,
         "variable": step > 0
         and any(abs(time - times[0] - k * spacing) > spacing * HALF_FRAME for k, time in enumerate(times)),
+        "hidden": hidden,
     }
 
 
@@ -193,7 +196,8 @@ def probe(source: str | BinaryIO) -> dict[str, Any]:
     """The sample-entry tag and timing of a file's one video stream, by FFmpeg's MP4 demuxer; no frame is decoded.
 
     @param source The file: a path, or a binary file object open on it.
-    @return `{"tag", "fps", "frames", "duration_s", "variable"}`: the tag, e.g. `avc1`, and measure()'s timing.
+    @return `{"tag", "fps", "frames", "duration_s", "variable", "hidden"}`: the tag, e.g. `avc1`, and measure()'s
+        timing.
     @throws av.FFmpegError When FFmpeg cannot read the file as an MP4.
     @throws ValueError When the file is a HEIF or AVIF image or image sequence (refuse_image_structure()), is not in an
         MP4 container (#FORMAT_WHITELIST), holds no video stream or more than one, holds a subtitle track, or its one
@@ -263,14 +267,17 @@ def refuse_off_timing(where: str, found: dict[str, Any], fps: int, rows: int) ->
     The trainer pairs each frame of data with the video frame nearest its timestamp, so a video must hold one frame
     per frame of data, at the session's rate, evenly spaced. When it does, an episode whose timestamps drift from it
     is re-timed by the data worker instead (`content_checks.timestamp_drift()`); when it does not, no timestamp can
-    say which image goes with which frame.
+    say which image goes with which frame. A video must also hide no frame behind an edit list: the trainer's decoder
+    counts hidden frames when it finds a frame's image by its time, but drops them when it decodes, so each frame of
+    the episode's first clip gets the image as many frames later as the video hides.
 
     @param where The file as the customer reads it, e.g. `Directory 's': videos/.../episode_000000.mp4`.
     @param found Its answer of answer(), whitelisted (refuse_unless_whitelisted()).
     @param fps The rate its session's `meta/info.json` records.
     @param rows Its episode's frames of data (`meta/episodes.jsonl`'s length, held to the parquet's rows).
     @throws content_checks.DatasetInvalidError When its rate varies, its rate drifts from `fps` by more than
-        #HALF_FRAME over the episode, or it holds fewer frames than the episode less one.
+        #HALF_FRAME over the episode, it holds fewer frames than the episode less one, or an edit list hides any of
+        its frames.
     """
     from shared.datasets import content_checks  # noqa: PLC0415 - as in refuse_unless_whitelisted()
 
@@ -291,4 +298,11 @@ def refuse_off_timing(where: str, found: dict[str, Any], fps: int, rows: int) ->
         raise content_checks.DatasetInvalidError(
             f"{where} holds {frames} video frames for an episode of {rows} frames; training would repeat its last "
             "image for the rest. Export one video frame per frame of the episode."
+        )
+    hidden = found["hidden"]
+    if hidden:
+        raise content_checks.DatasetInvalidError(
+            f"{where} hides {hidden} frames before its first behind an edit list, as a cut made without re-encoding "
+            "(ffmpeg -ss ... -c copy) leaves them; training would pair the episode's first frames with images "
+            f"{hidden} frames later. Re-encode it, which drops them (ffmpeg -i in.mp4 out.mp4)."
         )
