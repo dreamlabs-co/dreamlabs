@@ -24,7 +24,6 @@ from typing import Any
 import av
 import numpy as np
 import numpy.typing as npt
-from dream import client_ik
 
 from robots import config, rollout_episode, types
 from robots.rollout_episode import RolloutError
@@ -239,8 +238,6 @@ class Recorder:
             "cameras": list(camera_names),
             "joints": dict(joints),
             **{key: settings[key] for key in SETTINGS},
-            # Proprio test switch, carried for the record while the test runs.
-            "proprio_test": os.environ.get(client_ik.PROPRIO_TEST_ENV) or None,
         }
         self._episode: _Episode | None = None
         self._finishers: list[threading.Thread] = []

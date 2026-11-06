@@ -805,10 +805,10 @@ def _check_parquets(
     read: Callable[[str], bytes],
     tasks: set[int],
 ) -> tuple[int, list[tuple[str, content_checks.Drift]]]:
-    """Every listed episode's parquet against its index line, the vector widths, and its `task_index` and integer
-    annotation values against `meta/tasks.jsonl`; answers the frames the parquets hold, which must be what
-    `meta/info.json` says, and each parquet whose timestamps drift from its videos (`content_checks.timestamp_drift()`)
-    with its drift."""
+    """Every listed episode's parquet against its index line (its rows, and the episode its rows' `episode_index`
+    names), the vector widths, and its `task_index` and integer annotation values against `meta/tasks.jsonl`; answers
+    the frames the parquets hold, which must be what `meta/info.json` says, and each parquet whose timestamps drift
+    from its videos (`content_checks.timestamp_drift()`) with its drift."""
     frames = 0
     drifted = []
     for episode in episodes:
@@ -821,6 +821,13 @@ def _check_parquets(
             raise content_checks.DatasetInvalidError(
                 f"Directory '{name}': {path} has {facts.rows} frames; {EPISODES_FILE} says episode {index} has "
                 f"{episode['length']}."
+            )
+        others = facts.episode_indices - {index}
+        if others:
+            raise content_checks.DatasetInvalidError(
+                f"Directory '{name}': {path} is episode {index} in {EPISODES_FILE}, but its episode_index column "
+                f"names episode {min(others)}; training would drop the episode. Write episode_index {index} in each "
+                "of its rows (renumbering episodes renumbers this column too)."
             )
         for what, width, declared in (
             ("action", facts.action_dim, fields["action_dim"]),

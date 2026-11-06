@@ -26,7 +26,8 @@ import dataclasses
 import logging
 import threading
 import time
-from collections.abc import Mapping
+import urllib.parse
+from collections.abc import Callable, Mapping
 from types import TracebackType
 from typing import Any
 
@@ -231,6 +232,9 @@ class PolicyClient:
             )
         # None until the gateway assigns one on the first reply, and again after reset_episode().
         self._session_id: str | None = None
+        # Called once, with the first request's observation as sent, then None: DreamClient sets it to the reminder
+        # to check what the model sees (dream.input_check).
+        self._first_request: Callable[[dict[str, Any]], None] | None = None
         # Validation is local and free, so a malformed spec is a config error now rather than
         # a confusing check failure on the first step.
         self._embodiment: dict[str, Any] | None = config.get("embodiment")
@@ -248,7 +252,6 @@ class PolicyClient:
         # Client-side IK for an EEF checkpoint (dream.client_ik): the tool poses out, the joints back. Built and
         # compiled here, so the first get_action() does not pay for it.
         self._ik = None
-        client_ik.refuse_proprio_test_without_ik(ik)
         if ik is not None:
             if model is None or model.id != checkpoint:
                 raise DreamConfigError(f"config key 'ik' needs the platform's record of {checkpoint!r}, got {model!r}")
@@ -606,12 +609,18 @@ class PolicyClient:
         return list(self._PUBLIC) + ["__enter__", "__exit__"]
 
     def _headers(self) -> dict[str, str]:
-        """The request headers: the key as a bearer token, when there is one.
+        """The request headers: the key as a bearer token, when there is one; with `ik`, on calls to the loop check on
+        this computer (`client_ik.CHECK_HOST`) only, the arm and the head (`client_ik.ARM_HEADER`,
+        `client_ik.HEAD_HEADER`).
 
         @return The headers.
         @throws DreamConfigError The key holds a character an HTTP header cannot carry.
         """
-        return credentials._authorization(self.api_token) if self.api_token else {}
+        headers = credentials._authorization(self.api_token) if self.api_token else {}
+        if self._ik is not None and self.host == client_ik.CHECK_HOST:
+            headers[client_ik.ARM_HEADER] = urllib.parse.quote(self._ik.arm)
+            headers[client_ik.HEAD_HEADER] = self._ik.head
+        return headers
 
     def _post(self, observation: dict[str, Any]) -> Any:
         """Sends one `/v1/get_action` body, adopts the session id, and maps the envelope.
@@ -623,14 +632,18 @@ class PolicyClient:
         @throws DreamObservationError A value of the observation cannot be sent as JSON.
         @throws DreamError Per the envelope map; see get_action().
         """
+        # Added here, past the strict checks, so they never see it; without a robot the body is as before.
+        obs = observation if self._robot is None else {**observation, _EMBODIMENT_KEY: self._robot}
         # Always sent, even when None: the gateway reads a null id as "mint me a session".
         request = {
             "checkpoint": self._checkpoint,
             "session_id": self._session_id,
             "reset": False,
-            # Added here, past the strict checks, so they never see it; without a robot the body is as before.
-            "observation": observation if self._robot is None else {**observation, _EMBODIMENT_KEY: self._robot},
+            "observation": obs,
         }
+        if self._first_request is not None:
+            first, self._first_request = self._first_request, None
+            first(obs)
         headers = self._headers()
         try:
             response = self._transport.request(request, headers)

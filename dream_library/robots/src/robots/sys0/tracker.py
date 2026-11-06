@@ -1,7 +1,8 @@
 """One arm's System 0 tick: the plan in, a motor command out, through a supervisor that can always hold the arm.
 
 Pure logic, no I/O: the caller (`robots.sys0.motors`) reads the arm, passes the time, the measured state and the
-plan, and writes what comes back. The code is the tracker the bundled policy expects, with its constants:
+plan, and writes what comes back. The code is the follower-side tracker the bundled policy expects, for the one
+design a station runs, with its constants:
 
 - **The reference.** #Plan is the loop's timeline for one tick: the command it just submitted, at its tick time,
   then the rows still buffered, one per tick from then. ArmTracker.tick() samples it (sample()) at now and every
@@ -103,7 +104,7 @@ class SupervisorConfig:
 
     Attributes:
     - watchdog_s: Longest gap between two policy ticks before the hold.
-    - max_speed_rad_s: Per-joint speed that trips the hold; about 1.5 times the peaks a YAM reaches tracking
+    - max_speed_rad_s: Per-joint speed that trips the hold; about 1.5 times the peaks the arm reached tracking
       bottle-opening replays (2.95 rad/s on the big joints, 4.59 on the wrist).
     - limit_tolerance_rad: How far past a joint limit the arm may be measured before the hold; a tolerance outside
       the range, since the YAM rests with joint 2 at its model limit.

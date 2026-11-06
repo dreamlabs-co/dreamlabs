@@ -1,6 +1,6 @@
 [project]
 name = "dreamlabs-client"
-version = "1.0.14"
+version = "1.1.3"
 description = "Policy client for DreamAPI's /v1/get_action gateway: observation out, action chunk in."
 readme = "README.md"
 license = "Apache-2.0"
@@ -31,9 +31,10 @@ dependencies = [
 # `dream.datasets` runs the dataset checks locally (`shared.datasets.validation`, copied into the wheel below), which
 # open the episode parquets with pyarrow and read each video's format with PyAV (`shared.datasets.video_formats`, the
 # check the data worker runs too), and sends the dataset zip to S3 with boto3's transfer manager; only a caller of
-# validate_dataset() or upload_dataset() needs any of them. PyAV at the `live` extra's floor.
+# validate_dataset() or upload_dataset() needs any of them. PyAV from 17.0.0, the first whose streams list their
+# samples (`index_entries`), which the format check reads.
 [project.optional-dependencies]
-datasets = ["av>=15", "boto3>=1.36", "pyarrow>=17"]
+datasets = ["av>=17", "boto3>=1.36", "pyarrow>=17"]
 # `record` is empty and kept so that `pip install "dream-client[record]"` still resolves: websockets, what it
 # names, is in the base list, since the client always records.
 record = []
@@ -128,9 +129,10 @@ strict = true
 python_version = "3.12"
 files = ["src/dream"]
 
-# dream's vendored IK (dream.client_ik imports it) ships no type information.
+# dream's vendored IK (dream.client_ik imports it) and yourdfpy, the URDF reader the library carries for it
+# (dream.check_arm reads an arm's URDF with it), ship no type information.
 [[tool.mypy.overrides]]
-module = ["dream_ik", "dream_ik.*"]
+module = ["dream_ik", "dream_ik.*", "yourdfpy"]
 ignore_missing_imports = true
 
 # PyAV and OpenCV ship no type information; dream.live imports both only when it encodes.

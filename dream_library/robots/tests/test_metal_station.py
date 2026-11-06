@@ -11,6 +11,7 @@ the return to the pose each arm was opened in before torque off. The loop runs o
 
 import asyncio
 import dataclasses
+import functools
 import logging
 import threading
 import time
@@ -34,7 +35,7 @@ from test_makers_station import (
     EEFDreamAPI,
 )
 
-from robots import cameras, config, damiao, errors, metal, motor_arm, robstride, station
+from robots import cameras, config, damiao, errors, metal, motor_arm, robstride, run, station
 
 ## Where the grippers start, motor degrees: 20 mm open on the fixture table.
 START_GRIPPER_DEG = 30.0
@@ -477,6 +478,39 @@ def test_a_metal_station_compiles_the_clients_ik_before_it_opens_either_arm(
     asyncio.run(controller.close())
 
     assert events[0] == "warm" and "open" in events, events
+
+
+def test_dreamcli_robot_run_compiles_the_clients_ik_before_it_opens_either_arm(
+    server: EEFDreamAPI, bus: metal_fakes.FakeCanFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`dreamcli robot run` waits for the client's IK to compile, `traj` included, before it powers the arms, as a
+    Start does: with `traj` compiling on the client's thread meanwhile, a gripper went 0.74 s without a frame (0xD)."""
+    events: list[str] = []
+    wait = dream.DreamClient.wait_for_ik
+
+    def waited(client: dream.DreamClient, timeout_s: float) -> bool:
+        ready = wait(client, timeout_s)
+        events.append(f"compiled {ready}")
+        return ready
+
+    monkeypatch.setattr(dream.DreamClient, "wait_for_ik", waited)
+    stops: list[Any] = []
+
+    def open_can_bus(*args: Any, **kwargs: Any) -> Any:
+        events.append("open")
+        stops[0]()  # the run ends once the arms are home
+        return bus(*args, **kwargs)
+
+    monkeypatch.setattr(robstride, "open_can_bus", open_can_bus)
+
+    async def run_until_an_arm_opens() -> None:
+        stop = asyncio.Event()
+        stops.append(functools.partial(asyncio.get_running_loop().call_soon_threadsafe, stop.set))
+        await run.main(metal_config(), CHECKPOINT, stop=stop, home_duration_s=0.0)
+
+    asyncio.run(run_until_an_arm_opens())
+
+    assert events[0] == "compiled True" and "open" in events, events
 
 
 class _Model:

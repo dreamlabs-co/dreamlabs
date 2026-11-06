@@ -5,8 +5,9 @@ A fake relay (a real WebSocket server on this machine, on a loop of its own) sta
 so the client runs its real thread, its real backoff and, where a test says so, its real encoder; the fake records
 what arrives and sends what the page would. Most tests stand a fake encoder in for libvpx (`live._open_encoder`)
 and drive the client as a control loop does, one stream() per tick. The station's behaviour tests from
-`robots.live` are here with their requirement ids; the ones that need the real station controller are in the
-robots package's tests. Waits poll with deadlines; the client's timing constants are shrunk through `monkeypatch`.
+`robots.live` (the agent this client replaced) are here with their requirement ids; the ones that need the real
+station controller are in the robots package's tests. Waits poll with deadlines; the client's timing constants are
+shrunk through `monkeypatch`.
 """
 
 from __future__ import annotations
@@ -38,36 +39,6 @@ from dream import live
 
 KEY = "dl_live_test"
 ROBOT = "rbt_0123456789abcdef"
-
-## The live view's architecture document, whose constants table the client's knobs are held to; absent in a
-## published copy, where that test skips.
-DESIGN_DOC = pathlib.Path(__file__).resolve().parents[3] / "design" / "sources" / "live-view-architecture.md"
-
-## The table rows that are the client's knobs or the contract numbers it restates, by the document's name.
-CLIENT_CONSTANTS = {
-    "LIVE_POLL_HZ": "_POLL_HZ",
-    "LIVE_IDLE_ENCODER_S": "_IDLE_ENCODER_S",
-    "LIVE_ENCODER_THREADS": "_ENCODER_THREADS",
-    "LIVE_ENCODER_SPEED": "_ENCODER_SPEED",
-    "LIVE_AGENT_NICE": "_NICE",
-    "LIVE_YIELD_TICK_RATIO": "_YIELD_TICK_RATIO",
-    "LIVE_YIELD_WINDOW_S": "_YIELD_WINDOW_S",
-    "LIVE_YIELD_BACKOFF_S": "_YIELD_BACKOFF_S",
-    "LIVE_WRITE_HIGH_WATER": "_WRITE_HIGH_WATER",
-    "LIVE_NOTSENT_LOWAT": "_NOTSENT_LOWAT",
-    "LIVE_WIDTH_PX": "_WIDTH_PX",
-    "LIVE_FPS": "_FPS",
-    "LIVE_BITRATE_KBPS": "_BITRATE_KBPS",
-    "LIVE_VBV_BUFFER_KBIT": "_VBV_BUFFER_KBIT",
-    "LIVE_GOP_S": "_GOP_S",
-    "PROMPT_ACK_S": "_PROMPT_ACK_S",
-}
-
-## The units a value cell may carry.
-UNITS = {"KiB": 1 << 10, "MiB": 1 << 20}
-
-## A row of that table: one or two backticked names, then the value cell.
-TABLE_ROW = re.compile(r"^\| `([A-Z0-9_]+)`(?: / `([A-Z0-9_]+)`)? \| ([^|]+?) \|")
 
 ## Longest a test waits for the client, the relay or the caller's loop to reach a state.
 WAIT_S = 5.0
@@ -428,39 +399,6 @@ def subscribe(parts: Rig, camera: str) -> None:
     """Sends a viewer's `subscribe` and waits until the client has it."""
     parts.relay.send({"type": "subscribe", "camera": camera})
     wait_for(lambda: camera in parts.client.stats()["streams"], f"the subscribe to {camera}")
-
-
-# T-1
-
-
-def design_constants() -> dict[str, float]:
-    """The constants table as `{name: value}`."""
-    section = DESIGN_DOC.read_text(encoding="utf-8").split("### 8.4", 1)[1].split("\n## ", 1)[0]
-    table: dict[str, float] = {}
-    for line in section.splitlines():
-        row = TABLE_ROW.match(line)
-        if row is None:
-            continue
-        names = [name for name in row.group(1, 2) if name]
-        for index, part in enumerate(row.group(3).split(" / ")):
-            words = part.strip().split(" ")
-            number = words[0]
-            if not number.replace(".", "").isdigit():
-                continue
-            name = names[index] if len(names) > 1 else names[0]
-            unit = UNITS.get(words[1], 1) if len(words) > 1 else 1
-            table[name] = float(number) if "." in number else int(number) * unit
-    return table
-
-
-def test_agent_constants_equal_the_design_table_I11() -> None:
-    """Every client knob in the table, and the encoding defaults it restates from the contract, equals the table."""
-    if not DESIGN_DOC.exists():
-        pytest.skip(f"{DESIGN_DOC} is not in this copy of the repository (a published product carries no docs)")
-    table = design_constants()
-    for name, attribute in CLIENT_CONSTANTS.items():
-        assert getattr(live, attribute) == table[name], name
-    assert live._YIELD_TICK_RATIO == 2.0 and live._NICE == 10
 
 
 # The link, the frames, the encoders (T-2)

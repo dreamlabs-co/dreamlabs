@@ -200,7 +200,7 @@ async function showTemplate() {
   const run = `dreamcli robot run --config ${path}${model} --task "<what to do>"`;
   $("selfPath").textContent = path;
   $("selfYaml").textContent = (await api("GET", `/api/template?body=${encodeURIComponent(S.pick)}`)).yaml;
-  $("selfDry").textContent = `${run} --dry-run`;
+  $("selfDry").textContent = `${run} --dry-run --view`;
   $("selfTcp").classList.toggle("hidden", S.pick !== "custom");
   $("selfRun").textContent = run;
   $("selfDocs").href = `${S.state.connection.platform_url}/docs/set-it-up-yourself/`;
@@ -1631,7 +1631,7 @@ async function start() {
   $("armOursSub").textContent = arms.length > 3 ? `${arms.slice(0, 3).join(", ")} and ${arms.length - 3} more` : arms.join(", ");
   $("exampleLink").href = `${c.platform_url}/downloads/examples/seeed_rebot/seeed_rebot.py`;
   $("docsLink").href = `${c.platform_url}/docs/robot-of-your-own/`;
-  $("customRun").textContent = `dreamcli robot run --config ${S.state.config_path} --checkpoint "<your model>" --task "..." --dry-run`;
+  $("customRun").textContent = `dreamcli robot run --config ${S.state.config_path} --checkpoint "<your model>" --task "..." --dry-run --view`;
   if (S.state.ik_error) $("pickErr").textContent = S.state.ik_error;
   $("saveWhere").textContent = `Writes ${S.state.config_path}${S.state.exists ? ", replacing the file there" : ""}.`;
   S.pick = S.state.existing_body;
@@ -1778,9 +1778,14 @@ const FINISH_POWERED = {
 // What to do once setup is done: the command to copy, and Live view, where the robot is driven from.
 function nextSteps() {
   const live = `${S.state.connection.platform_url}/live`;
+  const model = S.pick === "yam" ? "" : ' --checkpoint "<your model>"';
   return [
-    el("p", {}, "Next, start the station on this computer:"),
-    el("div", { class: "codeblock" }, el("pre", {}, el("code", { id: "nextCmd" }, "dreamcli robot up")),
+    el("p", {}, "First, check what the model sees, with nothing sent to the arms:"),
+    el("div", { class: "codeblock" }, el("pre", {}, el("code", { id: "viewCmd" }, `dreamcli robot run${model} --task "<what to do>" --dry-run --view`)),
+      el("button", { class: "copy", "data-copy": "viewCmd" }, "Copy")),
+    el("p", { class: "note" }, "Open the page it prints. Every camera is under its own key, upright, in natural colours and changing as things move; joints are in radians, each gripper 0 closed to 1 open; the prompt is your task. Then press Control-C."),
+    el("p", {}, "Next, start the station on this computer; --view serves the same page for every run:"),
+    el("div", { class: "codeblock" }, el("pre", {}, el("code", { id: "nextCmd" }, "dreamcli robot up --view")),
       el("button", { class: "copy", "data-copy": "nextCmd" }, "Copy")),
     el("p", {}, "Then press Start in Live view:"),
     el("div", { class: "actions" }, el("a", { class: "go", href: live, target: "_blank", rel: "noopener" }, "Open Live view")),

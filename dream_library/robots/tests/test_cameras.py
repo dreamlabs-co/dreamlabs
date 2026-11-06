@@ -1299,7 +1299,7 @@ def test_encode_jpeg_downscales_a_720p_frame_to_640x360_with_inter_area(monkeypa
 
 
 def test_encode_jpeg_uses_quality_85(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Frames are encoded at JPEG quality 85; the constant and the cv2 call agree."""
+    """Stations encode at JPEG quality 85; the constant and the cv2 call agree."""
     params: list[list[int]] = []
     real_imencode = cv2.imencode
 

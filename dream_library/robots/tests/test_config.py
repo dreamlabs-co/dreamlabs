@@ -155,13 +155,13 @@ def test_ramp_defaults_to_two_seconds_at_half_a_radian_per_second(tmp_path: path
     assert type(cfg.ramp_s) is float
 
 
-def test_chunk_handoff_defaults(tmp_path: pathlib.Path) -> None:
-    """The gripper clamp is 0.05 per tick, and no trace is written unless asked for; the end-effector
-    cap has no default (it is in REQUIRED_KEYS)."""
+def test_chunk_handoff_defaults(tmp_path: pathlib.Path, home_dir: pathlib.Path) -> None:
+    """The gripper clamp is 0.05 per tick, and each run is traced to `~/.dreamlabs/last-run.csv` unless
+    the file names another trace or null; the end-effector cap has no default (it is in REQUIRED_KEYS)."""
     cfg = load_variant(tmp_path, max_gripper_step=None, trace_path=None)
 
     assert cfg.max_gripper_step == 0.05
-    assert cfg.trace_path is None
+    assert cfg.trace_path == str(home_dir / ".dreamlabs" / "last-run.csv")
 
 
 def test_the_grip_force_cap_defaults_to_the_package_value_and_reads_from_the_file(

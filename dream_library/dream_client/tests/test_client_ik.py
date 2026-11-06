@@ -562,6 +562,24 @@ YAM_PARTS = {"right_arm": [0, 6], "right_gripper": [6, 7], "left_arm": [7, 13], 
 YAM_CONFIG: dict[str, Any] = {"state": YAM_PARTS, "action": YAM_PARTS, "video": YAM_EEF_CONFIG["video"]}
 
 
+def test_the_solvers_compile_lines_stay_out_of_the_loops_terminal(connection: dict[str, Any]) -> None:
+    """Building the IK turns off the solver libraries' loguru lines (each compile logs several at INFO), which buried
+    the loop's own lines and dream.check's verdict; the loop's other loguru lines still print."""
+    from loguru import logger
+
+    for name in client_ik.QUIET_LOGS:  # a test before this one may have built the IK already
+        logger.enable(name)
+    lines: list[str] = []
+    sink = logger.add(lines.append, format="{name}: {message}")
+    try:
+        with ik_client({**connection, "checkpoint": BASE, "embodiment": YAM_EEF_CONFIG}, "yam", "joint"):
+            for name in (*client_ik.QUIET_LOGS, "my_loop"):
+                exec("logger.info('compiled')", {"__name__": f"{name}._problem", "logger": logger})
+    finally:
+        logger.remove(sink)
+    assert lines == ["my_loop._problem: compiled\n"]
+
+
 def test_on_a_yam_the_yams_own_body_passes_strict_mode_with_the_poses_added_and_a_grip_for_the_gripper(
     server: FakeDreamAPI, connection: dict[str, Any]
 ) -> None:
@@ -681,45 +699,6 @@ def test_a_model_trained_on_yam_arms_reads_zero_joints_and_the_metal_arms_own_ha
         assert np.allclose(sent[f"state.{side}_gripper"], [0.4]) and np.allclose(sent[f"state.{side}_grip"], [0.4])
         assert np.allclose(sent[f"state.{side}_eef_xyz"], reply["per_key"][f"action.{side}_eef_xyz"][0], atol=1e-6)
     assert np.allclose(observation["state.right_gripper"], [40.0]), "the caller's dict is not changed"
-
-
-@pytest.mark.parametrize("mode", client_ik.PROPRIO_TEST_MODES)
-def test_the_proprio_test_switch_replaces_only_what_its_mode_names(  # TEMPORARY
-    monkeypatch: pytest.MonkeyPatch, server: FakeDreamAPI, connection: dict[str, Any], mode: str
-) -> None:
-    monkeypatch.setenv(client_ik.PROPRIO_TEST_ENV, mode)
-    with ik_client({**connection, "checkpoint": BASE, "embodiment": station_body()}) as client:
-        path = joint_path(client, "metal", seed=9)
-        reply = eef_reply(client, path)
-        serve_actions(server, lambda: reply)
-        client.get_action(station_observation(path[:, 0], gripper_mm=40.0))
-    sent = server.requests[0].body["observation"]
-    for i, side in enumerate(SIDES):
-        joints = {
-            "raw": path[i, 0],
-            "zero": np.zeros(6),
-            "avg": client_ik.PROPRIO_AVG[f"state.{side}_arm"],
-            "avg_hand": np.zeros(6),
-            "avg_all": client_ik.PROPRIO_AVG[f"state.{side}_arm"],
-        }[mode]
-        assert np.allclose(sent[f"state.{side}_arm"], joints, atol=1e-6)
-        hand = mode in ("avg_hand", "avg_all")
-        xyz = client_ik.PROPRIO_AVG[f"state.{side}_eef_xyz"] if hand else reply["per_key"][f"action.{side}_eef_xyz"][0]
-        assert np.allclose(sent[f"state.{side}_eef_xyz"], xyz, atol=1e-6)
-        assert np.allclose(sent[f"state.{side}_grip"], [0.4]), "the gripper stays real"
-
-
-def test_the_proprio_test_switch_is_refused_where_it_cannot_apply(  # TEMPORARY
-    monkeypatch: pytest.MonkeyPatch, connection: dict[str, Any]
-) -> None:
-    monkeypatch.setenv(client_ik.PROPRIO_TEST_ENV, "wrong")
-    with pytest.raises(DreamConfigError, match="use one of"):
-        ik_client({**connection, "checkpoint": BASE, "embodiment": station_body()})
-    monkeypatch.setenv(client_ik.PROPRIO_TEST_ENV, "zero")
-    with pytest.raises(DreamConfigError, match="trained on YAM arms"):
-        ik_client({**connection, "checkpoint": FINE_TUNE})
-    with pytest.raises(DreamConfigError, match="YAM station"):
-        dream._open_policy({**connection, "checkpoint": BASE})
 
 
 def test_a_model_trained_on_yam_arms_never_drives_the_arm_with_its_joint_answer(

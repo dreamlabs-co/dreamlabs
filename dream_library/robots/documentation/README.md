@@ -22,4 +22,4 @@ make doxygen                    # the same
 The docstring checker is `check_docstrings.py` (repo level, shared by every product);
 `doxygen` and `dot` are the pinned binaries `doxytools` fetches into
 `~/.cache/doxytools` on first use. CI runs both on every change to this product. Docstring form:
-`@param` / `@return` / `@throws` lines, `Attributes:` bullets, `##` on constants.
+see the house standards (`@param` / `@return` / `@throws`, `Attributes:` bullets, `##` constants).

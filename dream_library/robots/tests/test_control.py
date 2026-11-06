@@ -10,6 +10,7 @@ import asyncio
 import base64
 import collections
 import dataclasses
+import json
 import logging
 import pathlib
 import re
@@ -848,6 +849,28 @@ def test_a_failed_refill_starts_a_new_session_on_the_retry(build: Callable[..., 
     asyncio.run(scenario())
     # Call 1 (tick 1) is refused; the retry at tick 2, after the 1 s default hold, resets first, then asks.
     assert client.resets == 1 and client.reset_after_calls == [2] and client.calls == 4
+
+
+def test_a_connection_timeout_keeps_the_session_on_the_retry(build: Callable[..., conftest.LoopHarness]) -> None:
+    """The gateway holds a session until it can answer. A new session would only start that wait over, so the robot
+    would keep moving instead of waiting."""
+    client = conftest.FakeClient(horizon=1)
+    client.raise_once = dream.DreamServerError(
+        "DreamAPI refused the inference request: DA-6000 GATEWAY_FAULT (connection_timed_out)",
+        code="DA-6000",
+        reason="connection_timed_out",
+        retryable=True,
+        retry_after_s=1.5,
+    )
+    harness = build(action_horizon=1, max_stall_ticks=4, client=client)
+
+    async def scenario() -> None:
+        async with harness.loop:
+            for tick in range(4):
+                await harness.loop.step(float(tick))
+
+    asyncio.run(scenario())
+    assert client.resets == 0
 
 
 def test_result_that_lands_in_time_fills_the_buffer(build: Callable[..., conftest.LoopHarness]) -> None:
@@ -2176,7 +2199,7 @@ def test_the_plan_snapshot_history_is_bounded_and_the_second_chunk_plans_from_th
 def test_the_trace_file_has_one_row_per_commanded_tick(
     build: Callable[..., conftest.LoopHarness], tmp_path: pathlib.Path
 ) -> None:
-    """With trace_path set the loop appends a header and one row per commanded tick, every row
+    """With trace_path set the loop writes a header and one row per commanded tick, every row
     carrying every column of `control.trace_columns()` for the arms' joints."""
     trace = tmp_path / "trace.csv"
     harness = build(control_hz=10.0, action_horizon=4, trace_path=str(trace))
@@ -2198,6 +2221,40 @@ def test_the_trace_file_has_one_row_per_commanded_tick(
     # far: one per tick with the synchronous switch.
     assert [row[-3:-1] for row in rows[1:]] == [["nan", "nan"]] * 4
     assert [row[-1] for row in rows[1:]] == ["1", "2", "3", "4"]
+
+
+def test_the_trace_keeps_what_the_model_was_given_beside_it_once_a_second(
+    build: Callable[..., conftest.LoopHarness], tmp_path: pathlib.Path
+) -> None:
+    """With trace_path set the loop keeps, beside the trace, a `run_start` record with the run's rate and
+    the wire's state spans, then the frames as handed to the client, with the state and the prompt handed with them,
+    at most once every TRACE_INPUTS_EVERY_S of tick time."""
+    trace = tmp_path / "trace.csv"
+    harness = build(control_hz=10.0, action_horizon=4, trace_path=str(trace))
+
+    async def scenario() -> None:
+        async with harness.loop:
+            for tick in range(4):
+                await harness.loop.step(tick * 0.1)
+
+    asyncio.run(scenario())
+
+    inputs = control.trace_inputs_dir(str(trace))
+    assert inputs == tmp_path / "trace_inputs"
+    start, *kept = [json.loads(line) for line in (inputs / control.TRACE_INPUTS_NAME).read_text().splitlines()]
+    assert start["kind"] == "run_start" and start["control_hz"] == 10.0
+    assert set(start["state_spans"]) >= {"left_arm", "right_arm"}
+    # The first handed set is kept, and nothing within the next TRACE_INPUTS_EVERY_S of it.
+    assert [record["t_s"] for record in kept] == [0.0]
+    record = kept[0]
+    assert record["state"]["prompt"] == conftest.TASK
+    assert len(record["state"]["state.left_arm"]) == conftest.ARM_DOF
+    assert set(record["frames"]) == set(conftest.CAMERA_NAMES)
+    for name, frame in record["frames"].items():
+        assert frame["file"] == f"{name}/0.000.jpg"
+        assert frame["captured"] == [conftest.FRAME_SHAPE[1], conftest.FRAME_SHAPE[0]]
+        image = cv2.imread(str(inputs / frame["file"]))
+        assert image.shape == conftest.FRAME_SHAPE
 
 
 # --- Command path: interpolation, thread --------------------------------------------

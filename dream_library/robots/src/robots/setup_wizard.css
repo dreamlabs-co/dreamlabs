@@ -9,6 +9,8 @@
   --ok: #155d22; --ok-bg: #ecfaef; --ok-line: #25a43d; --warn: #803b00; --warn-bg: #fff5ec; --warn-line: #e66a00;
   --err: #9e0508; --err-bg: #fff2f2; --err-line: #e64c50; --soft: rgba(27, 27, 27, 0.05);
   --arm: #a6a3a3; --arm-lit: #e66a00; --arm-ghost: #25a43d;
+  /* The URDF drawing's base link (blue) and end link (green) while the end is picked: setup_viewer.js reads them. */
+  --sky: #9499e0; --teal: #0f9d8a;
   --axis-x: #d6453d; --axis-y: #2f9e44; --axis-z: #3d6fd6;
   --radius-sm: 8px; --radius: 12px; --radius-lg: 16px;
   --shadow: 0 1px 2px rgba(16, 16, 16, 0.04), 0 2px 8px rgba(16, 16, 16, 0.04);

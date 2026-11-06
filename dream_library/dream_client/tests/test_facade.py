@@ -134,7 +134,16 @@ def test_every_control_plane_method_forwards_the_key(monkeypatch: pytest.MonkeyP
     assert client.finetune("alice/towels-v1", "nb1", batch_size=16, lr_schedule="cosine") == "JOB"
     assert calls["create"] == (
         ("alice/towels-v1", "nb1"),
-        {"learning_rate": None, "batch_size": 16, "use_eef": False, "lr_schedule": "cosine", **data},
+        {
+            "steps": None,
+            "learning_rate": None,
+            "batch_size": 16,
+            "use_eef": False,
+            "lr_schedule": "cosine",
+            "resume_from": None,
+            "base_share": None,
+            **data,
+        },
     )
 
     assert client.get_finetuning_status("ftj_1") == "JOB_STATUS"
@@ -162,6 +171,7 @@ def test_policy_opens_over_the_gateway_and_get_action_forwards(monkeypatch: pyte
             self.commanded: Any = None
             self.closed = False
             self._session_id = None
+            self.last_timing = None
 
         def get_action(self, observation: dict[str, Any], *, commanded: Any = None) -> dict[str, Any]:
             self.observation = observation

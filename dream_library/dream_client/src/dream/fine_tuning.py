@@ -82,10 +82,13 @@ def create(
     dataset: str,
     suffix: str,
     *,
+    steps: int | None = None,
     learning_rate: float | None = None,
     batch_size: int | None = None,
     use_eef: bool = False,
     lr_schedule: str | None = None,
+    resume_from: str | None = None,
+    base_share: float | None = None,
     api_key: str | None = None,
 ) -> dict[str, Any]:
     """Queues a fine-tuning job on one of your `processed` datasets.
@@ -99,6 +102,19 @@ def create(
         `processed`.
     @param suffix `[a-z0-9-]{1,40}`: the tail of the checkpoint id `dream-1-ft:<uid8>-<suffix>`; free among your
         models and active jobs.
+    @param steps The training steps, any multiple of `100` from `500` to `2000`; None takes the service's
+        default of 1000.
+        The price grows with the steps, and so does the time.
+    @param resume_from The id of one of your fine-tuned models (`dream-1-ft:...`) to keep training: the job picks up
+        where its training ended, optimizer and learning-rate schedule included, for `steps` new steps, and is charged
+        for those alone. The model must be yours, trained after resuming was added and finished to its last step; the
+        dataset must be on the same robot, and `learning_rate`, `batch_size` and `use_eef` must stay the model's,
+        at the `"constant"` schedule. None, the default, trains a new model from the base.
+    @param base_share The share of each training batch drawn from Dream-1's own general training data, `0.5` or
+        `0.0`; None takes the service's default of `0.5`. Half keeps more of what the model already does in general;
+        `0.0` trains on your sessions alone, which fits them more closely but can lose general skill. The site's
+        Fine-tune form offers the same choice as Training data: "Mix in Dream Labs data" is `0.5`, "Train on my
+        data only" is `0.0`. A job that continues a model keeps that model's value.
     @param learning_rate The learning rate, 1e-6 to 1e-4; None takes the service's default of 1e-5.
     @param batch_size Leave it as None: the service sets it.
     @param use_eef Whether the job trains the end-effector pose beside the joints. The dataset's embodiment must
@@ -128,14 +144,21 @@ def create(
     @throws DreamAuthError The key was refused, or the account has no username yet (`forbidden`).
     @throws DreamServerError `not_found` for a dataset that is not yours; `conflict` for one that is not
         `processed`, a suffix in use, or an account at its limit of active jobs; `invalid_request` for a suffix or a
-        knob out of range, naming it, or for a dataset whose embodiment's action carries an end-effector rotation, or
-        a position without its state pose, without `use_eef`; a
-        `retryable` one (HTTP 5xx) may be made again after a short wait.
+        knob out of range, naming it, a `resume_from` the job cannot continue, saying why, or for a dataset whose
+        embodiment's action carries an end-effector rotation, or a position without its state pose, without
+        `use_eef`; a `retryable` one (HTTP 5xx) may be made again after a short wait.
     @throws DreamProtocolError The service could not be reached, or did not answer as the Dream API.
     """
     api_key, host = datasets._resolve(api_key)
     body: dict[str, Any] = {"dataset": dataset, "suffix": suffix}
-    named = {"learning_rate": learning_rate, "batch_size": batch_size, "lr_schedule": lr_schedule}
+    named = {
+        "steps": steps,
+        "learning_rate": learning_rate,
+        "batch_size": batch_size,
+        "lr_schedule": lr_schedule,
+        "resume_from": resume_from,
+        "base_share": base_share,
+    }
     knobs: dict[str, Any] = {name: value for name, value in named.items() if value is not None}
     if use_eef:
         check_eef(dataset, api_key=api_key)
@@ -254,7 +277,9 @@ def training_data(model: str, *, api_key: str | None = None) -> dict[str, Any]:
 
     @param model The fine-tune's id (`fine_tuned_model` of its job).
     @param api_key Your API key; the credentials' when None.
-    @return `{"url", "video"}`: a one-hour download URL of the dataset's zip, and camera role to its video key.
+    @return `{"url", "video", "cameras", "prompts"}`: a one-hour download URL of the dataset's zip, camera role to
+        its video key, camera role to each frame size its sessions recorded (`[width, height]`), and every task its
+        sessions name, sorted.
     @throws DreamServerError `not_found` when none of your jobs made the model, or its dataset was deleted.
     @throws DreamProtocolError The service could not be reached, or did not answer as the Dream API.
     """

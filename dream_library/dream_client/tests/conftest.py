@@ -359,6 +359,17 @@ def _no_credentials(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> 
 
 
 @pytest.fixture(autouse=True)
+def _no_training_data(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Answers every checkpoint as none of the account's fine-tunes outside `test_trained_inputs.py`, so no policy()
+    dials the data service it would look the training data up on (the production one, with no credentials set)."""
+    if request.node.path.name == "test_trained_inputs.py":
+        return
+    from dream import trained_inputs
+
+    monkeypatch.setattr(trained_inputs, "fetch", lambda checkpoint, api_key: None)
+
+
+@pytest.fixture(autouse=True)
 def _no_recording(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keeps `dream.DreamClient`'s recording off outside `test_recorder.py`, so no test dials a platform it names
     (`https://platform.example`) in the background; the recorder's own tests run it against a relay on localhost."""

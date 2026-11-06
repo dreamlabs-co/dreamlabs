@@ -6,3 +6,7 @@ Licensed under the Apache License, Version 2.0 (LICENSE).
 The client's request lifecycle (one request in flight, timeout recovery, idempotent close) was originally derived from
 the policy client of NVIDIA Isaac GR00T (https://github.com/NVIDIA/Isaac-GR00T), Apache License 2.0, Copyright (c) 2025
 NVIDIA Corporation.
+
+The YAM arm model the check's page draws (dream/arms/yam.glb and yam.joints.json) is converted from the URDF and
+meshes in I2RT Robotics' i2rt repository (https://github.com/i2rt-robotics/i2rt), MIT License, Copyright (c) I2RT
+Robotics; the license text is in dream/arms/LICENSE.

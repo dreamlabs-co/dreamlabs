@@ -234,7 +234,7 @@ async function showTemplate() {
   const yaml = (await api("GET", `/api/template?body=${encodeURIComponent(S.pick)}`)).yaml;
   $("selfYaml").replaceChildren(...markReplace(yaml.replace(/^(#.*\n)+\n?/, "")));  // the table says what the comments did
   $("selfCanRow").classList.toggle("hidden", !yaml.includes("can_channel"));
-  showCommand("selfDry", `${run} --dry-run`);
+  showCommand("selfDry", `${run} --dry-run --view`);
   $("selfTcp").classList.toggle("hidden", S.pick !== "custom");
   // Set each arm's home is the third card, the fourth when the URDF card comes before it.
   for (const id of ["homeStep", "homeStepRow"]) $(id).textContent = S.pick === "custom" ? "4" : "3";
@@ -1919,7 +1919,7 @@ async function start() {
   if (!/\.py:\w+$/.test(S.driver)) $("customDriver").value = S.driver;
   $("exampleLink").href = `${c.platform_url}/downloads/examples/seeed_rebot/seeed_rebot.py`;
   $("docsLink").href = `${c.platform_url}/docs/robot-of-your-own/`;
-  $("customRun").textContent = `dreamcli robot run --config ${S.state.config_path} --checkpoint "<your model>" --task "..." --dry-run`;
+  $("customRun").textContent = `dreamcli robot run --config ${S.state.config_path} --checkpoint "<your model>" --task "..." --dry-run --view`;
   if (S.state.ik_error) $("pickErr").textContent = S.state.ik_error;
   $("saveWhere").classList.remove("hidden");
   $("savedLine").classList.add("hidden");
@@ -2146,9 +2146,13 @@ function showComplete(banners) {
 // What to do once setup is done: the command to copy, and Live view, where the robot is driven from.
 function nextSteps() {
   const live = `${S.state.connection.platform_url}/live`;
+  const model = S.pick === "yam" ? "" : ' --checkpoint "<your model>"';
   return [
-    el("p", {}, "Next, start your robot. Run this command on the station:"),
-    terminal("nextCmd", "dreamcli robot up"),
+    el("p", {}, "First, check what the model sees. Run this on the station; nothing is sent to the arms:"),
+    terminal("viewCmd", `dreamcli robot run${model} --task "<what to do>" --dry-run --view`),
+    el("p", { class: "note" }, "Open the page it prints. Every camera is under its own key, upright, in natural colours and changing as things move; joints are in radians, each gripper 0 closed to 1 open; the prompt is your task. Then press Control-C."),
+    el("p", {}, "Next, start your robot. Run this command on the station; --view serves the same page for every run:"),
+    terminal("nextCmd", "dreamcli robot up --view"),
     el("p", {}, "Then click Start in Live view:"),
     el("div", { class: "actions" }, el("a", { class: "go", href: live, target: "_blank", rel: "noopener" }, "Open Live view")),
     el("p", { class: "note" }, "To run a single task instead, use dreamcli robot run --task \"<what to do>\" on the station. Add --dry-run to check it without moving the arms. You can close this page now."),

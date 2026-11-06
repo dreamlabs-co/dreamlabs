@@ -121,13 +121,12 @@ globalThis.document = {
   querySelectorAll: (selector) => select(selector),
   addEventListener() {},
 };
-// Timers are kept, never fired on their own: a "wait" step runs those set for its delay. They are the page's alone
-// (its module declares setTimeout and clearTimeout as these, below): node's own fetch sets timers of its own and
-// calls their unref(), so the global ones stay node's.
+// The page's timers are kept, never fired on their own: a "wait" step runs those set for its delay. Only the page sees
+// these (the page module declares them, below): node's own fetch sets real timers and calls .unref() on what it gets.
 const timers = [];
 globalThis.pageTimers = {
-  set: (fn, ms) => timers.push({ fn, ms }),
-  clear: (id) => { if (timers[id - 1]) timers[id - 1].fn = null; },
+  setTimeout: (fn, ms) => timers.push({ fn, ms }),
+  clearTimeout: (id) => { if (timers[id - 1]) timers[id - 1].fn = null; },
 };
 globalThis.requestAnimationFrame = (fn) => fn();
 // Nothing is laid out or restyled, so no change is observed (v2 mirrors its pressed buttons' aria-pressed this way).
@@ -167,8 +166,7 @@ if (!source.includes(viewer)) throw new Error(`${script} no longer imports the 3
 const after = (scenario.after ?? []).map((step) => (Array.isArray(step) || typeof step === "object" ? step : [step]));
 const called = [scenario.call, ...after.filter(Array.isArray).map(([name]) => name)].filter(Boolean);
 // The 3D views draw nothing here: each takes the calls the page makes and does nothing.
-const view = "const setTimeout = globalThis.pageTimers.set, clearTimeout = globalThis.pageTimers.clear;\n"
-  + "const MARKER_ROOM = null;\nclass ArmView { async load() {} aim() {} label() {} live() {} highlight() {} mark() {} }\n"
+const view = "const { setTimeout, clearTimeout } = globalThis.pageTimers;\nconst MARKER_ROOM = null;\nclass ArmView { async load() {} aim() {} label() {} live() {} highlight() {} mark() {} }\n"
   + "class UrdfView extends ArmView { async tree() { return { shown: [], plain: [], missing: [] }; } paint() {} setMarker() {} }\n"
   + "const cadNavigation = () => {};\n"
   + "const unzip = () => new Map(Object.entries(globalThis.zipped).map(([p, t]) => [p, async () => new TextEncoder().encode(t)]));\n"

@@ -1163,6 +1163,35 @@ def test_every_runs_client_records_the_run_itself(monkeypatch: pytest.MonkeyPatc
     assert all("_record" not in config_ for config_ in opened)
 
 
+def test_every_runs_client_is_shown_on_the_stations_page_of_what_the_model_sees(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With a view (`dreamcli robot up --view`), each run's client is handed to it as the run builds it; without one,
+    none is."""
+    robots = {"left": conftest.FakeRobot(), "right": conftest.FakeRobot()}
+    monkeypatch.setattr(yam, "open_arm", lambda cfg, name: conftest.yam_arm(name, robots[name]))
+    monkeypatch.setattr(kinematics.ArmKinematics, "from_config", lambda cfg: test_control.StillKinematics())
+    monkeypatch.setattr(run, "open_client", lambda dream_config: conftest.FakeClient())
+
+    class View:
+        def __init__(self) -> None:
+            self.watched: list[object] = []
+
+        def watch(self, client: object) -> None:
+            self.watched.append(client)
+
+    view = View()
+    controller = station.StationController.from_config(
+        conftest.make_app_config(),
+        inference_log_path=None,
+        view=view,  # type: ignore[arg-type]
+    )
+    first, second = controller._make_client(None, None), controller._make_client("alice/towels-ft", None)
+    assert view.watched == [first, second]
+    plain = station.StationController.from_config(conftest.make_app_config(), inference_log_path=None)
+    assert isinstance(plain._make_client(None, None), conftest.FakeClient)
+
+
 @pytest.mark.parametrize(("sys0", "threshold_ms"), [(False, 900), (True, 1000)], ids=["plain", "sys0"])
 def test_every_runs_client_gets_the_sync_threshold_of_the_stations_mode(
     sys0: bool, threshold_ms: int, monkeypatch: pytest.MonkeyPatch
@@ -1299,6 +1328,7 @@ def serve_on_fakes(
         inference_log_path: str | None,
         sys0: bool = False,
         skip_tcp_calibration: bool = False,
+        view: dream.DebugView | None = None,
     ) -> station.StationController:
         return station.StationController(
             {name: conftest.yam_arm(name, robot) for name, robot in robots.items()},
@@ -1418,6 +1448,7 @@ def test_a_stop_while_the_arms_open_ends_the_station_before_the_cameras_open(
         inference_log_path: str | None,
         sys0: bool = False,
         skip_tcp_calibration: bool = False,
+        view: dream.DebugView | None = None,
     ) -> station.StationController:
         os.kill(os.getpid(), signal.SIGINT)
         time.sleep(0.2)
@@ -1453,6 +1484,7 @@ def test_the_station_holds_the_arms_lock_from_before_they_open_until_they_are_sw
         inference_log_path: str | None,
         sys0: bool = False,
         skip_tcp_calibration: bool = False,
+        view: dream.DebugView | None = None,
     ) -> station.StationController:
         holders.append(arms_lock.held_by(lock))
         return opens(cfg, inference_log_path=inference_log_path, sys0=sys0)

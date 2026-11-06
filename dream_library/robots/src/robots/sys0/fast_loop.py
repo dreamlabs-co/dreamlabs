@@ -7,8 +7,8 @@ For a position target that delay hardly matters, because the motor's own PD acts
 torque it is most of the problem: System 0 answers what it measured one round trip ago, and it expects
 this faster transport, so with System 0 the arms are opened with it.
 
-Measured on a YAM, a torque written into i2rt's
-command block shows up in the state the host reads 16.5 ms later, about 9 ms of it in i2rt itself:
+The YAM follower's fast motor loop, unchanged in behaviour. Measured on a YAM station, a torque written into i2rt's
+command block showed up in the state the host reads 16.5 ms later, about 9 ms of it in i2rt itself:
 
 - the driver loop (`DMChainCanInterface._set_commands`) sends each motor its MIT frame and waits for that motor's
   reply before the next: 7 x 0.41 ms = 3.2 ms a cycle. Sending all seven back to back and then collecting the

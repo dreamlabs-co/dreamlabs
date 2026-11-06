@@ -3,7 +3,7 @@
 
 Most tests step the thread's tick by hand on a fake clock (`makers_fakes.FakeClock`), so rates are exact; the ones
 about the thread itself and the station's arm wrapper run it on the wall clock over the same fake motors. The
-parity with the source Makers driver (a JSON snapshot of its frames and joints, `data/makers_parity.json`) is
+parity with the driver it is ported from (a JSON snapshot of it) is
 `test_makers_parity.py`; the station end to end is
 `test_makers_station.py`.
 """

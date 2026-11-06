@@ -53,6 +53,11 @@ DRY_RUN_LOG_S = 1.0
 ## controller steps (`robots.cameras.MANAGED_PERIOD_S`), each of up to 1.6x, from half the ceiling to the scene.
 EXPOSURE_SETTLE_S = 2.0
 
+## How long a run waits for the dream client's `traj` IK solve to compile before it powers the arms, seconds
+## (`dream.DreamClient.wait_for_ik`): about 5 s on a station's CPU, up to 20 on one slow core. Past it the arms open
+## anyway, and the client solves with `tick` until the compile ends.
+TRAJ_WARMUP_S = 60.0
+
 ## Round trip, milliseconds, past which every station's dream client paces synchronously (#policy_config), whatever
 ## the body: the client's own default (`dream.pacing.SYNC_ABOVE_MS`, 700) sent stations to sync at round trips they run
 ## async well. A YAM's 48 rows at 20 Hz carry exactly this past the 30-row execution horizon.
@@ -81,6 +86,7 @@ async def main(
     dry_run: bool = False,
     stop: asyncio.Event | None = None,
     home_duration_s: float = home.HOME_DURATION_S,
+    view_port: int | None = None,
 ) -> None:
     """Homes the arms, runs the loop until SIGINT, SIGTERM or SIGHUP, homes them and switches them off.
 
@@ -107,6 +113,8 @@ async def main(
     @param dry_run Run without writing a target to an arm.
     @param stop Ends the run when set.
     @param home_duration_s Seconds each home move takes.
+    @param view_port Serve the page of what the model sees (`dream.DebugView`) on 127.0.0.1 at this port, from the
+        moment the client opens, before an arm does.
     @throws ConfigError A camera is not named after a serve role, the body has no default model and none was
         given, or i2rt or mujoco (a Makers or Metal arm: python-can or dream's IK) is not installed.
     @throws ControlLoopError The loop stopped on an unrecoverable fault.
@@ -131,10 +139,25 @@ async def main(
     readers: list[cameras.CameraReader] = []
     recorder = None if dry_run else make_recorder(config, dream_config["checkpoint"], run_number=1)
     not_off: list[str] = []
+    view: dream.DebugView | None = None
     try:
         readers = await asyncio.to_thread(make_cameras, config)
         arm_kinematics = make_kinematics(config)
         client = await asyncio.to_thread(open_client, dream_config)
+        # Before an arm is powered, as a station's Start waits (robots.station.warm_client_ik): the client compiles its
+        # `traj` IK solve on a thread, seconds of CPU that starved the arm thread past a Metal gripper's 500 ms CAN
+        # timeout (fault 0xD).
+        if not await asyncio.to_thread(client.wait_for_ik, TRAJ_WARMUP_S):
+            _log.warning("run: the IK's traj solve did not compile in %.0f s; the arms open anyway", TRAJ_WARMUP_S)
+        if view_port is not None:
+            try:
+                view = dream.DebugView(client, port=view_port)
+            except OSError as exc:
+                control.run_teardown("close the dream client", client.close)
+                raise errors.ConfigError(
+                    f"--view cannot listen on port {view_port} ({exc}); pass another with --view-port"
+                ) from None
+            _log.info("run: what the model sees on %s", view.url)
         if stop.is_set():
             _log.info("run: stopped before the arms opened; nothing moved and no run was recorded")
             control.run_teardown("close the dream client", client.close)
@@ -154,6 +177,8 @@ async def main(
                 config, arms, readers, client, arm_kinematics, recorder, stop, dry_run, home_duration_s
             )
     finally:
+        if view is not None:
+            view.close()
         for reader in readers:
             reader.stop()
         for name, opened in arms.items():

@@ -22,7 +22,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "dreamlabs-client>=1.0.5,<2",
+    "dreamlabs-client>=1.1.0,<2",
     # [faceblur]: faces are blurred at capture (robots.cameras) before any frame leaves the box; the detector
     # is opencv + numpy, both already here. Base dreamlabs-shared is contracts-only, so no database stack rides in.
     "dreamlabs-shared[faceblur]",

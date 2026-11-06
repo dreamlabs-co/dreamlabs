@@ -350,7 +350,7 @@
           <p>Your arm from its URDF: run this in another terminal and open the address it prints. You mark your gripper's tool point on a 3D drawing, and it writes the arm file whose path goes in <code>custom.ik</code>.</p>
           <div class="codeblock cmd"><pre><code id="selfTcpCmd">dreamcli tcp</code></pre><button class="copy" data-copy="selfTcpCmd">Copy</button></div>
         </div>
-        <p>1. Check it without moving anything: the model is called, nothing is written to the arms, and the log shows each arm's reading once a second.</p>
+        <p>1. Check it without moving anything: the model is called, nothing is written to the arms, and the log shows each arm's reading once a second. Check what the model sees on the page it prints, before the arms move: every camera under its own key, upright, in natural colours and changing as things move; joints in radians, each gripper 0 closed to 1 open; the prompt.</p>
         <div class="codeblock cmd"><pre><code id="selfDry"></code></pre><button class="copy" data-copy="selfDry">Copy</button></div>
         <p>2. Put each arm at rest and copy its reading into its <code>home</code>: every run starts by moving there.</p>
         <p>3. Run it, with a hand on the emergency stop:</p>

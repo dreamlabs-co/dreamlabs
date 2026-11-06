@@ -99,7 +99,8 @@ class GatewayFaultReason(enum.StrEnum):
     INTERNAL = "internal"
     STORE_WRITE_FAILED = "store_write_failed"
     CANNOT_SCALE = "cannot_scale"
-    STEERING_UNAVAILABLE = "steering_unavailable"
+    SERVICE_UNAVAILABLE = "service_unavailable"
+    CONNECTION_TIMED_OUT = "connection_timed_out"
 
 
 ## Any reason value; each member type belongs to exactly one code (see #REASONS_BY_CODE).
@@ -338,9 +339,14 @@ REASON_HELP: dict[Reason, CustomerHelp] = {
         "The gateway could not record the session, so it did not run the request.",
         "Send the same request again.",
     ),
-    GatewayFaultReason.STEERING_UNAVAILABLE: CustomerHelp(
-        "This checkpoint needs a gateway feature that is not turned on, so the request was not run.",
-        "Nothing on your side fixes it: contact Dream Labs with the checkpoint id and the error message.",
+    GatewayFaultReason.SERVICE_UNAVAILABLE: CustomerHelp(
+        "This checkpoint can't be run right now, so the request was not run.",
+        "Send the same request again; if it keeps happening, contact Dream Labs with the checkpoint id and the error "
+        "message.",
+    ),
+    GatewayFaultReason.CONNECTION_TIMED_OUT: CustomerHelp(
+        "The connection timed out, so the request was not run.",
+        "Send the same request again; if it keeps happening, contact Dream Labs with the error message.",
     ),
     GatewayFaultReason.CANNOT_SCALE: CustomerHelp(
         "No model server can be started for this checkpoint; for a fine-tune, its weights could not be prepared.",

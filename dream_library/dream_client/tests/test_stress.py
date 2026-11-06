@@ -23,7 +23,7 @@ from dream.errors import DreamSessionExpired, DreamTimeout
 ## Full-length variants run only when asked for (nightly).
 full_only = pytest.mark.skipif(os.environ.get("DREAM_STRESS") != "full", reason="nightly: DREAM_STRESS=full")
 
-## Relative RSS growth tolerated over a long run (S-1: flat within 5 %).
+## Relative RSS growth tolerated over a long run (S-1: "flat within 5 %").
 RSS_TOLERANCE = 0.05
 
 

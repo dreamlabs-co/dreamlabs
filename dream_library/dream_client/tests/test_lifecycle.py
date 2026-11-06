@@ -26,7 +26,7 @@ from dream.client import PolicyClient
 ## A `_`-prefixed identifier at a word start: what a user-facing string must never contain.
 PRIVATE_NAME_RE = re.compile(r"\b_[a-z]")
 
-## The six names `dir(client)` shows.
+## The six names the frozen surface allows `dir(client)` to show.
 PUBLIC_SURFACE = [
     "get_action",
     "reset_episode",

@@ -11,6 +11,10 @@ dataset upload raises, `DreamDatasetError` and `DreamUploadError`, are imported 
 `dream.LiveViewClient` (`dream.live`) shows the robot on the platform's Live View page: stream() its observations and
 status, get_prompt() the task a viewer sent, and register a callback for the #EventChange a viewer makes.
 
+`dream.DebugView` (`dream.debug_view`) shows what the model sees on a page on this computer: the frames, the state, the
+chunk, the timing and any refusal of every get_action(), each a `dream.RoundTrip` that DreamClient.on_round_trip()
+also hands to your own code.
+
 `dream.__version__` is the version of the installed library, read from its package metadata when `dream` is imported.
 A library installed from PyPI reports its release, such as `"0.0.6"`; one built by the Dream Labs platform also
 carries the commit it was built from, as in `"0.0.6+g<commit>"` (PyPI takes no such suffix). Quote it in a bug
@@ -44,6 +48,7 @@ from dream import credentials as _credentials
 from dream import logs as _logs
 from dream import models as _models
 from dream import smoothing as _smoothing
+from dream.debug_view import DebugView, RoundTrip
 from dream.errors import (
     DreamActionError,
     DreamAuthError,
@@ -103,8 +108,10 @@ __version__ = _installed_version(pathlib.Path(__file__).resolve().parent.parent)
 
 __all__ = [
     "DreamClient",
+    "DebugView",
     "EventChange",
     "LiveViewClient",
+    "RoundTrip",
     "__version__",
     "DreamError",
     "DreamConfigError",

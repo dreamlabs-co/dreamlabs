@@ -133,6 +133,14 @@ class Window:
                 )
             return {**self._observation, **{key: list(ring) for key, ring in self._rings.items()}}
 
+    def frame_keys(self) -> frozenset[str]:
+        """The episode's frame keys, the keys build_observation() fills with frames.
+
+        @return A new frozenset of the keys; empty before the episode's first tick.
+        """
+        with self._lock:
+            return frozenset(self._rings)
+
     def clear(self) -> None:
         """Forgets the episode: the frames, the latest observation and the schedule; the next tick is a first one."""
         with self._lock:

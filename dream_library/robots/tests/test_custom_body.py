@@ -956,6 +956,48 @@ def test_a_run_drives_the_arms_until_stopped_then_homes_and_switches_them_off_an
         assert RecordingArm.targets[-2:] == [[0.0] * 6 + [home.HOME_GRIPPER]] * 2, "the run ended at home"
 
 
+def test_a_run_with_view_serves_what_the_model_sees_from_its_client_before_an_arm_opens(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    """`dreamcli robot run --view` (`view_port`) starts `dream.DebugView` on the run's own client before any arm
+    opens, so a dry run shows the cameras and the state before anything could move, and closes it when the run ends."""
+    cfg = load(tmp_path, {**example(), "custom": {**example()["custom"], "driver": "test_custom_body:RecordingArm"}})
+    client = conftest.FakeClient(horizon=cfg.action_horizon)
+    reader = cameras.CameraReader("scene", conftest.FakeCaptureSource(), cfg.stale_after_s, face_blur=False)
+    monkeypatch.setattr(run, "make_cameras", lambda app: [reader])
+    monkeypatch.setattr(run, "make_kinematics", lambda app: None)
+    monkeypatch.setattr(run, "open_client", lambda dream_config: client)
+    views: list[Any] = []
+
+    class FakeView:
+        def __init__(self, on: Any, port: int) -> None:
+            self.on, self.port, self.closed = on, port, False
+            self.arms_opened = RecordingArm.calls.count("open")
+            self.url = f"http://127.0.0.1:{port}/"
+            views.append(self)
+
+        def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr(dream, "DebugView", FakeView)
+
+    async def scenario() -> None:
+        stop = asyncio.Event()
+        main = asyncio.create_task(
+            run.main(cfg, "alice/my-arm-ft", dry_run=True, stop=stop, home_duration_s=0.0, view_port=8111)
+        )
+        deadline_s = time.monotonic() + 10.0
+        while client.calls < 1 and not main.done() and time.monotonic() < deadline_s:
+            await asyncio.sleep(0.01)
+        stop.set()
+        await main
+
+    asyncio.run(scenario())
+
+    assert client.calls >= 1
+    assert [(view.on, view.port, view.arms_opened, view.closed) for view in views] == [(client, 8111, 0, True)]
+
+
 @pytest.mark.parametrize(
     ("fault", "homes_ok", "raised", "moves"),
     [

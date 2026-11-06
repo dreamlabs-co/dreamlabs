@@ -1,4 +1,4 @@
-"""`dreamcli robot run --view` (`robots.run_view`)."""
+"""`dreamcli robot run --view-3d` (`robots.run_view`)."""
 
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ def test_the_page_and_its_api_are_served_on_localhost(tmp_path: Any) -> None:
 @pytest.mark.parametrize(
     ("app", "message"),
     [
-        (lambda tmp: app_with(tmp, enabled=False), "--view reads the chunks the run saves"),
+        (lambda tmp: app_with(tmp, enabled=False), "--view-3d reads the chunks the run saves"),
         (lambda tmp: metal_app(body="yam", follower_r=config.ArmConfig(can_channel="can_right")), "answers in joints"),
     ],
     ids=["rollouts_off", "yam"],
@@ -117,6 +117,8 @@ def test_the_view_refuses_a_run_it_cannot_draw(tmp_path: Any, app: Any, message:
 
 
 def test_robot_run_view_is_parsed() -> None:
-    args = cli._parser().parse_args(["robot", "run", "--task", "x", "--view", "--view-port", "8111"])
-    assert (args.view, args.view_port) == (True, 8111)
-    assert cli._parser().parse_args(["robot", "run"]).view is False
+    args = cli._parser().parse_args(["robot", "run", "--task", "x", "--view-3d", "--view-port", "8111"])
+    assert (args.view_3d, args.view, args.view_port) == (True, False, 8111)
+    assert cli._parser().parse_args(["robot", "run"]).view_3d is False
+    with pytest.raises(SystemExit):
+        cli._parser().parse_args(["robot", "run", "--view", "--view-3d"])

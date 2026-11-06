@@ -51,7 +51,7 @@ from __future__ import annotations
 import math
 import time
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
@@ -62,7 +62,10 @@ from dream import credentials as _credentials
 from dream import datasets as _datasets
 from dream import fine_tuning as _fine_tuning
 from dream import models as _models
+from dream import trained_inputs as _trained_inputs
+from dream.arm_file import _warn
 from dream.datasets import Dataset, Embodiment, Report
+from dream.debug_view import RoundTrip
 from dream.errors import DreamConfigError, DreamError, DreamProtocolError
 from dream.models import Model
 
@@ -119,6 +122,17 @@ class DreamClient:
         ## Checkpoint id to the embodiment config its observations are checked against (None: nothing to check),
         ## filled by #_embodiment_config_for so a checkpoint is looked up once per client.
         self._embodiment_configs: dict[str, dict[str, Any] | None] = {}
+        ## What on_round_trip() registered, called in order after every get_action() that built its observation.
+        self._round_trip_fns: list[Callable[[RoundTrip], object]] = []
+        ## Checkpoint id to what that fine-tune was trained on (`dream.trained_inputs.fetch()`; None: not one of the
+        ## account's fine-tunes), filled by #_trained_inputs_for so a checkpoint is looked up once per client.
+        self._trained_for: dict[str, dict[str, Any] | None] = {}
+        ## The open policy's checkpoint and what it was trained on; None when there is nothing to compare.
+        self._trained: tuple[str, dict[str, Any]] | None = None
+        ## The episode's lines against it (`dream.trained_inputs.notes()`); None until its first get_action().
+        self._trained_notes: list[str] | None = None
+        ## The lines the open policy has printed, each once a policy.
+        self._trained_warned: set[str] = set()
 
     # -- embodiments -------------------------------------------------------------------------------------------
 
@@ -300,10 +314,13 @@ class DreamClient:
         dataset: str,
         suffix: str,
         *,
+        steps: int | None = None,
         learning_rate: float | None = None,
         batch_size: int | None = None,
         use_eef: bool = False,
         lr_schedule: str | None = None,
+        resume_from: str | None = None,
+        base_share: float | None = None,
     ) -> dict[str, Any]:
         """Queues a fine-tuning job on one of the account's `processed` datasets.
 
@@ -316,6 +333,20 @@ class DreamClient:
             own and `processed`.
         @param suffix `[a-z0-9-]{1,40}`: the tail of the checkpoint id `dream-1-ft:<uid8>-<suffix>`; free among the
             account's models and active jobs.
+        @param steps The training steps, any multiple of `100` from `500` to `2000`; None takes the service's
+            default of 1000.
+            The price grows with the steps, and so does the time.
+        @param resume_from The id of one of the account's fine-tuned models (`dream-1-ft:...`) to keep training: the
+            job picks up where its training ended, optimizer and learning-rate schedule included, for `steps` new
+            steps, and is charged for those alone. The model must be the account's, trained after resuming was added
+            and finished to its last step; the dataset must be on the same robot, and `learning_rate`, `batch_size`
+            and `use_eef` must stay the model's, at the `"constant"` schedule. None, the default, trains a new model
+            from the base.
+        @param base_share The share of each training batch drawn from Dream-1's own general training data, `0.5` or
+            `0.0`; None takes the service's default of `0.5`. Half keeps more of what the model already does in
+            general; `0.0` trains on the account's sessions alone, which fits them more closely but can lose general
+            skill. The site's Fine-tune form offers the same choice as Training data: "Mix in Dream Labs data" is
+            `0.5`, "Train on my data only" is `0.0`. A job that continues a model keeps that model's value.
         @param learning_rate The learning rate, 1e-6 to 1e-4; None takes the service's default of 1e-5.
         @param batch_size Leave it as None: the service sets it.
         @param use_eef Whether the job trains the end-effector pose beside the joints. The dataset's embodiment must
@@ -346,18 +377,22 @@ class DreamClient:
             support to set one).
         @throws DreamServerError `not_found` for a dataset that is not the account's; `conflict` for one that is not
             `processed`, a suffix in use, or the account at its limit of active jobs; `invalid_request` for a suffix
-            or a knob out of range, naming it, or for a dataset whose embodiment's action carries an end-effector
-            rotation, or a position without its state pose, without `use_eef`; a `retryable` one (HTTP
+            or a knob out of range, naming it, a `resume_from` the job cannot continue, saying why, or for a dataset
+            whose embodiment's action carries an end-effector rotation, or a position without its state pose, without
+            `use_eef`; a `retryable` one (HTTP
             5xx) may be made again after a short wait.
         @throws DreamProtocolError The data service could not be reached, or did not answer as the Dream API.
         """
         return _fine_tuning.create(
             dataset,
             suffix,
+            steps=steps,
             learning_rate=learning_rate,
             batch_size=batch_size,
             use_eef=use_eef,
             lr_schedule=lr_schedule,
+            resume_from=resume_from,
+            base_share=base_share,
             api_key=self._api_key,
         )
 
@@ -411,7 +446,9 @@ class DreamClient:
         trained on, never a robot's own parts. A model of a builtin body (a Dream-1 base model) has no config to load,
         so its calls are not checked. With `strict` on, a lookup that fails raises (`DreamProtocolError`; call
         policy() again), and so do a checkpoint get_models() does not name and a listed config this library cannot
-        read: nothing runs unchecked by accident.
+        read: nothing runs unchecked by accident. What one of your fine-tunes was trained on, each camera's frame
+        sizes and its tasks, is read here once per checkpoint (`dream.trained_inputs.fetch()`), for get_action()'s
+        lines; a lookup that fails prints one line and never refuses.
 
         @param config The session config, a dict (yours is not changed): `checkpoint` (required); optionally
             `embodiment` for the checks (the embodiment config the body was registered with, the dict add_embodiment()
@@ -488,12 +525,15 @@ class DreamClient:
                 merged["embodiment"] = loaded
         # Where the model is is the credentials' alone, never the config's: the gateway is read-only from code.
         merged.update(_credentials.gateway_parts(self._gateway_url))
+        trained = self._trained_inputs_for(merged.get("checkpoint"))
         recording, recording_off = (
             self._new_recording(round(obs_fps)) if records else (None, "recording is off for this policy")
         )
         self._close_policy()
         self._policy = dream._open_policy(merged, api_key=self._api_key)
+        self._policy._first_request = _remind
         self._window = _window.Window(obs_window, 1.0 / obs_fps)
+        self._trained, self._trained_notes, self._trained_warned = trained, None, set()
         self._episode += 1
         self._recording_off = recording_off
         if recording is not None:
@@ -551,7 +591,11 @@ class DreamClient:
         `retry_after_s` and call again. When the round trips stay slow (a median of 1000 ms or more over the last
         five), it issues one `dream.DreamSlowNetworkWarning`, a Python warning that is never raised, and returns the
         action as usual. One call at a time: run it on a thread of its own and keep calling set_observation() from
-        your camera loop meanwhile.
+        your camera loop meanwhile. A policy's first call prints one `UserWarning` line, never refusing, until a
+        person records on this computer that they checked what the model sees for these cameras and this robot
+        config (#dream.input_check; the line names the command). On one of your fine-tunes, an episode's first call
+        also prints one `UserWarning` line, once a policy, for each camera whose aspect and for a prompt that differ
+        from what it was trained on, never refusing (#dream.trained_inputs); #dream.DebugView shows them too.
 
         @param commanded Per chunk key (`q_r_chunk`, `q_l_chunk`), the joints your loop last commanded that arm before
             the observation, or None; never sent. With them each chunk takes over at the row after those joints,
@@ -593,15 +637,46 @@ class DreamClient:
         policy = self._policy
         if policy is None or window is None:
             raise _no_policy("get_action()")
+        sent = window.build_observation()
+        frame_keys = window.frame_keys()
+        if self._trained_notes is None:
+            self._trained_notes = self._held_to_training(sent, frame_keys)
+        trained = self._trained_notes
         recording = self._recording
-        if recording is None:
-            return policy.get_action(window.build_observation(), commanded=commanded)
-        # The request has the uplink to itself: the recording sends nothing until it returns.
-        recording.hold()
+        sent_s = time.time()
         try:
-            return policy.get_action(window.build_observation(), commanded=commanded)
-        finally:
-            recording.release()
+            # The request has the uplink to itself: the recording sends nothing until it returns.
+            if recording is not None:
+                recording.hold()
+            try:
+                action = policy.get_action(sent, commanded=commanded)
+            finally:
+                if recording is not None:
+                    recording.release()
+        except DreamError as exc:
+            self._hand_over(_trip(sent_s, sent, frame_keys, None, policy.last_timing, exc, trained))
+            raise
+        self._hand_over(_trip(sent_s, sent, frame_keys, action, policy.last_timing, None, trained))
+        return action
+
+    def on_round_trip(self, fn: Callable[[RoundTrip], object]) -> None:
+        """Calls `fn` after every get_action() with what the model was sent and what came back.
+
+        `fn` gets one #dream.debug_view.RoundTrip per get_action() that built its observation, a refused or failed
+        call included (its `error` is set and its `action` is None). It runs on the thread that called get_action(),
+        after the request and before get_action() returns or raises, so keep it short; an exception it raises comes
+        out of get_action(). Nothing is copied or sent for it. #dream.DebugView is one such `fn`: a page on this
+        computer of the frames the model saw, the state, the chunk, the timing and any refusal.
+
+        @param fn The callable, called with the RoundTrip; what it returns is ignored. Registered for the life of this
+            client, every policy included.
+        """
+        self._round_trip_fns.append(fn)
+
+    def _hand_over(self, trip: RoundTrip) -> None:
+        """Calls every on_round_trip() callable with `trip`, in the order they were registered."""
+        for fn in list(self._round_trip_fns):
+            fn(trip)
 
     def reset_episode(self) -> None:
         """Ends the episode: ends the session on the model, then empties the window.
@@ -620,7 +695,24 @@ class DreamClient:
         # The session first: when it is refused, the episode goes on whole, its window included.
         policy.reset_episode()
         window.clear()
+        self._trained_notes = None
         self._episode += 1
+
+    def wait_for_ik(self, timeout_s: float) -> bool:
+        """Waits until the IK `policy()` built (its `ik` key) has compiled every solve it runs.
+
+        With head `eef` the client solves with `tick` at once and compiles `traj` on a thread of its own: seconds of
+        CPU, up to about 20 on one slow core. A robot program calls this before it powers arms those seconds would
+        starve, such as a Metal arm's grippers on their 500 ms CAN timeout.
+
+        @param timeout_s Seconds to wait at most.
+        @return True once compiled, and at once without `ik` or with nothing left to compile; False after `timeout_s`.
+        @throws DreamConfigError No policy is open: call policy({"checkpoint": ...}) first.
+        """
+        policy = self._policy
+        if policy is None:
+            raise _no_policy("wait_for_ik()")
+        return policy._ik is None or policy._ik.traj_ready.wait(timeout_s)
 
     def refill_due(self, executed: int, remaining: int) -> bool:
         """Whether your loop should call get_action() now, by the pacing of the open policy (`dream.pacing`).
@@ -748,6 +840,49 @@ class DreamClient:
         agent_version = f"dream-client/{dream.__version__}"[: _recorder.HELLO_MAX_FIELD_CHARS]
         return _recorder.Recorder(url, headers, self._robot_id, max(1, fps), agent_version), None
 
+    def _trained_inputs_for(self, checkpoint: Any) -> tuple[str, dict[str, Any]] | None:
+        """The checkpoint and what it was trained on, when it is one of the account's fine-tunes; looked up once per
+        checkpoint (`dream.trained_inputs.fetch()`), and only for a fine-tune's id (`trained_inputs.FINE_TUNE_PREFIX`).
+
+        A lookup that fails prints one `UserWarning` line and answers None, never refusing: the comparison only
+        warns. Nothing is cached then, so the next policy() looks again.
+
+        @param checkpoint The `checkpoint` of the policy config.
+        @return `(checkpoint, trained)`, or None when there is nothing to compare against.
+        """
+        if not isinstance(checkpoint, str) or not checkpoint.startswith(_trained_inputs.FINE_TUNE_PREFIX):
+            return None
+        if checkpoint not in self._trained_for:
+            try:
+                self._trained_for[checkpoint] = _trained_inputs.fetch(checkpoint, self._api_key)
+            except DreamError as error:
+                _warn(
+                    f"could not read what {checkpoint} was trained on, so this policy's cameras and prompt are not "
+                    f"compared with it: {error}",
+                    every_time=True,
+                )
+                return None
+        found = self._trained_for[checkpoint]
+        return None if found is None else (checkpoint, found)
+
+    def _held_to_training(self, sent: Mapping[str, Any], frame_keys: frozenset[str]) -> list[str]:
+        """An episode's first call held to what the open policy's fine-tune was trained on: its lines, each printed
+        once a policy as a `UserWarning` (`dream.trained_inputs.notes()`).
+
+        @param sent The observation the call sends.
+        @param frame_keys The window's frame keys.
+        @return The lines; none when nothing differs or there is nothing to compare against.
+        """
+        if self._trained is None:
+            return []
+        checkpoint, trained = self._trained
+        lines = _trained_inputs.notes(trained, checkpoint, {key: sent[key] for key in frame_keys}, sent.get("prompt"))
+        for line in lines:
+            if line not in self._trained_warned:
+                self._trained_warned.add(line)
+                _warn(line, every_time=True)
+        return lines
+
     def _embodiment_config_for(self, checkpoint: Any) -> dict[str, Any] | None:
         """The embodiment config a fine-tune the account runs was trained on, looked up once per checkpoint.
 
@@ -848,6 +983,45 @@ class DreamClient:
     def __repr__(self) -> str:
         """Names the class only; never the key."""
         return "<dream.DreamClient>"
+
+
+def _trip(
+    sent_s: float,
+    sent: dict[str, Any],
+    frame_keys: frozenset[str],
+    action: dict[str, Any] | None,
+    timing: dict[str, Any] | None,
+    error: DreamError | None,
+    trained: list[str],
+) -> RoundTrip:
+    """One get_action()'s #RoundTrip: the observation it sent split into its frames and the rest.
+
+    @param sent_s When the request went out, seconds since the epoch.
+    @param sent The observation built from the window.
+    @param frame_keys The window's frame keys.
+    @param action What get_action() returned; None when it raised.
+    @param timing The policy's last_timing after the call.
+    @param error What get_action() raised; None when it returned.
+    @param trained The episode's lines against what the fine-tune was trained on.
+    @return The record.
+    """
+    return RoundTrip(
+        sent_s=sent_s,
+        frames={key: value for key, value in sent.items() if key in frame_keys},
+        observation={key: value for key, value in sent.items() if key not in frame_keys},
+        action=action,
+        timing=timing,
+        error=error,
+        trained=list(trained),
+    )
+
+
+def _remind(observation: dict[str, Any]) -> None:
+    """The reminder to check what the model sees, from a policy's first request as sent (`dream.input_check`)."""
+    # Deferred: `python -m dream.input_check` runs the module after the package loads, so the package never imports it.
+    from dream import input_check
+
+    input_check.remind(observation)
 
 
 def _no_policy(call: str) -> DreamConfigError:

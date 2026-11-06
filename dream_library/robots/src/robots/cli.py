@@ -1,6 +1,6 @@
 """`dreamcli`: the station's command line, installed as a console script with the package.
 
-Eight commands, seven of them on one station directory. `dreamcli setup` opens the setup wizard, a local web page
+Nine commands, eight of them on one station directory. `dreamcli setup` opens the setup wizard, a local web page
 (`robots.setup_wizard`) that asks for the arms and the cameras (the account is the credentials
 file, `dream.credentials`, and the model is code), and writes the station config to #CONFIG_NAME
 under the station directory. `dreamcli tcp` opens that page's tool point tool alone (`robots.setup_wizard.tcp_main`),
@@ -17,8 +17,12 @@ SIGINT, which is the agent's clean stop (a running loop is stopped, the arms are
 close), and waits for it to exit, and with no agent running switches a YAM's motors off over CAN directly (a station
 whose PC died left them holding); `dreamcli robot log` prints the last #LOG_LINES lines of the
 log. `dreamcli robot run` runs one task in this terminal instead, on the same loop with no agent (robot_run(),
-`robots.run`): it starts from home, Ctrl-C homes the arms and switches them off, `--dry-run` writes no target, and
-`--view` serves a live 3D page of each chunk on 127.0.0.1 (`robots.run_view`).
+`robots.run`): it starts from home, Ctrl-C homes the arms and switches them off, `--dry-run` writes no target,
+`--view` serves the page of what the model sees on 127.0.0.1 (`dream.DebugView`: each round trip's frames, state,
+chunk, timing and refusals) and `--view-3d` a live 3D page of each chunk instead (`robots.run_view`).
+`dreamcli robot report` checks the last run from the trace every run writes (`robots.run_report`): one line per
+check, PASS or PROBLEM with its number, for each camera, the state sent, the loop and each joint commanded against
+achieved, then the worst problem and what to do, and one PNG of the joints.
 `dreamcli motors check` reads the firmware control mode of every motor on a YAM's two links, the ones the station
 config names (`robots.motor_mode`; the links are brought up first, as `robot up` does; a config of another body is
 refused, since only a YAM's motors have that mode to switch) and `dreamcli motors set-mit` switches
@@ -38,10 +42,12 @@ dreamcli robot up nosys0            # the same without System 0, which a YAM run
 dreamcli robot up joint             # the model's joint head (`noeef` is the old name)
 dreamcli robot up eef               # the model's EEF head (the default), tool poses solved to joints by dream's IK
 dreamcli robot up --ik-solve tick   # an eef run's IK row by row (the default is traj: one solve of the whole chunk)
+dreamcli robot up --view            # also serve the page of what the model sees on every run (dream.DebugView)
 dreamcli robot down                 # SIGINT, wait, then SIGTERM and SIGKILL if it will not go
 dreamcli robot log [-n 40]          # the tail of ~/.dreamlabs/station.log
 dreamcli robot run --task "..."     # one task in this terminal, no agent; --checkpoint, --dry-run, --view, --config
 dreamcli robot run --action-space joint   # the same on the model's own joints: a fine-tune of this robot only
+dreamcli robot report               # checks the last run: PASS or PROBLEM per camera, state, loop and joint
 dreamcli motors check               # every motor's control mode on both links; --link names one, --motor some ids
 dreamcli motors set-mit             # switches what is not MIT and stores it; then power-cycle the arms and check
 dreamcli example yam-mujoco         # Dream YAM Sim, no robot; --show-side-panel, --verbose, --self-test
@@ -51,7 +57,7 @@ The station directory is #DEFAULT_HOME, or the value of the #HOME_ENV environmen
 `debug_scripts/station_run.sh` is the tmux-based alternative for a station that keeps its
 config elsewhere.
 
-@see main(), robot_up(), robot_run(), robot_down(), robot_log(), motors(), Paths, robots.examples.run()
+@see main(), robot_up(), robot_run(), robot_down(), robot_log(), robot_report(), motors(), Paths, robots.examples.run()
 """
 
 import argparse
@@ -348,6 +354,7 @@ def robot_up(
     run_command: Callable[[Sequence[str]], int] = lambda argv: subprocess.call(argv),
     ready: Callable[[str, int], bool] | None = None,
     port_free: Callable[[str, int], bool] | None = None,
+    view_port: int | None = None,
 ) -> int:
     """Starts the station agent detached, records its pid, waits until it is up, and reports its API and log.
 
@@ -380,6 +387,8 @@ def robot_up(
     @param run_command Runs one argv; injected for tests. Used for the `ip link` calls only.
     @param ready Answers whether the agent's API on `(host, port)` is up; api_answers() when None, a fake in tests.
     @param port_free Answers whether `(host, port)` can be bound.
+    @param view_port The port of the page of what the model sees (`--view`, handed to the agent as `--view-port`),
+        named in the report; None when the agent serves none.
     @return The exit code.
     """
     config_path = config if config is not None else paths.config
@@ -474,6 +483,12 @@ def robot_up(
         print("watch it with 'dreamcli robot log'; 'dreamcli robot down' stops it", file=out)
         return 1
     print(f"station started (pid {process.pid}) on {config_path}", file=out)
+    if view_port is not None:
+        print(
+            f"  model view: http://127.0.0.1:{view_port}/   what the model sees on every call of a run; from a "
+            f"laptop: ssh -L {view_port}:localhost:{view_port} <this computer>",
+            file=out,
+        )
     if not _config_has_live(config_path):
         print(
             "  live view: none; the config has no 'live' section ('dreamcli setup' registers the robot and", file=out
@@ -530,6 +545,7 @@ def robot_run(
     action_space: str | None = None,
     dry_run: bool = False,
     view_port: int | None = None,
+    view_3d_port: int | None = None,
     skip_tcp_calibration: bool = False,
     out: IO[str] = sys.stdout,
     run_command: Callable[[Sequence[str]], int] = lambda argv: subprocess.call(argv),
@@ -547,16 +563,18 @@ def robot_run(
     @param checkpoint The model.
     @param action_space What the run executes (`robots.config.ACTION_SPACES`); the config's `action_space` when None.
     @param dry_run Run without writing a target to an arm.
-    @param view_port Serve the live chunk view on 127.0.0.1 at this port.
+    @param view_port Serve the page of what the model sees (`dream.DebugView`) on 127.0.0.1 at this port.
+    @param view_3d_port Serve the live 3D chunk view (`robots.run_view`) on 127.0.0.1 at this port.
     @param skip_tcp_calibration Run an arm file whose tool point was never marked (`robots.run.check_tool_point()`).
     @param out Where the report goes.
     @param run_command Runs one argv; injected for tests. Used for the `ip link` calls only.
     @return The exit code.
     """
     config_path = config_path if config_path is not None else paths.config
-    if dry_run and view_port is not None:
+    if dry_run and view_3d_port is not None:
         print(
-            "--view reads the chunks a run saves, and a dry run saves none: drop one of --view and --dry-run", file=out
+            "--view-3d reads the chunks a run saves, and a dry run saves none: drop one of --view-3d and --dry-run",
+            file=out,
         )
         return 1
     if not config_path.is_file():
@@ -569,7 +587,16 @@ def robot_run(
         arms_lock.ROBOT_RUN,
         out,
         lambda: _run_here(
-            config_path, task, checkpoint, action_space, dry_run, view_port, skip_tcp_calibration, out, run_command
+            config_path,
+            task,
+            checkpoint,
+            action_space,
+            dry_run,
+            view_port,
+            view_3d_port,
+            skip_tcp_calibration,
+            out,
+            run_command,
         ),
     )
 
@@ -581,6 +608,7 @@ def _run_here(
     action_space: str | None,
     dry_run: bool,
     view_port: int | None,
+    view_3d_port: int | None,
     skip_tcp_calibration: bool,
     out: IO[str],
     run_command: Callable[[Sequence[str]], int],
@@ -608,20 +636,27 @@ def _run_here(
     try:
         app = run.with_action_space(run.with_task(config.load(config_path), task), action_space)
         run.check_tool_point(app, skip=skip_tcp_calibration)
-        if view_port is not None:
+        if view_3d_port is not None:
             from robots import run_view
 
-            run_view.start(app, view_port)
-            port = view_port
+            run_view.start(app, view_3d_port)
+            port = view_3d_port
             print(
                 f"chunk view on http://127.0.0.1:{port}; from a laptop: ssh -L {port}:localhost:{port} <this box>",
+                file=out,
+            )
+        if view_port is not None:
+            port = view_port
+            print(
+                f"what the model sees, on http://127.0.0.1:{port} once the model's client is up: check every camera, "
+                f"the state and the prompt there; from a laptop: ssh -L {port}:localhost:{port} <this box>",
                 file=out,
             )
         if dry_run:
             print(f"dry run on {config_path}; nothing is written to the arms", file=out)
         else:
             print(f"running on {config_path}; the arms move home; Ctrl-C homes them and switches them off", file=out)
-        asyncio.run(run.main(app, checkpoint, dry_run=dry_run))
+        asyncio.run(run.main(app, checkpoint, dry_run=dry_run, view_port=view_port))
     except errors.ConfigError as exc:
         print(f"config: {exc}", file=out)
         return 1
@@ -805,7 +840,7 @@ def motors(
     missing ends the command the way `robot up` ends. The station agent must not be running: it owns the bus.
 
     @param action `check` or `set-mit`.
-    @param links The CAN links; a YAM's two (`robots.motor_mode.DEFAULT_LINKS`) when None.
+    @param links The CAN links; both default links when None.
     @param motor_ids The motor ids on each link; every motor, 1 to 7, when None.
     @param out Where the report goes.
     @param run_command Runs one argv; injected for tests. Used for the `ip link` calls only.
@@ -881,6 +916,55 @@ def robot_log(paths: Paths, *, lines: int = LOG_LINES, out: IO[str] = sys.stdout
     for line in tail(paths.log, lines):
         print(line, file=out)
     return 0
+
+
+def robot_report(paths: Paths, *, trace: pathlib.Path | None, out: IO[str]) -> int:
+    """Checks the last run and prints a line per check, then the worst problem and the plot (`robots.run_report`).
+
+    Each line is PASS or PROBLEM with its number: the cameras, the state sent, the loop, and each arm's joints
+    commanded against achieved, a camera or joint with a problem on a line of its own. One PNG of every joint,
+    commanded against achieved, goes beside the trace. Reads files only.
+
+    @param paths The station directory, whose config's `trace_path` is the trace when `trace` is None.
+    @param trace The trace, or None.
+    @param out Where the lines go.
+    @return The exit code: 0, also when problems were found, or 1 when the files cannot be read.
+    """
+    from robots import run_report
+
+    try:
+        trace = trace if trace is not None else _station_trace(paths)
+        result = run_report.report(trace)
+    except errors.ConfigError as exc:
+        print(f"report: {exc}", file=out)
+        return 1
+    png = trace.with_suffix(".png")
+    run_report.plot(result.trace, result.checks, png)
+    print(f"last run: {result.run}", file=out)
+    for check in result.checks:
+        print(check.line(), file=out)
+    worst = run_report.worst(result.checks)
+    if worst is None:
+        print("WORST    none: the model's inputs were sane and every joint followed its command", file=out)
+    else:
+        print(f"WORST    {worst.name}: {run_report.FIXES[str(worst.kind)]}", file=out)
+    print(f"PLOT     {png}", file=out)
+    return 0
+
+
+def _station_trace(paths: Paths) -> pathlib.Path:
+    """The trace the station config's `trace_path` names, or #robots.config.DEFAULT_TRACE_PATH with no station config.
+
+    @throws ConfigError The station config turns the trace off.
+    """
+    if not paths.config.is_file():
+        return pathlib.Path(config.DEFAULT_TRACE_PATH).expanduser()
+    app = config.load(paths.config)
+    if app.trace_path is None:
+        raise errors.ConfigError(
+            f"{paths.config} turns the trace off (trace_path: null): delete that line, run, report"
+        )
+    return pathlib.Path(app.trace_path)
 
 
 def _since_last_start(path: pathlib.Path) -> list[str]:
@@ -1065,7 +1149,12 @@ def run(argv: Sequence[str] | None = None, *, out: IO[str] = sys.stdout) -> int:
         eef = True if EEF_WORD in passthrough else (False if {NO_EEF_WORD, JOINT_WORD} & set(passthrough) else None)
         if args.ik_solve is not None:
             extra = [*extra, "--ik-solve", args.ik_solve]
-        return robot_up(station_paths, config=config, extra_args=extra, sys0=sys0, eef=eef, out=out)
+        view_port = args.view_port if args.view else None
+        if view_port is not None:
+            extra = [*extra, "--view-port", str(view_port)]
+        return robot_up(
+            station_paths, config=config, extra_args=extra, sys0=sys0, eef=eef, out=out, view_port=view_port
+        )
     if args.robot_command == "run":
         return robot_run(
             station_paths,
@@ -1075,6 +1164,7 @@ def run(argv: Sequence[str] | None = None, *, out: IO[str] = sys.stdout) -> int:
             action_space=args.action_space,
             dry_run=args.dry_run,
             view_port=args.view_port if args.view else None,
+            view_3d_port=args.view_port if args.view_3d else None,
             skip_tcp_calibration=args.skip_tcp_calibration,
             out=out,
         )
@@ -1082,7 +1172,14 @@ def run(argv: Sequence[str] | None = None, *, out: IO[str] = sys.stdout) -> int:
         return robot_down(station_paths, out=out)
     if args.robot_command == "temp":
         return robot_temp(station_paths, args.warn, args.stop, out=out)
+    if args.robot_command == "report":
+        return robot_report(station_paths, trace=_path(args.trace), out=out)
     return robot_log(station_paths, lines=args.lines, out=out)
+
+
+def _path(arg: str | None) -> pathlib.Path | None:
+    """A path flag's value, expanded and absolute, or None when the flag was left out."""
+    return pathlib.Path(arg).expanduser().resolve() if arg is not None else None
 
 
 def _station_running(paths: Paths, out: IO[str]) -> bool:
@@ -1103,7 +1200,8 @@ def _holding_arms(paths: Paths, holder: str, out: IO[str], command: Callable[[],
 
 
 def _parser() -> argparse.ArgumentParser:
-    """Builds the argument parser: `setup`, `tcp`, `robot` with `up`, `run`, `down`, `log`, `example`, and `motors`.
+    """Builds the argument parser: `setup`, `tcp`, `robot` (`up`, `run`, `down`, `temp`, `report`, `log`), `example`,
+    and `motors`.
 
     @return The parser.
     """
@@ -1147,6 +1245,13 @@ def _parser() -> argparse.ArgumentParser:
     )
     up.add_argument("--config", default=None, help="run another config file instead of the station's")
     up.add_argument(
+        "--view",
+        action="store_true",
+        help="serve a page of what the model sees on every run: each round trip's frames, state, chunk, timing and "
+        "refusals",
+    )
+    up.add_argument("--view-port", type=int, default=8093, help="the --view page's port (default 8093)")
+    up.add_argument(
         "--ik-solve",
         choices=config.IK_SOLVES,
         default=None,
@@ -1175,10 +1280,18 @@ def _parser() -> argparse.ArgumentParser:
         "own joints; the config's action_space when left out, which is eef on every body unless the file names joint",
     )
     run_cmd.add_argument("--dry-run", action="store_true", help="run the policy but write no target to an arm")
-    run_cmd.add_argument(
-        "--view", action="store_true", help="serve a live 3D page of each chunk (hand paths, arm, keep-out shapes)"
+    views = run_cmd.add_mutually_exclusive_group()
+    views.add_argument(
+        "--view",
+        action="store_true",
+        help="serve a page of what the model sees: each round trip's frames, state, chunk, timing and refusals",
     )
-    run_cmd.add_argument("--view-port", type=int, default=8093, help="the --view page's port (default 8093)")
+    views.add_argument(
+        "--view-3d", action="store_true", help="serve a live 3D page of each chunk (hand paths, arm, keep-out shapes)"
+    )
+    run_cmd.add_argument(
+        "--view-port", type=int, default=8093, help="the --view or --view-3d page's port (default 8093)"
+    )
     # Not advised, so named only where it is refused (robots.run.check_tool_point()) and in the customer docs.
     run_cmd.add_argument(SKIP_TCP_FLAG, action="store_true", help=argparse.SUPPRESS)
     robot_commands.add_parser(
@@ -1191,6 +1304,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     temp.add_argument("--warn", type=float, default=None, help="degrees C: an arm with a motor above it will not open")
     temp.add_argument("--stop", type=float, default=None, help="degrees C: the run stops and the arm parks")
+    report = robot_commands.add_parser(
+        "report",
+        help="check the last run: each camera, the state, the loop and each joint, PASS or PROBLEM",
+        description=(
+            "Reads the trace of the last run (every run writes one, ~/.dreamlabs/last-run.csv unless the config "
+            "names another) and prints one line per check, PASS or PROBLEM with its number, then the worst problem "
+            "and what to do, and writes one PNG of every joint, commanded against achieved. Sends nothing anywhere."
+        ),
+    )
+    report.add_argument("trace", nargs="?", default=None, help="another trace; default the last run's")
     log = robot_commands.add_parser("log", help=f"print the last {LOG_LINES} lines of the agent's log")
     log.add_argument("-n", "--lines", type=int, default=LOG_LINES, help="how many lines")
 

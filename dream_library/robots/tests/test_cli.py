@@ -829,6 +829,33 @@ def test_up_passes_the_system_0_word_to_the_agent(home: cli.Paths, monkeypatch: 
     assert not {"--sys0", "--no-sys0"} & set(cli.station_command(config, lock=home.lock))
 
 
+def test_up_view_hands_the_agent_the_page_port_and_the_report_names_the_page(
+    home: cli.Paths, agent: Callable[[str], list[str]], cleanup: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`robot up --view` hands the agent `--view-port` (8093, or `--view-port`'s) and the report names the page with
+    its tunnel; without `--view` the agent serves none and the report says nothing of it."""
+    monkeypatch.setenv(cli.HOME_ENV, str(home.home))
+    seen: dict[str, object] = {}
+
+    def fake_up(paths: cli.Paths, **kwargs: object) -> int:
+        seen.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(cli, "robot_up", fake_up)
+    assert cli.run(["robot", "up", "--view", "--host", "127.0.0.1"]) == 0
+    assert seen["view_port"] == 8093 and seen["extra_args"] == ["--host", "127.0.0.1", "--view-port", "8093"]
+    assert cli.run(["robot", "up", "--view", "--view-port", "9000"]) == 0
+    assert seen["view_port"] == 9000 and seen["extra_args"] == ["--view-port", "9000"]
+    assert cli.run(["robot", "up"]) == 0
+    assert seen["view_port"] is None and seen["extra_args"] == []
+    monkeypatch.undo()
+
+    out = io.StringIO()
+    assert cli.robot_up(home, command=agent(AGENT_SCRIPT), out=out, ready=up_now, view_port=8093) == 0, out.getvalue()
+    assert "  model view: http://127.0.0.1:8093/   what the model sees on every call of a run" in out.getvalue()
+    assert "ssh -L 8093:localhost:8093" in out.getvalue()
+
+
 def test_up_passes_the_head_word_to_the_agent(home: cli.Paths, monkeypatch: pytest.MonkeyPatch) -> None:
     """No word leaves the head to the config (a YAM's `eef`); `eef` and `joint` each force one, `noeef` is still
     `joint`, and each reaches the agent as its flag beside a System 0 word and the pass-through flags."""
@@ -924,7 +951,7 @@ def test_robot_run_without_a_key_stops_before_anything_moves(
     credentials_path.write_text("DREAM_API_URL=https://platform.example.com\n", encoding="utf-8")
     started: list[str] = []
 
-    async def fake_main(app: Any, checkpoint: str | None, *, dry_run: bool) -> None:
+    async def fake_main(app: Any, checkpoint: str | None, *, dry_run: bool, view_port: int | None) -> None:
         started.append("loop")
 
     monkeypatch.setattr(run, "main", fake_main)
@@ -959,6 +986,7 @@ def test_robot_run_dispatches_its_flags(monkeypatch: pytest.MonkeyPatch, home: c
         "action_space": None,
         "dry_run": True,
         "view_port": None,
+        "view_3d_port": None,
         "skip_tcp_calibration": False,
         "out": sys.stdout,
     }
@@ -971,9 +999,13 @@ def test_robot_run_dispatches_its_flags(monkeypatch: pytest.MonkeyPatch, home: c
     with pytest.raises(SystemExit):
         cli.run(["robot", "run", "--action-space", "joints"])
     assert cli.run(["robot", "run", "--view"]) == 0
-    assert seen["view_port"] == 8093
+    assert (seen["view_port"], seen["view_3d_port"]) == (8093, None)
     assert cli.run(["robot", "run", "--view", "--view-port", "9000"]) == 0
     assert seen["view_port"] == 9000
+    assert cli.run(["robot", "run", "--view-3d"]) == 0
+    assert (seen["view_port"], seen["view_3d_port"]) == (None, 8093)
+    with pytest.raises(SystemExit):
+        cli.run(["robot", "run", "--view", "--view-3d"])
     with pytest.raises(SystemExit):
         cli.run(["robot", "run", "--api-port", "9091"])
 
@@ -1000,30 +1032,45 @@ def test_robot_run_runs_the_loop_here_unless_the_station_owns_the_arms(
     home.config.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
     seen: dict[str, object] = {}
 
-    async def fake_main(app: Any, checkpoint: str | None, *, dry_run: bool) -> None:
+    async def fake_main(app: Any, checkpoint: str | None, *, dry_run: bool, view_port: int | None) -> None:
         seen.update(
-            task=app.task, body=app.body, checkpoint=checkpoint, dry_run=dry_run, action_space=app.action_space
+            task=app.task,
+            body=app.body,
+            checkpoint=checkpoint,
+            dry_run=dry_run,
+            action_space=app.action_space,
+            view_port=view_port,
         )
 
     monkeypatch.setattr(run, "main", fake_main)
     report = io.StringIO()
 
     assert cli.robot_run(home, task="wave", checkpoint="alice/ft", dry_run=True, out=report) == 0
-    assert seen == {"task": "wave", "body": "custom", "checkpoint": "alice/ft", "dry_run": True, "action_space": "eef"}
+    assert seen == {
+        "task": "wave",
+        "body": "custom",
+        "checkpoint": "alice/ft",
+        "dry_run": True,
+        "action_space": "eef",
+        "view_port": None,
+    }
     assert "dry run on" in report.getvalue()
     assert cli.robot_run(home, checkpoint="alice/ft", action_space="joint", out=report) == 0
     assert seen["action_space"] == "joint", "the flag replaces the file's action space for this run"
 
     assert cli.robot_run(home, config_path=home.home / "missing.yaml", out=report) == 1
     assert "no config at" in report.getvalue()
+    assert cli.robot_run(home, task="wave", checkpoint="alice/ft", dry_run=True, view_port=8093, out=report) == 0
+    assert seen["view_port"] == 8093, "the page of what the model sees works on a dry run"
+    assert "what the model sees, on http://127.0.0.1:8093" in report.getvalue()
     seen.clear()
-    assert cli.robot_run(home, dry_run=True, view_port=8093, out=report) == 1
+    assert cli.robot_run(home, dry_run=True, view_3d_port=8093, out=report) == 1
     assert "a dry run saves none" in report.getvalue() and not seen, "refused before the loop"
     assert cli.robot_run(home, task="", out=report) == 1
     assert "config: --task must be a non-empty prompt" in report.getvalue()
 
     def raising(exc: Exception) -> Callable[..., Any]:
-        async def main(app: Any, checkpoint: str | None, *, dry_run: bool) -> None:
+        async def main(app: Any, checkpoint: str | None, *, dry_run: bool, view_port: int | None) -> None:
             raise exc
 
         return main

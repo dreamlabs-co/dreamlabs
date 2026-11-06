@@ -246,7 +246,7 @@ Fine-tuning as a Service is the whole path from a robot's recordings to a checkp
 | `get_datasets()` | Your datasets, newest first, each with its status as the service holds it now; a lost `ds_...` id is found here by the dataset's `name` |
 | `retry_dataset(dataset_id)` | Has a dataset whose processing `failed` processed again from the zip already uploaded, and answers it `ready_to_process` (as another call left it, when the retry raced one); `DreamServerError` `conflict` when it is not failed or its upload never finished (upload it again under the same name) |
 | `delete_dataset(dataset_id, *, confirm=True)` | Asks `Delete dataset <id>? [y/N]`, then deletes it (refused with `conflict` while a fine-tuning job on it is queued or running); answers it `deleted` (None if you said no) |
-| `finetune(dataset, suffix, *, learning_rate=None, use_eef=False, lr_schedule=None)` | Queues a fine-tuning job on a `processed` dataset; answers the `queued` job dict. `lr_schedule="cosine"` decays the learning rate to 0 by the last step (`"constant"`, the default, holds it). `use_eef=True` trains the recorded end-effector pose beside the joints and needs the six EEF parts in the body (checked before sending); the pose is each arm's tool centre point in metres, `rot6` the first two columns of the last link's rotation matrix, both in that arm's own base frame, and the grip an opening from 0 closed to 1 open (the `finetune` docstring has the full convention) |
+| `finetune(dataset, suffix, *, steps=None, learning_rate=None, use_eef=False, lr_schedule=None, resume_from=None, base_share=None)` | Queues a fine-tuning job on a `processed` dataset; answers the `queued` job dict. `steps` is any multiple of 100 from 500 to 2000 (1000 is the default), priced by the step; `resume_from` keeps training one of your models. `lr_schedule="cosine"` decays the learning rate to 0 by the last step (`"constant"`, the default, holds it). `use_eef=True` trains the recorded end-effector pose beside the joints and needs the six EEF parts in the body (checked before sending); the pose is each arm's tool centre point in metres, `rot6` the first two columns of the last link's rotation matrix, both in that arm's own base frame, and the grip an opening from 0 closed to 1 open (the `finetune` docstring has the full convention) |
 | `get_finetuning_status(job_id)` | The job as the service answers it now |
 | `get_models()` | The checkpoints your account may run: the public ones and your own fine-tunes |
 | `policy(config)` | Chooses the checkpoint and starts an empty frame window; answers None, and the first `get_action` opens the session. Called again, it closes the previous policy, ending its session |
@@ -316,7 +316,7 @@ while client.get_dataset_status(dataset.id).status not in ("processed", "failed"
 
 ### Fine-tuning
 
-`finetune` queues a job on one of your `processed` datasets: Dream-1 trained on it, published as a checkpoint only your account can call, `dream-1-ft:<uid8>-<suffix>` (`uid8` the first eight hex characters of the account's id). The training knobs (`learning_rate`, `lr_schedule`) are optional; a knob left out takes the service's recipe default, and the service refuses a knob outside its bounds. Poll `get_finetuning_status` and wait for `fine_tuned_model` to be set, which happens in the same pass that marks the job `succeeded` (a `failed` or `cancelled` job never gets one), so a poll waits for that field rather than for the status alone.
+`finetune` queues a job on one of your `processed` datasets: Dream-1 trained on it, published as a checkpoint only your account can call, `dream-1-ft:<uid8>-<suffix>` (`uid8` the first eight hex characters of the account's id). The training knobs (`steps`, `learning_rate`, `lr_schedule`) are optional; a knob left out takes the service's recipe default, and the service refuses a knob outside its bounds. Poll `get_finetuning_status` and wait for `fine_tuned_model` to be set, which happens in the same pass that marks the job `succeeded` (a `failed` or `cancelled` job never gets one), so a poll waits for that field rather than for the status alone.
 
 ```python
 job = client.finetune(dataset.name, "towels")
@@ -334,7 +334,13 @@ action = client.get_action()  # pool_warming while the model starts; retry after
 - Cosine decay works best for specialization (a fine-tune on a single task).
 - You may not get high reliability on specialist tasks yet.
 
-How long a job takes: in our tests a job on a two- or three-camera body took about 7 to 8 hours from submit to model; a fourth camera takes longer. While a job is `running` its record shows no estimate.
+`steps` is any multiple of `100` from `500` to `2000` (`1000` is the default); the price is by the step, so 2,000 steps cost four times 500, and the `payment_required` message names it.
+
+`resume_from="dream-1-ft:..."` keeps training one of your models: the job picks up where that model's training ended, optimizer and learning-rate schedule included, for `steps` new steps, charged for those alone, and publishes a new model under its own suffix. The model must be yours, trained after resuming was added (an earlier model kept nothing to pick up from) and finished to its last step; the dataset must be on the same robot, and `learning_rate`, `batch_size` and `use_eef` stay the model's, at the `"constant"` schedule. Anything else is refused with `invalid_request`, saying why.
+
+`base_share` is the share of each training batch drawn from Dream-1's own general training data: `0.5`, the default, keeps more of what the model already does in general, and `0.0` trains on your sessions alone, which fits them more closely but can lose general skill. The site's Fine-tune form offers the same choice as Training data: "Mix in Dream Labs data" (`0.5`, preserves general skills) or "Train on my data only" (`0.0`, fits your data most closely). A job that continues a model keeps that model's value.
+
+How long a job takes: in our tests a 1,000-step job on a two- or three-camera body took about 7 to 8 hours from submit to model; more steps or a fourth camera take longer. While a job is `running` its record shows no estimate.
 
 The first `get_action` to a model that is not running (a fresh fine-tune, or any model after it has been idle a while) is refused `DA-2000` `pool_warming` (a `DreamServerError` with `retryable` and `retry_after_s`) while the model starts. In our tests a start took 25 to 50 minutes, most of it waiting for hardware, and the refusal carries no progress or estimate: call again every `retry_after_s` and allow an hour. Once it is running, a call takes about 250 to 450 ms through the gateway. A model that cannot be started is refused `DA-6000` `cannot_scale` with the reason, so a broken fine-tune is an answer, not a wait. A finished fine-tune shows up in `get_models` as one of your own (`owner == "mine"`), `servable` once it can be run, which does not mean it is running now; `Model(id, owner, base_model, embodiment, servable, created_at, cameras, embodiment_config)` is the record, and `id` is what `policy` names as `checkpoint`; `cameras` are the camera roles the model reads (`video.<role>`), None when the platform does not know them; `embodiment_config` is the config of the custom body a fine-tune was trained on, whichever account holds that body (None for a builtin body), and `policy()` checks calls against it when the config names no `embodiment`. A model's `embodiment` is the `id` of the embodiment it was trained on (`emb_...`), not its name, so it matches one of `get_embodiments()` when your account holds that body; the job record names the embodiment and the dataset by name.
 
@@ -342,7 +348,7 @@ A job is `{id, dataset, embodiment, base_model, suffix, fine_tuned_model, status
 
 | `dream.fine_tuning` / `dream.models` function | What it does |
 | --- | --- |
-| `fine_tuning.create(dataset, suffix, *, learning_rate=None, use_eef=False, lr_schedule=None, api_key=None)` | Queues a job on the `processed` dataset `<username>/<name>` under `suffix` (`[a-z0-9-]{1,40}`) |
+| `fine_tuning.create(dataset, suffix, *, steps=None, learning_rate=None, use_eef=False, lr_schedule=None, resume_from=None, base_share=None, api_key=None)` | Queues a job on the `processed` dataset `<username>/<name>` under `suffix` (`[a-z0-9-]{1,40}`) |
 | `fine_tuning.list(*, api_key=None)` | Your jobs, newest first |
 | `fine_tuning.get(job_id, *, api_key=None)` | One job as the service answers it now |
 | `fine_tuning.cancel(job_id, *, api_key=None)` | Refused with `conflict`: a job runs to its end once queued |
@@ -451,6 +457,34 @@ with dream.LiveViewClient("rbt_0123456789abcdef", dream_client=client) as live:
 - Live View only shows the robot. Recording the run is `DreamClient`'s job, from the observations you hand `set_observation()`.
 - It needs PyAV and OpenCV, which `dreamlabs` carries (`dreamlabs-client[live]` for the client alone); `import dream` loads neither. OpenCV's worker pool is started by the first `import cv2` and runs at that thread's priority; the client imports it on its own thread, at nice 10, so the resize and the blur never compete with your loop, unless your loop imported `cv2` first.
 
+## What the model sees
+
+`dream.DebugView` is a page on this computer of what each `get_action()` sent and got back: the frames the model saw, per camera key, the state and the prompt, the chunk, the timing and any refusal. Open it before the arms move, and check it: a camera on the wrong key, a frame of the wrong size or colours, a camera that stopped updating or a state in the wrong units shows there as the model gets it.
+
+```python
+view = dream.DebugView(client)  # after client.policy(...)
+print(view.url)  # http://127.0.0.1:<port>/; in Jupyter, leave `view` as the cell's last line
+```
+
+- The page is served on 127.0.0.1 only and nothing is uploaded for it; from another computer, forward the port (`ssh -L <port>:localhost:<port>`). It keeps the last 20 round trips; `view.close()` (or `with dream.DebugView(client) as view:`) stops it.
+- `client.on_round_trip(fn)` is what the page is built on: `fn` gets a `dream.RoundTrip` (`sent_s`, `frames`, `observation`, `action`, `timing`, `error`) after every `get_action()`, a refused one included, on the thread that called it, so your own code can log or check what was sent.
+- `dreamcli robot run --view` opens this page for a run, `--dry-run` included.
+- Until a person records on this computer that they checked the page for these cameras and this robot config, a policy's first `get_action()` prints one `UserWarning` line, never refusing, as `policy()` does for an arm file's unset tool center point. The line names the command that records the check, `python -m dream.input_check <id>`; the id covers the camera keys, each camera's frame size and the config's `embodiment`, `ik` and `robot`, so a change to any of them asks again. The record is `inputs_checked` beside the credentials file. A coding agent never runs that command: it records that a person looked.
+- `view.watch(client)` shows another client's round trips on the same page: `dreamcli robot up --view` hands it each run's client.
+- A loop that calls `POST /v1/get_action` itself, with no `DreamClient`, opens `dream.DebugView(None)` and hands each call to `view.add(body, reply)`: the JSON body it sent and the JSON reply (a refusal's included), or `None` when no reply came.
+
+## Check the loop
+
+`python -m dream.check_loop` stands in for the model on this computer, so a loop can be checked with no model in it: point the loop at the address it prints (`DREAM_GATEWAY_URL=http://127.0.0.1:8642`) and run the loop as it is.
+
+- Every `get_action()` gets a chunk shaped like the model's, of a scripted motion from where the arms stand: a hold, then every joint and gripper at once, each hand round a circle 8 cm across, twice, while every joint turns; then, only for the parts at fault, each alone. It reads the arm from the first call (the hand poses the client's `ik` key sends, or a YAM's parts) and answers the joints and the hand poses alike, so it takes no setting for the robot.
+- At the end it prints one PASS or PROBLEM line per check (the hold, the part each command moved, direction and size, lag, the play rate, whether each hand drew its circle, not a flat band, how fast each camera's history fills) and refuses the next call with `DA-5000`, never retryable, so the loop stops.
+- The arms move: keep a hand on the e-stop. A coding agent never runs it; it asks the person at the robot to, and to read back the lines.
+
+## Check the model on your recordings
+
+`python -m dream.check_model <session> --config policy.json` checks the model and its inputs on demos you recorded, with nothing moving: at a few moments of one episode (a session in the layout fine-tuning takes) it hands the client that moment's frames, state and task, and sets the model's chunk against the actions you recorded. It prints one PASS or PROBLEM line per check: the model answers, each part starts near what you commanded, moves the way you did, and about as far. Each moment is one billed call.
+
 ## Errors
 
 Everything the library raises derives from `dream.DreamError`. Each type also subclasses the
@@ -510,9 +544,12 @@ The file is meant for a human to read or for you to attach to a report. Its form
 `dream` follows semantic versioning. The public surface, and the only thing the version number
 promises anything about, is:
 
-- `dream.DreamClient`: its constructor; the methods of *Fine-tuning as a Service* (`add_embodiment`, `get_embodiments`, `get_models`, `validate_dataset`, `upload_dataset`, `get_dataset_status`, `get_datasets`, `retry_dataset`, `delete_dataset`, `finetune`, `get_finetuning_status`); the inference methods `policy`, `set_observation`, `get_action`, `reset_episode`, `refill_due` and `close`; the read-only properties `execution_horizon`, `action_hz`, `mode`, `last_timing` and `session_id`; and the context manager (`__enter__` / `__exit__`)
+- `dream.DreamClient`: its constructor; the methods of *Fine-tuning as a Service* (`add_embodiment`, `get_embodiments`, `get_models`, `validate_dataset`, `upload_dataset`, `get_dataset_status`, `get_datasets`, `retry_dataset`, `delete_dataset`, `finetune`, `get_finetuning_status`); the inference methods `policy`, `set_observation`, `get_action`, `on_round_trip`, `reset_episode`, `refill_due` and `close`; the read-only properties `execution_horizon`, `action_hz`, `mode`, `last_timing` and `session_id`; and the context manager (`__enter__` / `__exit__`)
 - the error types listed above, and `dream.DreamSlowNetworkWarning`
 - `dream.__version__`
+- `dream.RoundTrip` and its fields; `dream.DebugView`: its constructor (a client or `None`), `url`, `add`, `watch`, `close` and the context manager; `python -m dream.input_check <id>` (what the page shows may change in any release)
+- `python -m dream.check_loop` and its options (the motion, the checks and their lines may change in any release)
+- `python -m dream.check_model` and its options (the moments, the checks and their lines may change in any release)
 - `dream.datasets`: the functions of *Fine-tuning as a Service* and the `Embodiment`, `Report` and `Dataset` records they answer
 - `dream.fine_tuning`: its five functions; the job and queue dicts they answer are the data service's `/v1` shapes, which the service's own docs promise
 - `dream.models`: `list_models` and the `Model` record it answers

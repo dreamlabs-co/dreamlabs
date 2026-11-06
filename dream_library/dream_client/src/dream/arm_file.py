@@ -135,7 +135,8 @@ def register(path: str) -> str:
     if problem is not None:
         _warn(
             f"arm file {file}: {problem}, so the hand poses may land off target. Run `dreamcli tcp`, set the tool "
-            "center point on the real gripper, and put the arm file it writes in config key 'ik'"
+            "center point on the real gripper, and put the arm file it writes in config key 'ik'",
+            every_time=False,
         )
     return name
 
@@ -176,23 +177,30 @@ def tool_point_problem(arm: dict[str, Any], urdf: bytes) -> str | None:
     return None
 
 
-def _warn(text: str) -> None:
+def _warn(text: str, *, every_time: bool) -> None:
     """Issues `text` as a `UserWarning` at the caller's line: one line, never also a log line a console would echo.
 
     Never raises: the tool point's check warns and never refuses, so where a filter turns warnings into errors
     (`-W error`) the warning is dropped and `text` goes on the `dream` logger instead.
 
     @param text The warning's text.
+    @param every_time True shows `text` each time; False lets Python's default filter show one text from one caller
+        line once a program.
     """
     # Level 1 is this frame; walking out of the package one frame per level ends on the caller's line and its level.
     level, frame = 1, inspect.currentframe()
     while frame is not None and frame.f_code.co_filename.startswith(_PACKAGE_DIR):
         level, frame = level + 1, frame.f_back
-    del frame  # a frame held in a local keeps its whole stack alive
     try:
-        warnings.warn(text, stacklevel=level)
+        if every_time and frame is not None:
+            # A fresh registry: the one Python keeps per module is what holds a repeated text back.
+            warnings.warn_explicit(text, UserWarning, frame.f_code.co_filename, frame.f_lineno, registry={})
+        else:
+            warnings.warn(text, stacklevel=level)
     except Warning:
         _log.warning(text)
+    finally:
+        del frame  # a frame held in a local keeps its whole stack alive
 
 
 def _read(file: pathlib.Path) -> dict[str, Any]:

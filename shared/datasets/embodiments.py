@@ -7,7 +7,7 @@ roles dream trains on mapped to the LeRobot feature key each one reads (`observa
 action maps are, verbatim, what the training metadata script takes as `--state-keys` and `--action-keys`.
 
 One optional key, `head_camera`, names the role (a key of `video`) of the fixed head camera: the view the data
-service sends to Gemini for dense annotation. Every recorder names that camera differently, so the config says which
+service uses for dense annotation. Every recorder names that camera differently, so the config says which
 of its roles it is; left out, the service takes the first head role the config has (`overhead`, `top`, `scene`,
 `head`: the service's `HEAD_CAMERA_ROLES`), and the service registers no body with neither
 (when it creates the body), since every dataset is labelled. Rate, prompt, the video augmentation and
@@ -353,8 +353,8 @@ class Embodiment:
     - state: Part name to its `[start, end)` span of the `observation.state` vector; the spans tile `[0, state_dim)`.
     - action: Part name to its `[start, end)` span of the `action` vector; the spans tile `[0, action_dim)`.
     - video: Camera role to the LeRobot feature key of the video it reads.
-    - head_camera: The role (a key of `video`) of the fixed head camera, the view dense annotation sends to
-      Gemini; None when the config omits it, in which case the data service takes the first head role it has.
+    - head_camera: The role (a key of `video`) of the fixed head camera, the view dense annotation uses;
+      None when the config omits it, in which case the data service takes the first head role it has.
     - parts: `state` and `action` to each part's #Answer; None when the config has no `parts`.
     - urdf: The arm's #Urdf; None when the config names none.
     - plan: What training reads (#Plan); None without `parts`, when the parts train under their own names.

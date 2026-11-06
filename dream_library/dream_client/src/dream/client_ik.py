@@ -35,7 +35,7 @@ joint head is converted the same way, and a Metal or Makers model's joint chunks
 import logging
 import math
 import numbers
-import os
+import pathlib
 import threading
 from collections.abc import Mapping
 from typing import Any
@@ -70,6 +70,16 @@ ARMS = (
 
 ## `eef` solves the reply's tool poses to joints; `joint` keeps the model's joint answer.
 HEADS = ("eef", "joint")
+## The address of the loop check on this computer (`python -m dream.check`, `dream.check_loop.StandIn.serve`).
+CHECK_HOST = "127.0.0.1"
+## The header in which each call to #CHECK_HOST names the `ik` arm (`ClientIK.arm`, URL-quoted), so the check builds
+## the arm the client solves for (`dream.check_arm.identify`); a call to any other host never carries it.
+ARM_HEADER = "x-dream-arm"
+## The header in which each call to #CHECK_HOST names the `ik` head (#HEADS): with `eef` the client's IK picks the
+## joints, so the check reads the hands (`dream.check_loop.Plan`); a call to any other host never carries it.
+HEAD_HEADER = "x-dream-head"
+## The solver's libraries whose loguru lines the client turns off (`logger.enable(name)` turns one back on).
+QUIET_LOGS = ("jaxls", "pyroki")
 
 ## Per side of the arm: the chunk key its joints are returned under, and the observation key of its measured joints.
 SIDES = {"right": ("q_r_chunk", "state.right_arm"), "left": ("q_l_chunk", "state.left_arm")}
@@ -81,21 +91,6 @@ MODEL_JOINT_ROWS = ("q_r", "q_l")
 
 ## The state parts of a side, beside its gripper drive, that an EEF checkpoint reads (`<side>_` then each).
 EEF_STATE_PARTS = ("arm", "eef_xyz", "eef_rot6", "grip")
-
-## A test switch, not part of the stable API. Names what a model trained on YAM arms reads as its state:
-## `zero` is what it reads without the switch, `raw` the arm's own joints.
-PROPRIO_TEST_ENV = "DREAM_PROPRIO_TEST"
-PROPRIO_TEST_MODES = ("raw", "zero", "avg", "avg_hand", "avg_all")
-
-## For the test switch: the base model's state at normalized 0, the middle of its state range.
-PROPRIO_AVG = {
-    "state.right_arm": (0.0826, 1.7384, 1.5751, -0.0177, -0.0166, 0.045),
-    "state.right_eef_xyz": (0.3017, 0.1342, 0.1645),
-    "state.right_eef_rot6": (-0.0019, 0.0574, 0.0005, 0.0272, 0.0017, 0.0035),
-    "state.left_arm": (-0.3028, 1.7185, 1.5681, -0.0202, 0.0284, -0.0042),
-    "state.left_eef_xyz": (0.2793, -0.0788, 0.1768),
-    "state.left_eef_rot6": (0.0036, 0.0029, -0.0021, 0.0012, -0.0015, 0.0353),
-}
 
 _log = logging.getLogger("dream.client_ik")
 
@@ -155,10 +150,19 @@ class ClientIK:
                 f"config key 'ik' needs dream's IK, which the library ships for Python 3.11 or newer ({error}); in a "
                 f"Python 3.11 or newer environment, {datasets._install_hint()}"
             ) from None
+        # The solver's libraries log each compile at INFO on loguru's console, burying the loop's own lines.
+        from loguru import logger
+
+        for noisy in QUIET_LOGS:
+            logger.disable(noisy)
         self.head: str = config["head"]
         self._model_id = model.id
         ## Whether this session said its model has no EEF head and runs its joint answer (#solve, on a YAM).
         self._said_joint_answer = False
+        ## The arm as the `ik` key names it: an arm dream ships, or the arm file's absolute path (#ARM_HEADER).
+        self.arm: str = (
+            config["arm"] if config["arm"] in ARMS else str(pathlib.Path(config["arm"]).expanduser().resolve())
+        )
         # dream's name for the arm: one it ships, or the one an arm file is registered under.
         arm = config["arm"] if config["arm"] in ARMS else arm_file.register(config["arm"])
         spec = EMBODIMENTS[arm]
@@ -166,7 +170,6 @@ class ClientIK:
         ## `dream.client` name the robot `other_embodiment`; None for any other model, and on a YAM.
         trained_on_yam = model.embodiment == embodiments.YAM_BODY
         self.yam_joints = len(EMBODIMENTS["yam"].arm.joints) if trained_on_yam and not self.on_yam else None
-        self.proprio_test = _proprio_test(model)
         self.cameras: dict[str, str] = {}
         roles = _video_roles(embodiment)
         if roles is None and self.yam_joints is not None:
@@ -355,8 +358,6 @@ class ClientIK:
             out[SIDES[side][1]] = wire.arm(joints[side], grip)
             if wire.drive_key is not None:
                 out[wire.drive_key] = wire.drive(grip)
-        if self.proprio_test is not None:
-            _apply_proprio_test(out, self.proprio_test, joints)
         if self.cameras:
             _rename_cameras(out, self.cameras)
         return out
@@ -628,57 +629,6 @@ class _Wire:
 
 ## Per side, the reply parts of the EEF head and their widths.
 _EEF_PARTS = (("eef_xyz", 3), ("eef_rot6", 6), ("grip", 1))
-
-
-def _proprio_test(model: Model) -> str | None:
-    """The #PROPRIO_TEST_ENV test-switch mode, or None when it is unset.
-
-    @param model The session's checkpoint.
-    @return The mode.
-    @throws DreamConfigError The mode is unknown, or the model was not trained on YAM arms.
-    """
-    mode = os.environ.get(PROPRIO_TEST_ENV)
-    if not mode:
-        return None
-    if mode not in PROPRIO_TEST_MODES:
-        raise DreamConfigError(f"{PROPRIO_TEST_ENV}={mode!r}: use one of {list(PROPRIO_TEST_MODES)}, or unset it")
-    if model.embodiment != embodiments.YAM_BODY:
-        raise DreamConfigError(f"{PROPRIO_TEST_ENV} is for a model trained on YAM arms; {model.id!r} is not")
-    _log.warning("PROPRIO TEST %s=%s: the model is sent test state, not the arm's", PROPRIO_TEST_ENV, mode)
-    return mode
-
-
-def refuse_proprio_test_without_ik(ik: Any) -> None:
-    """Refuses #PROPRIO_TEST_ENV where the client builds no state (a YAM station's serve does).
-
-    @param ik The `ik` config key, or None.
-    @throws DreamConfigError The mode is set but `ik` is not.
-    """
-    if ik is None and os.environ.get(PROPRIO_TEST_ENV):
-        raise DreamConfigError(
-            f"{PROPRIO_TEST_ENV} works only on arms the client solves IK for (Metal, Makers): on a YAM station the "
-            "serve builds the model's state from the joints; unset it"
-        )
-
-
-def _apply_proprio_test(out: dict[str, Any], mode: str, joints: dict[str, npt.NDArray[np.float64]]) -> None:
-    """Replaces the joints or hand pose the model reads, per #PROPRIO_TEST_MODES (the test switch).
-
-    @param out The observation going out, changed in place.
-    @param mode The mode.
-    @param joints Per side, the arm's joints as it reads them.
-    """
-    for side, measured in joints.items():
-        arm = SIDES[side][1]
-        if mode == "raw":
-            out[arm] = measured
-        if mode == "zero":
-            out[arm] = np.zeros_like(out[arm])
-        if mode in ("avg", "avg_all"):
-            out[arm] = np.asarray(PROPRIO_AVG[arm])
-        if mode in ("avg_hand", "avg_all"):
-            for part in ("eef_xyz", "eef_rot6"):
-                out[f"state.{side}_{part}"] = np.asarray(PROPRIO_AVG[f"state.{side}_{part}"])
 
 
 def camera_slots(roles: tuple[str, ...], model_roles: tuple[str, ...], checkpoint: str) -> dict[str, str]:

@@ -197,7 +197,7 @@ class I2rtDriver(followers.Driver):
         robot.update = hooked_update
 
     def disengage(self) -> bool:
-        """Lets the arm go: gravity compensation, else zero torque.
+        """The station follower's release: gravity compensation, else zero torque.
 
         Under gravity compensation the arm floats where it is without fighting the operator; under zero torque it sags.
 
@@ -265,7 +265,7 @@ def _configure_driver(name: str, robot: Any, cfg: config.ArmConfig) -> None:
       scalar; None leaves i2rt's per-joint defaults.
     - `_limit_gripper_force` (`sdk_gripper_force_limit`): `get_yam_robot` hardcodes a 50 N
       `GripperForceLimiter` (clog detect, then hold), and `update()` skips it when the stored
-      limit is `<= 0`. It is off here, and the control loop regulates grip force itself
+      limit is `<= 0`. The station turns it off and regulates grip force in its own control loop
       instead, because the two fight (the SDK's clog threshold sits right at a low cap and its
       hold level above it), which shows up as a jittery grasp. The loop-side cap is
       #robots.gripper_force.GripperForceCap here, on by default; `sdk_gripper_force_limit: true`

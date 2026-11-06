@@ -80,6 +80,8 @@ class ParquetFacts:
     - state_dim: The width of every `observation.state` row.
     - drift: How far its timestamps run from its video frames when processing will re-time it (timestamp_drift()),
       else None.
+    - episode_indices: The distinct `episode_index` values the parquet holds; the trainer drops an episode whose rows
+      name any but its own number.
     - task_indices: The distinct `task_index` values the parquet holds, empty when it carries no such column.
     - annotation_indices: The distinct values of an integer #ANNOTATION_COLUMN, empty when it carries none or text.
     """
@@ -88,6 +90,7 @@ class ParquetFacts:
     action_dim: int
     state_dim: int
     drift: Drift | None
+    episode_indices: frozenset[int]
     task_indices: frozenset[int] = frozenset()
     annotation_indices: frozenset[int] = frozenset()
 
@@ -101,8 +104,9 @@ def check_parquet(directory: str, path: str, data: bytes, fps: int) -> ParquetFa
     @param fps The rate its session's `meta/info.json` records, which its timestamps are measured against.
     @return Its #ParquetFacts.
     @throws DatasetInvalidError When the file is not a parquet or its pages cannot be read, it lacks a column of
-        #REQUIRED_COLUMNS, a vector column is not a list of one width, a value is not finite, the timestamp column
-        is not numeric, the timestamps do not strictly increase, a `task_index` column is not an integer, or an
+        #REQUIRED_COLUMNS or an `episode_index` column, a vector column is not a list of one width, a value is not
+        finite, the timestamp column is not numeric, the timestamps do not strictly increase, an `episode_index` or
+        `task_index` column is not an integer, an `index` column does not count up by one from frame to frame, or an
         #ANNOTATION_COLUMN is neither an integer nor text.
     """
     where = f"Directory '{directory}': {path}"
@@ -120,8 +124,19 @@ def check_parquet(directory: str, path: str, data: bytes, fps: int) -> ParquetFa
     # are read so the caller can hold them to meta/tasks.jsonl, which is what the trainer resolves them through.
     has_task_index = "task_index" in schema.names
     has_annotation = ANNOTATION_COLUMN in schema.names
+    # The trainer drops an episode with no `episode_index`, one whose `episode_index` names another episode and one
+    # whose `index` skips a frame (it numbers the frames itself when there is no `index`), so the first is required
+    # and both are read: the caller holds the first to the episode's number, _check_index() the second.
+    if "episode_index" not in schema.names:
+        raise DatasetInvalidError(
+            f"{where} has no episode_index column; training would drop the episode. Write the episode's number in "
+            "meta/episodes.jsonl as episode_index in each of its rows."
+        )
+    has_index = "index" in schema.names
     read_columns = [
         *REQUIRED_COLUMNS,
+        "episode_index",
+        *(["index"] if has_index else []),
         *(["task_index"] if has_task_index else []),
         *([ANNOTATION_COLUMN] if has_annotation else []),
     ]
@@ -138,6 +153,9 @@ def check_parquet(directory: str, path: str, data: bytes, fps: int) -> ParquetFa
         raise DatasetInvalidError(f"{where}: timestamp holds a value that is not a finite number.")
     if timestamps.size > 1 and not (np.diff(timestamps) > 0).all():
         raise DatasetInvalidError(f"{where}: the timestamps do not increase from one frame to the next.")
+    episode_indices = _episode_indices(where, table)
+    if has_index:
+        _check_index(where, table)
     task_indices = _task_indices(where, table) if has_task_index else frozenset()
     annotation_indices = _annotation_indices(where, table) if has_annotation else frozenset()
     return ParquetFacts(
@@ -145,6 +163,7 @@ def check_parquet(directory: str, path: str, data: bytes, fps: int) -> ParquetFa
         action_dim=widths[0],
         state_dim=widths[1],
         drift=timestamp_drift(timestamps, fps),
+        episode_indices=episode_indices,
         task_indices=task_indices,
         annotation_indices=annotation_indices,
     )
@@ -214,6 +233,28 @@ def timestamp_drift(timestamps: np.ndarray, fps: int) -> Drift | None:
         return None
     row = int(offsets.argmax())
     return Drift(row=row, frames=float(offsets[row]))
+
+
+def _episode_indices(where: str, table: pyarrow.Table) -> frozenset[int]:
+    """The distinct values of a parquet's `episode_index` column; refuses a column that is not an integer in every
+    frame."""
+    column = table.column("episode_index")
+    if not pyarrow.types.is_integer(column.type) or column.null_count:
+        raise DatasetInvalidError(f"{where}: the episode_index column is not an integer per frame.")
+    return frozenset(column.to_pylist())
+
+
+def _check_index(where: str, table: pyarrow.Table) -> None:
+    """Refuses an `index` column (the frame's number in the whole dataset) that is not an integer in every frame or
+    does not count up by one from frame to frame, as the trainer requires of an episode it keeps."""
+    column = table.column("index")
+    if not pyarrow.types.is_integer(column.type) or column.null_count:
+        raise DatasetInvalidError(f"{where}: the index column is not an integer per frame.")
+    if not (np.diff(column.to_numpy()) == 1).all():
+        raise DatasetInvalidError(
+            f"{where}: the index column does not count up by one from frame to frame; training would drop the "
+            "episode. Write index as the episode's first index plus frame_index."
+        )
 
 
 def _task_indices(where: str, table: pyarrow.Table) -> frozenset[int]:

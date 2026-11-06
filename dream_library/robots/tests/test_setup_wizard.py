@@ -1384,7 +1384,7 @@ def test_dreams_model_of_your_own_arm_starts_unpicked_and_a_rerun_brings_back_th
         "GET /api/embodiments",
     ]
     assert ids["customRun"]["text"] == (
-        f'dreamcli robot run --config {fresh["config_path"]} --checkpoint "<your model>" --task "..." --dry-run'
+        f'dreamcli robot run --config {fresh["config_path"]} --checkpoint "<your model>" --task "..." --dry-run --view'
     )
     driver = f"{driver_file.resolve()}:Arm"
     saved = {"body": "custom", "custom": {"driver": driver, "ik": "yam", "embodiment": "tester/mine"}}
@@ -1822,7 +1822,7 @@ def test_set_it_up_myself_shows_the_file_and_the_commands_and_hides_every_step(
     assert not ids["selfBox"]["hidden"] and ids["pickActions"]["hidden"] and ids["custom"]["hidden"]
     assert ids["selfYaml"]["text"] == reply["yaml"] and ids["selfPath"]["text"] == state["config_path"]
     run_line = f'dreamcli robot run --config {state["config_path"]} --checkpoint "<your model>" --task "<what to do>"'
-    assert ids["selfRun"]["text"] == run_line and ids["selfDry"]["text"] == run_line + " --dry-run"
+    assert ids["selfRun"]["text"] == run_line and ids["selfDry"]["text"] == run_line + " --dry-run --view"
     assert shown["requests"][-1] == {"key": "GET /api/template", "body": None}
 
 
@@ -3254,6 +3254,21 @@ def test_the_redesigned_page_links_its_stylesheet_and_step_list(served: tuple[se
     assert status == 200 and content_type.startswith("text/css") and b"nav.progress" in body
 
 
+def test_both_pages_define_every_colour_the_drawing_reads() -> None:
+    """The redesigned page's stylesheet had no `--sky` or `--teal`, so the URDF step drew the base link and the end
+    link as plain as the rest of the arm, under a note calling them blue and green. Every colour setup_viewer.js reads
+    is defined by the stylesheet the redesigned page links, and by the current page's own styles."""
+    import re
+
+    names = set(re.findall(r'"(--[a-z][a-z0-9-]*)"', setup_wizard._package_text("setup_viewer.js")))
+    assert {"--sky", "--teal"} <= names
+    css = setup_wizard._package_text(setup_wizard.STYLESHEET)
+    current = setup_wizard.page_html(False)
+    for name in sorted(names):
+        assert f"{name}:" in css, name
+        assert f"{name}:" in current, name
+
+
 def test_dreamcli_tcp_serves_the_stylesheet_the_redesigned_page_links(
     tmp_path: pathlib.Path, platform: FakePlatform, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3357,3 +3372,14 @@ def test_a_home_joint_out_of_range_is_named_with_its_reading_the_range_and_which
         "other units or with another zero. Right joint 5 reads nothing usable. Fix that and press OK again, or "
         "Continue anyway"
     )
+
+
+def test_the_done_screen_has_a_dry_run_with_the_page_of_what_the_model_sees_before_the_station() -> None:
+    """Both pages' Done screen leads with a dry run that opens the page of what the model sees (`--dry-run --view`,
+    naming a model on any robot but a YAM) and the checks to make on it, before `dreamcli robot up`."""
+    for script in ("setup_wizard.js", "setup_wizard_v2.js"):
+        done = setup_wizard._package_text(script).split("function nextSteps()", 1)[1].split("\n}\n", 1)[0]
+        view = done.index('dreamcli robot run${model} --task "<what to do>" --dry-run --view')
+        assert view < done.index('"dreamcli robot up --view"'), script
+        assert "First, check what the model sees" in done and "joints are in radians" in done, script
+        assert """const model = S.pick === "yam" ? "" : ' --checkpoint "<your model>"';""" in done, script

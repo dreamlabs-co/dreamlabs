@@ -163,8 +163,9 @@ ramp_max_rad_s: 0.5
 # rule on a YAM station. A config that still carries max_joint_step_rad, a per-joint angular
 # step, fails at load naming this key: a joint step says nothing about how fast the hand moves
 # and throttles the policy on a third of its ticks. max_gripper_step bounds the gripper to one
-# step per tick in [0, 1] units. trace_path (optional) names a CSV the loop appends one
-# row per commanded tick to, for post-mortems (columns in the README). inference_log_path (optional)
+# step per tick in [0, 1] units. trace_path (default ~/.dreamlabs/last-run.csv, null for none) names the
+# CSV each run rewrites with one row per commanded tick (columns in the README), the model's inputs kept beside
+# it once a second; `dreamcli robot report` checks that last run. inference_log_path (optional)
 # names a JSON Lines file with one record per inference, error, stall and run boundary (format in
 # the README); `robots.station` writes ~/robots-inference.jsonl when it is unset, `robots.run` nothing.
 max_ee_speed_m_s: 0.6
@@ -175,7 +176,7 @@ max_gripper_step: 0.05
 # position error implies. 0 turns the cap off and hands grip force back to the PD, which is when
 # sdk_gripper_force_limit above is worth turning on.
 grip_force_cap: 0.65
-# trace_path: /tmp/robots-trace.csv
+# trace_path: ~/.dreamlabs/last-run.csv
 # inference_log_path: ~/robots-inference.jsonl
 
 # --- Policy frames --------------------------------------------------------------------------

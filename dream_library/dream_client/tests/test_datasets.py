@@ -11,6 +11,7 @@ from __future__ import annotations
 import builtins
 import dataclasses
 import http.server
+import importlib.metadata
 import io
 import json
 import os
@@ -283,7 +284,14 @@ def dataset_dir(tmp_path: pathlib.Path) -> pathlib.Path:
     column = pyarrow.ListArray.from_arrays(
         pyarrow.array(np.arange(0, vector.size + 1, dim, dtype=np.int32)), pyarrow.array(vector.reshape(-1))
     )
-    table = pyarrow.table({"action": column, "observation.state": column, "timestamp": np.arange(frames) / 30})
+    table = pyarrow.table(
+        {
+            "action": column,
+            "observation.state": column,
+            "timestamp": np.arange(frames) / 30,
+            "episode_index": np.zeros(frames, dtype=np.int64),
+        }
+    )
     buffer = io.BytesIO()
     pyarrow.parquet.write_table(table, buffer)
     names = [f"joint_{index}" for index in range(dim - 1)] + ["gripper"]
@@ -371,12 +379,13 @@ def test_a_64_character_name_is_uploaded(
     assert datasets.upload_dataset(dataset_dir, "a" * 64, "alice/arm", api_key=KEY).status == ("ready_to_process")
 
 
+## The data service's source, beside this library where it is written; a copy of the library alone has none.
+SERVICE = pathlib.Path(__file__).resolve().parents[3] / "data_service"
 ## The data service's dataset-name rule, which the client copies (it cannot import the service).
-SERVICE_EMBODIMENTS = (
-    pathlib.Path(__file__).resolve().parents[3] / "data_service" / "src" / "data_service" / "data" / "embodiments.py"
-)
+SERVICE_EMBODIMENTS = SERVICE / "src" / "data_service" / "data" / "embodiments.py"
 
 
+@pytest.mark.skipif(not SERVICE.is_dir(), reason="the data service's source is not beside this library")
 def test_the_dataset_name_rule_is_the_services() -> None:
     """A change to the service's `NAME_RE` fails here until the client's copy says the same."""
     found = re.search(r'^NAME_RE: .*re\.compile\(r"\^(.*)\$"\)$', SERVICE_EMBODIMENTS.read_text(), re.MULTILINE)
@@ -489,6 +498,20 @@ def test_upload_without_boto3_is_a_config_error_and_registers_nothing(
     with pytest.raises(DreamConfigError, match=re.escape("install the library: pip install --upgrade dreamlabs")):
         _upload_to(service, dataset_dir)
     assert service.registered == [] and service.datasets == {} and service.bucket == {}
+
+
+def test_the_datasets_extra_asks_for_a_pyav_whose_streams_list_their_samples() -> None:
+    """The format check reads each video's sample index (`Stream.index_entries`), which PyAV has from 17.0.0: where
+    PyAV 15.0.0 to 16.1.0 was installed, which the extra once let stand, every video was refused as not a readable
+    MP4. The floor is read from this venv's install of the client, as pip reads it."""
+    requirements = importlib.metadata.requires("dreamlabs-client")
+    assert requirements is not None
+    (floor,) = [
+        requirement.split(";")[0].strip().removeprefix("av>=")
+        for requirement in requirements
+        if requirement.startswith("av") and "datasets" in requirement
+    ]
+    assert tuple(int(part) for part in floor.split(".")) >= (17,)
 
 
 def test_a_file_dated_before_1980_is_an_upload_error_and_registers_nothing(

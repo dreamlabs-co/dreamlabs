@@ -43,7 +43,7 @@ package when it is missing.
 
 ## Command line
 
-Installing the package puts `dreamcli` on the path: eight commands and one station directory, `~/.dreamlabs`
+Installing the package puts `dreamcli` on the path: nine commands and one station directory, `~/.dreamlabs`
 (or `$DREAMCLI_HOME`), holding the config, the agent's log and its pid file. This is how a station is set up and
 run; the `python -m` entry points under *Run* are what it drives.
 
@@ -57,6 +57,7 @@ dreamcli robot up --ik-solve tick   # an eef run's IK row by row, this run only 
 dreamcli robot down                 # stops it: SIGINT (a running loop is stopped, the arms switch off and go limp), then SIGTERM, then SIGKILL; says whether the arms are off
 dreamcli robot log [-n 40]          # the last 40 lines of ~/.dreamlabs/station.log
 dreamcli robot run --task "..."     # one task in this terminal, no agent; Ctrl-C homes the arms and switches them off
+dreamcli robot report [TRACE]       # after an odd run: a PASS or PROBLEM line per check, the worst problem, a PNG (*Run report*)
 dreamcli motors check               # every motor's firmware control mode on both arms; exit 0 only when all are MIT
 dreamcli motors set-mit             # switches any motor that is not MIT, stores it; then power-cycle the arms and check
 ```
@@ -150,11 +151,15 @@ is ignored until all that is done. `--config` runs another file, `--task` and `-
 `--action-space` what the arms run (`action_space` below), and `--dry-run` runs the policy without writing a target to an arm (`robots.run.DryRun`): each arm's reading and the
 target it was asked for are logged once a second, nothing homes, nothing moves, and no rollout is saved. A Maker Arm,
 Metal Arm or SO-101 is opened read only, with no motor switched on; a YAM's arms, which i2rt opens powered, stay
-powered and stiff where they are until their power is cut. `--view` (on an EEF body: Maker Arm, Metal Arm, SO-101, your own)
-serves a live 3D page of each chunk on `http://127.0.0.1:8093` (`--view-port` names another; from a laptop
-`ssh -L 8093:localhost:8093 <robot box>`), per arm: the hand path the model asked for, where dream's IK sends the
-hand, the arm at the chunk's first and last row, and the `keep_out` shapes the IK keeps it off (`robots.run_view`). It
-reads the chunk files the run saves, so it needs `rollouts: {enabled: true}` and is refused with `--dry-run`. A missing key, or a
+powered and stiff where they are until their power is cut. `--view` serves the page of what the model sees on
+`http://127.0.0.1:8093` (`--view-port` names another; from a laptop `ssh -L 8093:localhost:8093 <robot box>`):
+every round trip's frames as sent, the state and the prompt, the chunk returned, its timing and any refusal
+(`dream.DebugView`). It works on every body and with `--dry-run`, so `dreamcli robot run --dry-run --view` is the way
+to check a setup's cameras and state before anything moves. `--view-3d` (on an EEF body: Maker Arm, Metal Arm, SO-101,
+your own) serves a live 3D page of each chunk on the same port instead, per arm: the hand path the model asked for,
+where dream's IK sends the hand, the arm at the chunk's first and last row, and the `keep_out` shapes the IK keeps it
+off (`robots.run_view`). It reads the chunk files the run saves, so it needs `rollouts: {enabled: true}` and is refused
+with `--dry-run`. A missing key, or a
 platform that cannot be reached, ends the run before anything moves; a refused key or checkpoint or a fault that stops
 the loop ends it after the arms are switched off. Each prints one line naming it, and the command exits 1.
 
@@ -222,7 +227,7 @@ beyond the ones listed.
 | `ramp_max_rad_s` | `float` | `0.5` | Joint speed cap during that blend: the ramp lasts `max(ramp_s, largest joint delta / ramp_max_rad_s)` seconds |
 | `max_gripper_step` | `float` | `0.05` | Most the gripper command may move per tick, in `[0, 1]` units |
 | `grip_force_cap` | `float` | `0.65` | Gripper effort a grasp is held at, in i2rt's `gripper_eff` units (motor torque, not newtons): the loop backs a commanded close off until the measured effort sits there (`robots.gripper_force`). 0 turns the cap off and leaves grip force to the motor PD. A Maker or Metal Arm reports no gripper effort, so the cap passes its commands through; its gripper's hold (`gripper_hold_torque_nm`) does that job |
-| `trace_path` | `str` or null | null | CSV appended with one row per commanded tick (`robots.control.trace_columns()`) for post-mortems |
+| `trace_path` | `str` or null | `~/.dreamlabs/last-run.csv` | CSV each run rewrites with one row per commanded tick (`robots.control.trace_columns()`), with the model's inputs kept beside it once a second, for post-mortems and `dreamcli robot report` (*Run report*) |
 | `inference_log_path` | `str` or null | null | JSON Lines file appended with one record per inference, error, stall and run boundary (*Inference log* under *Station agent*); `robots.station` writes `~/robots-inference.jsonl` when unset, `robots.run` nothing |
 | `command_hz` | `float` | `250` | Rate the command thread writes the arms at |
 | `command_interp_max_s` | `float` | `0.10` | Longest run from one written command to the next row, seconds |
@@ -403,7 +408,8 @@ src/robots/
 ├── rollout_episode.py  the episode on disk: layout, finishing it from the crash-safe raw files, recovering
 ├── home.py        return_to_home(): both arms to each arm's home with the grippers open (move_home(): which arm did not make it, and why); python -m robots.home
 ├── run.py         main(config) and the one-shot CLI (dreamcli robot run), DryRun; loop_settings(), make_cameras(), policy_config() shared with the station
-├── run_view.py    dreamcli robot run --view: the live 3D page of each saved chunk and the keep-out shapes (run_view.html beside it)
+├── run_view.py    dreamcli robot run --view-3d: the live 3D page of each saved chunk and the keep-out shapes (run_view.html beside it)
+├── run_report.py  dreamcli robot report: a PASS or PROBLEM line per check of the last run, and a PNG of its joints
 ├── station.py     StationController: owns the arms for the process, one run at a time; ArmsNotOpenedError; python -m robots.station
 ├── startup_failure.py  The one line a station that could not start writes: device, error, fix
 ├── station_api.py HTTP control API over the controller (stdlib http.server, JSON)
@@ -586,8 +592,8 @@ largest speed either arm asked for before the clamp, so the status panel shows h
 pushes against the cap. The trace records the requested speeds per tick (`ee_speed_l_m_s`,
 `ee_speed_r_m_s`) and whether the tick was clamped.
 
-`trace_path` names a CSV file the loop appends to, one row per commanded tick (hold ticks write
-nothing), flushed every 30 rows and closed on exit; the header goes in when the file is new. The
+`trace_path` names a CSV file each run starts afresh, `~/.dreamlabs/last-run.csv` unless the config names another
+or `null` for none: one row per commanded tick (hold ticks write nothing), flushed every 30 rows and closed on exit. The
 columns, `robots.control.trace_columns()`, with a joint column per joint of each arm (`l0` to `l5` on a six-joint arm):
 
 | Column | Meaning |
@@ -602,6 +608,49 @@ columns, `robots.control.trace_columns()`, with a joint column per joint of each
 | `commanded_l0..`, `commanded_r0..` | Joint targets written this tick, after ramp and clamp, one per joint |
 | `cmd_gripper_l`, `cmd_gripper_r` | Gripper targets written this tick |
 | `ee_speed_l_m_s`, `ee_speed_r_m_s` | End-effector speed each arm asked for this tick, before the clamp, metres per second; `nan` on the first command and without kinematics |
+
+Beside the trace the loop keeps what the model was given, in `<trace name>_inputs/` (`robots-trace_inputs/` for
+`robots-trace.csv`, `robots.control.trace_inputs_dir()`): once every `TRACE_INPUTS_EVERY_S` = 1 s of tick time, the
+frames it handed the client, as sent (faces blurred, resized to `policy_image_size`), one JPEG per camera under
+`<camera>/<tick time>.jpg`, and a line in `inputs.jsonl` with the state and the prompt handed with them and each
+frame's captured size. Each run empties that folder and starts the file with a `run_start` line: the rate and the
+wire's state spans. Measured on three 640x360 cameras, a kept set takes 0.5 ms of the loop once a second (0.05% of
+its time) and about 5 MB a minute of disk at 27 KB a frame.
+
+## Run report
+
+When the robot behaves oddly, run `dreamcli robot report` after the run; every run is traced, so there is nothing to
+set up. It prints a few PASS or PROBLEM lines (the cameras, the state sent, the loop, each arm's joints commanded vs
+achieved), then the worst problem and what to do, and writes a PNG of each joint beside the trace:
+
+```text
+$ dreamcli robot report
+last run: 20 s at 30 Hz, "put the blue block in the red cup"
+PASS     cameras top, left, right: sent 640x360, no black or frozen frames
+PASS     state: 14 values in 4 parts, all numbers
+PASS     loop: commanded every tick, longest gap 0.03 s
+PASS     left arm: all 6 joints follow their commands, worst error 0.031 rad, lag 67 ms
+PROBLEM  right arm joint 3: off its command by 0.27 rad for 1.6 s at t=1.9 s, 9 times in all, lag 600 ms
+PASS     right arm: other 5 joints follow their commands, worst error 0.031 rad, lag 67 ms
+WORST    right arm joint 3: the joint does not reach its commands: check what your driver or bridge does with each step (speed limits, dropped or refused steps)
+PLOT     /home/me/.dreamlabs/last-run.png
+```
+
+A camera or joint with a problem gets a line of its own; the rest share one PASS line.
+
+| Check | Flagged when |
+| --- | --- |
+| Diverging joint | off its command by over `DIVERGE_RAD` = 0.1 rad for `DIVERGE_S` = 0.5 s |
+| Oscillating joint | the achieved (or commanded) position turns back at 3 Hz or faster, over 0.01 rad peak to peak, for 1 s |
+| Pause | nothing commanded for 0.25 s or more (stale frames, an empty chunk buffer) |
+| Not a number | a measured or commanded joint on any tick, or a state value sent |
+| Black frame | a frame sent whose mean grey level is under 12 of 255 |
+| Frozen camera | the same picture (a mean grey difference under 0.1) sent for 3 s |
+| Stretched camera | the captured and sent shapes differ by `cameras.SHAPE_TOLERANCE` or more |
+
+`dreamcli robot report TRACE` reports a trace a config of your own names. Joints are counted from 0, times from the
+run's first commanded tick. It does not check the gripper, which a grasp holds short of its command, or the EEF pose
+the dream client adds to the state.
 
 ## Command thread and policy frames
 

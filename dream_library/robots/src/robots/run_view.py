@@ -1,4 +1,4 @@
-"""`dreamcli robot run --view`: a live 3D page of each policy chunk while the run runs (README *Run*)."""
+"""`dreamcli robot run --view-3d`: a live 3D page of each policy chunk while the run runs (README *Run*)."""
 
 import ast
 import glob
@@ -37,13 +37,13 @@ class RunView:
         body = bodies.for_config(app)
         if body.ik is None:
             raise errors.ConfigError(
-                f"--view draws the hand path an EEF model answers with; a {body.name} model answers in joints. "
-                "Run without --view"
+                f"--view-3d draws the hand path an EEF model answers with; a {body.name} model answers in joints. "
+                "Run without --view-3d"
             )
         if not app.rollouts.enabled:
             raise errors.ConfigError(
-                "--view reads the chunks the run saves, and the config saves none: add "
-                "'rollouts: {enabled: true}' to the config, or run without --view"
+                "--view-3d reads the chunks the run saves, and the config saves none: add "
+                "'rollouts: {enabled: true}' to the config, or run without --view-3d"
             )
         self._chunks = os.path.join(os.path.expanduser(app.rollouts.dir), "*", "chunks", "reply_*.npz")
         self._since_s = since_s
@@ -179,7 +179,7 @@ def start(app: config.AppConfig, port: int = DEFAULT_PORT) -> ThreadingHTTPServe
         server = ThreadingHTTPServer(("127.0.0.1", port), _handler(view))
     except OSError as exc:
         raise errors.ConfigError(
-            f"--view cannot listen on port {port} ({exc}); pass another with --view-port"
+            f"--view-3d cannot listen on port {port} ({exc}); pass another with --view-port"
         ) from None
     threading.Thread(target=server.serve_forever, name="robots-run-view", daemon=True).start()
     _log.info("run view on http://127.0.0.1:%d", port)

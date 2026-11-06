@@ -30,13 +30,16 @@ every inference, error, stall and run boundary goes to a JSON Lines file (#robot
 """
 
 import asyncio
+import base64
 import bisect
 import collections
 import csv
 import dataclasses
+import json
 import logging
 import math
 import pathlib
+import shutil
 import threading
 import time
 from collections.abc import Awaitable, Callable
@@ -88,6 +91,13 @@ MOVE_AFTER_WAIT_LIMIT_S: float = 60.0
 ## Trace rows buffered before a flush; one second of ticks at 30 Hz, so a crash loses at most that much.
 _TRACE_FLUSH_ROWS: int = 30
 
+## Seconds of tick time between two sets of model inputs the trace keeps beside it (trace_inputs_dir()): one set of
+## frames as the client was handed them, with the state and prompt beside them, a second.
+TRACE_INPUTS_EVERY_S: float = 1.0
+
+## The JSON Lines file in trace_inputs_dir(): a `run_start` record per run, then an `inputs` record per kept set.
+TRACE_INPUTS_NAME: str = "inputs.jsonl"
+
 ## Seconds `__aexit__` waits for the command thread to finish its current write before holding the arms.
 _COMMAND_STOP_TIMEOUT_S: float = 2.0
 
@@ -121,6 +131,18 @@ def trace_columns(dofs: dict[str, int]) -> tuple[str, ...]:
         + tuple(f"commanded_r{i}" for i in range(dofs["right"]))
         + ("cmd_gripper_l", "cmd_gripper_r", "ee_speed_l_m_s", "ee_speed_r_m_s", "commands_written")
     )
+
+
+def trace_inputs_dir(trace_path: str) -> pathlib.Path:
+    """The folder beside the trace that keeps what the model was given (README *Run report*).
+
+    It holds #TRACE_INPUTS_NAME and one folder per camera of the JPEGs handed to the client, named by tick time.
+
+    @param trace_path The trace's CSV file.
+    @return `<trace without its extension>_inputs`, beside it: `robots-trace_inputs` for `robots-trace.csv`.
+    """
+    path = pathlib.Path(trace_path)
+    return path.with_name(f"{path.stem}_inputs")
 
 
 _log = logging.getLogger(__name__)
@@ -488,7 +510,7 @@ class ControlLoop:
     `grip_force_cap` on each arm's measured gripper effort (#robots.gripper_force). Every command is then
     clamped against the previous one: each arm's end-effector speed to `max_ee_speed_m_s`,
     through its `kinematics`, and the gripper to one `max_gripper_step`; and, with
-    `trace_path` set, appended to a CSV trace. The clamped command is not written here but
+    `trace_path` set, written to this run's CSV trace. The clamped command is not written here but
     submitted to the command path, which
     runs it out to the arms at `command_hz`. Until the first chunk lands nothing is
     at stake, so a warming pool is waited out at the pace DreamAPI asks for (up to #POOL_WARMING_LIMIT_S), and
@@ -594,7 +616,8 @@ class ControlLoop:
         @param kinematics Forward kinematics per arm, keyed `"left"` and `"right"` (#robots.kinematics.ArmKinematics
             on a station); None leaves the joints unclamped and the end-effector speeds NaN, for tests without a
             model.
-        @param trace_path CSV file appended with one row per commanded tick (trace_columns()), or None.
+        @param trace_path CSV file this run rewrites with one row per commanded tick (trace_columns()), with the
+            model's inputs kept beside it once a second (trace_inputs_dir()), or None.
         @param command_hz Rate the command path writes the arms at; 250 Hz by default.
         @param command_interp_max_s Longest run from one written command to the next submitted target, seconds.
         @param command_thread Run the command path on its own thread (production); False writes each tick's
@@ -639,6 +662,7 @@ class ControlLoop:
         self._to_dream = bound.to_dream
         self._from_dream = bound.from_dream
         self._commanded_joints = bound.commanded
+        self._embodiment = bound.embodiment
         self._period_s = 1.0 / control_hz
         self._horizon = action_horizon
         self._action_timeout_s = action_timeout_s
@@ -667,6 +691,9 @@ class ControlLoop:
         self._trace_file: Any = None
         self._trace: Any = None
         self._trace_rows = 0
+        ## With a trace, the open #TRACE_INPUTS_NAME and the tick time from which the next handed set is kept.
+        self._inputs_file: Any = None
+        self._next_inputs_s = -math.inf
         self._inference_log = inference_log.InferenceLog(inference_log_path, run_number)
         self._recorder = recorder
         self._episode_counts = _EpisodeCounts()
@@ -1138,7 +1165,8 @@ class ControlLoop:
         it last handed, timed by the newest capture among them; on the ticks in between nothing is handed, so the
         frame a slot encoded reaches the client once and the client's spacing of the window follows the slots. A
         refill tick hands its state in any case, with the frames last handed and their timestamp when no new set is
-        complete, so the request carries the newest state.
+        complete, so the request carries the newest state. With a trace, a new set is also kept beside it once every
+        #TRACE_INPUTS_EVERY_S (_trace_inputs()).
 
         @param observation This tick's observation.
         @param is_refill Whether a refill starts on this tick.
@@ -1155,6 +1183,8 @@ class ControlLoop:
         if is_new:
             self._handed = (frames, max(times.values(), default=observation.timestamp_s))
             self._handed_s = times
+            if self._inputs_file is not None and observation.timestamp_s >= self._next_inputs_s:
+                self._trace_inputs(observation, state)
         assert self._handed is not None
         handed_frames, timestamp_s = self._handed
         return handed_frames, state, timestamp_s
@@ -1716,25 +1746,69 @@ class ControlLoop:
         self._recorder.end(reason, error, dataclasses.asdict(self._episode_counts))
 
     def _open_trace(self) -> None:
-        """Opens the trace file for appending and writes the header when the file is new or empty.
+        """Starts the run's trace afresh: replaces the trace file with its header and the model inputs folder beside
+        it (trace_inputs_dir()) with an empty one, so both hold this run alone, and starts the run's record there.
 
-        Nothing happens without `trace_path`. The file stays open for the loop's lifetime and is
-        closed by _close_trace() from `__aexit__`.
+        Nothing happens without `trace_path`. The files stay open for the loop's lifetime and are
+        closed by _close_trace() from `__aexit__`. The `run_start` record carries the loop's clock now, the rate
+        and the state parts of the wire's embodiment with their spans in a dataset's state.
         """
         if self._trace_path is None:
             return
-        is_new = not pathlib.Path(self._trace_path).exists() or pathlib.Path(self._trace_path).stat().st_size == 0
-        self._trace_file = open(self._trace_path, "a", newline="", encoding="utf-8")  # noqa: SIM115 (closed in __aexit__)
+        inputs = trace_inputs_dir(self._trace_path)
+        if inputs.exists():
+            shutil.rmtree(inputs)
+        pathlib.Path(self._trace_path).parent.mkdir(parents=True, exist_ok=True)
+        self._trace_file = open(self._trace_path, "w", newline="", encoding="utf-8")  # noqa: SIM115 (closed in __aexit__)
         self._trace = csv.writer(self._trace_file)
-        if is_new:
-            self._trace.writerow(trace_columns(self._dofs))
+        self._trace.writerow(trace_columns(self._dofs))
+        for reader in self._cameras:
+            (inputs / reader.name).mkdir(parents=True, exist_ok=True)
+        self._inputs_file = open(inputs / TRACE_INPUTS_NAME, "w", encoding="utf-8")  # noqa: SIM115 (closed in __aexit__)
+        self._next_inputs_s = -math.inf
+        cameras = [reader.name for reader in self._cameras]
+        self._write_inputs(
+            kind="run_start",
+            t_s=self._clock(),
+            control_hz=1.0 / self._period_s,
+            state_spans=self._embodiment(cameras, self._horizon)["state"],
+        )
 
     def _close_trace(self) -> None:
-        """Closes the trace file if one is open; safe to call twice."""
+        """Closes the trace file and the model inputs file if they are open; safe to call twice."""
         if self._trace_file is not None:
             self._trace_file.close()
             self._trace_file = None
             self._trace = None
+        if self._inputs_file is not None:
+            self._inputs_file.close()
+            self._inputs_file = None
+
+    def _trace_inputs(self, observation: types.Observation, state: dict[str, Any]) -> None:
+        """Keeps one set of handed frames beside the trace, each camera's JPEG as the client got it, and appends an
+        `inputs` record: the tick time, the state and prompt handed with them, and per camera its file and the size
+        it captures at.
+
+        @param observation The tick's observation, whose frames' `jpeg` are the ones handed.
+        @param state The observation dict handed with them (`prompt` and the `state.*` parts).
+        """
+        inputs = trace_inputs_dir(str(self._trace_path))
+        frames: dict[str, Any] = {}
+        for name, frame in observation.images.items():
+            file = f"{name}/{observation.timestamp_s:.3f}.jpg"
+            (inputs / file).write_bytes(base64.b64decode(frame.jpeg))
+            frames[name] = {"file": file, "captured": [frame.data.shape[1], frame.data.shape[0]]}
+        sent = {key: value if isinstance(value, str) else np.asarray(value).tolist() for key, value in state.items()}
+        self._write_inputs(kind="inputs", t_s=observation.timestamp_s, state=sent, frames=frames)
+        self._next_inputs_s = observation.timestamp_s + TRACE_INPUTS_EVERY_S
+
+    def _write_inputs(self, **record: Any) -> None:
+        """Appends one record to the model inputs file and flushes it.
+
+        @param record The record's fields, `kind` first.
+        """
+        self._inputs_file.write(json.dumps(record) + "\n")
+        self._inputs_file.flush()
 
     def _trace_tick(self, now_s: float, state: types.RobotState, clamp: _ClampResult) -> None:
         """Appends one row per commanded tick; flushed every #_TRACE_FLUSH_ROWS rows.
@@ -2214,7 +2288,9 @@ def _starts_new_session(exc: Exception) -> bool:
     """Whether the retry after a failed refill starts a new session; the rule of _collect_refill()'s retry branch.
 
     A refusal that says the session itself is fine keeps it: `rate_limited` and `queue_timeout` (the robot asked
-    too fast, or the serve is answering another session) and a chunk of the wrong shape (the checkpoint answers
+    too fast, or the serve is answering another session), `connection_timed_out` (the gateway is holding the session
+    until it can answer, and a new session would only start that wait over) and a chunk of the
+    wrong shape (the checkpoint answers
     the same shape every time), where a reset would throw away the episode's context on the serve for nothing.
     Every other failure (a serve fault, a timeout, an unreachable gateway, a pool refusal) may mean the serve or
     the session is gone, and the retry does not resume it.
@@ -2223,7 +2299,7 @@ def _starts_new_session(exc: Exception) -> bool:
     @return True when the retry must carry no session id.
     """
     if isinstance(exc, dream.DreamServerError):
-        return exc.reason not in ("rate_limited", "queue_timeout")
+        return exc.reason not in ("rate_limited", "queue_timeout", "connection_timed_out")
     return not isinstance(exc, (dream.DreamActionError, errors.ControlLoopError))
 
 

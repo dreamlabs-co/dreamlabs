@@ -521,12 +521,20 @@ def test_get_action_before_policy_is_a_config_error_naming_policy(server: FakeDr
         client.reset_episode,
         lambda: client.set_observation({TOP: frame(0)}, {}),
         lambda: client.refill_due(0, 0),
+        lambda: client.wait_for_ik(0.0),
         lambda: client.execution_horizon,
         lambda: client.action_hz,
         lambda: client.mode,
     ):
         with pytest.raises(DreamConfigError, match=r"call policy\("):
             call()
+    assert server.requests == []
+
+
+def test_wait_for_ik_is_ready_at_once_on_a_policy_without_ik(server: FakeDreamAPI, client: DreamClient) -> None:
+    """Nothing compiles without `ik`, so a robot program's wait before it powers the arms returns at once."""
+    open_policy(client)
+    assert client.wait_for_ik(0.0) is True
     assert server.requests == []
 
 

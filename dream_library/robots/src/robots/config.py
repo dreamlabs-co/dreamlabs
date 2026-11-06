@@ -32,7 +32,7 @@ ramp_max_rad_s: 0.5
 max_ee_speed_m_s: 0.6
 max_gripper_step: 0.05
 grip_force_cap: 0.65
-trace_path: null
+trace_path: ~/.dreamlabs/last-run.csv
 inference_log_path: null
 policy_image_size: 640x360
 obs_window: 9
@@ -127,6 +127,10 @@ APP_KEYS = frozenset(
         "motor_temp_stop_c",
     }
 )
+## Where the loop traces each run when the config does not name a trace (`trace_path`); `dreamcli robot report`
+## reads it.
+DEFAULT_TRACE_PATH = "~/.dreamlabs/last-run.csv"
+
 ## Keys of the optional `rollouts` mapping.
 _ROLLOUTS_KEYS = frozenset({"enabled", "dir", "robot_name"})
 ## Keys of the optional `exposure` mapping.
@@ -241,7 +245,7 @@ _ROTATIONS = (0, 90, 180, 270)
 ## A retired per-joint step cap (the end-effector speed cap is the replacement): a config still carrying it fails
 ## by name, with the replacement, rather than as "unknown key".
 _RETIRED_STEP_KEY = "max_joint_step_rad"
-## A retired prefetch threshold (the loop sizes it itself, `robots.control`): a config still
+## The prefetch threshold the loop now sizes itself (`robots.control`): a config still
 ## carrying it fails by name, with the reason, rather than as "unknown key".
 _RETIRED_REFILL_KEY = "refill_at_remaining"
 ## The arm key the loop-side grip force cap replaced (`robots.gripper_force`): an arm section
@@ -301,7 +305,7 @@ class ArmConfig:
     - home: The arm's home pose, one angle per joint in radians in its URDF's frame: where a run starts from and where
       Home and Stop move it, the gripper open (`robots.home`). How many it lists, 1 to `robots.followers.MAX_JOINTS`,
       is how many joints the arm has (`robots.followers.FollowerArm.dof`); the arm's driver refuses another count when
-      it opens. Zeros on a YAM and a Makers Arm (the YAM's home pose, the
+      it opens. Zeros on a YAM and a Makers Arm (the YAM's standard home, the
       Makers Arm's folded calibration pose); required on a Metal arm, whose zero pose is the arm straight up
       (home_help()), on an SO-101, and on a robot of your own.
     - calibration: An SO-101's LeRobot calibration file, an absolute path (`robots.feetech.read_calibration`); None
@@ -354,9 +358,9 @@ class ArmConfig:
     gripper_open_deg: float = -96.0
     ## -2.5: the jaws closed, near the calibration pose's zero.
     gripper_closed_deg: float = -2.5
-    ## 0.5 N.m: the vendor's saved value on a Makers Arm.
+    ## 0.5 N.m: the vendor's saved value on the Makers stations.
     gripper_hold_torque_nm: float | None = makers_hold.DEFAULT_HOLD_TORQUE_NM
-    ## Zeros: the YAM's home pose and the Makers Arm's folded calibration pose. A Metal file must give its own.
+    ## Zeros: the YAM's standard home and the Makers Arm's folded calibration pose. A Metal file must give its own.
     home: tuple[float, ...] = (0.0,) * 6
     ## Only an SO-101 has one.
     calibration: str | None = None
@@ -519,8 +523,10 @@ class AppConfig:
       not newtons); the loop backs the commanded close off until the measured effort sits there
       (`robots.gripper_force`). 0 disables the cap and hands grip force back to the motor
       PD, which is when `sdk_gripper_force_limit` is worth turning on.
-    - trace_path: CSV file the loop appends one row per commanded tick to, a leading `~` expanded; None writes no
-      trace.
+    - trace_path: CSV file each run writes one row per commanded tick to, a leading `~` expanded, with the model's
+      inputs kept beside it once a second (`robots.control.trace_inputs_dir()`), what `dreamcli robot report` reads.
+      Each run replaces the last one's, so it holds one run. On by default (#DEFAULT_TRACE_PATH); None (`null` in the
+      file) writes no trace.
     - inference_log_path: JSON Lines file the loop appends one record per inference, error, stall and run
       boundary to (`robots.inference_log`); None writes none (`robots.station` then uses `~/robots-inference.jsonl`).
     - policy_image_size: `(width, height)` every frame the policy sees is downscaled to before JPEG
@@ -583,13 +589,14 @@ class AppConfig:
     max_gripper_step: float = 0.05
     ## 0.65: a cap at 1.5 crushes cups, 2.0 grips harder than any task needs (`robots.gripper_force.DEFAULT_CAP`).
     grip_force_cap: float = gripper_force.DEFAULT_CAP
-    ## A CSV appended with one row per commanded tick (`robots.control.trace_columns()`) for post-mortems; None = off.
-    trace_path: str | None = None
+    ## A CSV of the last run, one row per commanded tick (`robots.control.trace_columns()`), for `dreamcli robot
+    ## report`; None = off.
+    trace_path: str | None = dataclasses.field(default_factory=lambda: os.path.expanduser(DEFAULT_TRACE_PATH))
     ## Off here; the station agent supplies its own default so a run is never without one.
     inference_log_path: str | None = None
-    ## 250 Hz: the motor PD gets a fresh target every 4 ms whatever the row rate.
+    ## The command thread rate: the motor PD gets a fresh target every 4 ms whatever the row rate.
     command_hz: float = 250.0
-    ## 100 ms: a row after a stall is reached within 100 ms instead of over the stall.
+    ## The cap on one run: a row after a stall is reached within 100 ms instead of over the stall.
     command_interp_max_s: float = 0.10
     ## None: `run.policy_config()` sets `run.SYNC_ABOVE_MS` (900 ms). A station on another link may set its
     ## own, lower to hold through slow replies sooner.
@@ -764,7 +771,9 @@ def load(path: str | os.PathLike[str]) -> AppConfig:
         ramp_max_rad_s=_read_positive_float(raw, "ramp_max_rad_s", "", default=AppConfig.ramp_max_rad_s),
         max_gripper_step=_read_positive_float(raw, "max_gripper_step", "", default=AppConfig.max_gripper_step),
         grip_force_cap=_read_non_negative_float(raw, "grip_force_cap", "", default=AppConfig.grip_force_cap),
-        trace_path=_read_optional_path(raw, "trace_path"),
+        trace_path=_read_optional_path(raw, "trace_path")
+        if "trace_path" in raw
+        else os.path.expanduser(DEFAULT_TRACE_PATH),
         inference_log_path=_read_optional_path(raw, "inference_log_path"),
         policy_image_size=_read_image_size(raw, "policy_image_size", default=AppConfig.policy_image_size),
         obs_window=_read_int(raw, "obs_window", "", minimum=1, default=AppConfig.obs_window),

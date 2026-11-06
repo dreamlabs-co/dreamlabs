@@ -21,7 +21,7 @@ from typing import Any
 import dream
 import numpy as np
 import pytest
-from dream import fine_tuning
+from dream import fine_tuning, trained_inputs
 from dream.errors import DreamServerError
 
 from robots import cameras
@@ -369,6 +369,10 @@ class FakeClient:
         finally:
             self._in_flight.release()
 
+    def wait_for_ik(self, timeout_s: float) -> bool:
+        """Nothing compiles in the fake: ready at once, as the real client is without `ik`."""
+        return True
+
     def close(self) -> None:
         """Records the close; idempotent like the real client."""
         self.closed = True
@@ -500,6 +504,7 @@ def make_loop(
     clock: ManualClock | None = None,
     robots: dict[str, FakeRobot] | None = None,
     camera_names: tuple[str, ...] = CAMERA_NAMES,
+    readers: list[Any] | None = None,
     task: str = TASK,
     sys0: Any = None,
 ) -> LoopHarness:
@@ -533,6 +538,8 @@ def make_loop(
     @param clock A prepared ManualClock; a fresh one at 0.0 when omitted.
     @param robots FakeRobot per arm keyed "left" / "right"; fresh ones when omitted.
     @param camera_names Cameras to wire up, one FakeCaptureSource each; serve roles unless a test wants otherwise.
+    @param readers Camera readers to hand the loop instead, with no FakeCaptureSource behind them; `camera_names`
+        is then unused.
     @param task Language prompt passed to the loop.
     @param sys0 System 0's models passed to the loop (`robots.sys0.motors.Models`); off by default.
     @return The #LoopHarness holding the loop and its fakes.
@@ -546,8 +553,9 @@ def make_loop(
     if robots is None:
         robots = {"left": FakeRobot(), "right": FakeRobot()}
     arms = {name: yam_arm(name, robot) for name, robot in robots.items()}
-    sources = {name: FakeCaptureSource() for name in camera_names}
-    readers = [cameras.CameraReader(name, source, stale_after_s) for name, source in sources.items()]
+    sources = {} if readers is not None else {name: FakeCaptureSource() for name in camera_names}
+    if readers is None:
+        readers = [cameras.CameraReader(name, source, stale_after_s) for name, source in sources.items()]
     loop = control.ControlLoop(
         followers=arms,
         cameras=readers,
@@ -612,6 +620,7 @@ def make_app_config(**overrides: Any) -> Any:
         "stale_after_s": LOOP_DEFAULTS["stale_after_s"],
         "max_stall_ticks": LOOP_DEFAULTS["max_stall_ticks"],
         "max_ee_speed_m_s": 0.6,
+        "trace_path": None,  # a station traces to ~/.dreamlabs by default; a test names its own trace
     }
     return config.AppConfig(**{**fields, **overrides})
 
@@ -708,9 +717,23 @@ def any_model_fits(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def no_training_data(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test asks a real data service where a fine-tune's training data is; the setup tests that want it pass
-    `ask_training_data`."""
+    `ask_training_data`. Nor does `dream.DreamClient.policy()`, which looks up what a fine-tune was trained on
+    (`dream.trained_inputs`): every checkpoint answers as none of the account's fine-tunes."""
 
     def refuse(model: str, **_: object) -> dict[str, object]:
         raise DreamServerError(f"No fine-tuning job of yours made {model!r}.", code="not_found")
 
     monkeypatch.setattr(fine_tuning, "training_data", refuse)
+    monkeypatch.setattr(trained_inputs, "fetch", lambda checkpoint, api_key: None)
+
+
+@pytest.fixture(autouse=True)
+def no_ik_compile_left_running() -> Iterator[None]:
+    """A test that built the dream client's IK ends once that IK's `traj` solve has compiled, on the thread
+    `dream.client_ik` names below. Left running, the compile (up to 20 s of CPU on one slow core) starved the next
+    test's real-time loop on a 2-core CI runner: an arm went 1.3 s without a pose, and rows played at 17 a second
+    of 30."""
+    yield
+    for thread in threading.enumerate():
+        if thread.name == "dream-client-ik-traj-warmup":
+            thread.join()

@@ -34,8 +34,10 @@ from dream.errors import (
 ## Frozen module namespace: `dir(dream)` must equal exactly this, sorted.
 MODULE_SURFACE = [
     "DreamClient",
+    "DebugView",
     "EventChange",
     "LiveViewClient",
+    "RoundTrip",
     "DreamActionError",
     "DreamAuthError",
     "DreamBadRequest",
@@ -62,7 +64,7 @@ CLIENT_SURFACE = [
     "action_hz",
 ]
 
-## Frozen public instance attributes; anything more is a surface change.
+## Frozen public instance attributes (the docstring's `Attributes:`); anything more is a surface change.
 CLIENT_ATTRIBUTES = ["api_token", "host", "port", "scheme", "timeout_ms"]
 
 ## Every request body carries exactly these keys (the gateway's request model).

@@ -114,8 +114,8 @@ _log = logging.getLogger(__name__)
 
 ## How long warm_client_ik() waits for the client's `traj` solve to compile after its `tick` solve, seconds: about 5 s
 ## on a station's CPU, up to 20 on one slow core (`dream.client_ik.ClientIK`). Past it the arms open anyway, and a
-## Start solves with `tick` until the compile ends, as the client does on its own.
-TRAJ_WARMUP_S = 60.0
+## Start solves with `tick` until the compile ends, as the client does on its own. A run waits as long (#run).
+TRAJ_WARMUP_S = run.TRAJ_WARMUP_S
 
 
 def warm_client_ik(dream_config: dict[str, Any]) -> None:
@@ -298,6 +298,7 @@ class StationController:
         inference_log_path: str | None,
         sys0: bool = False,
         skip_tcp_calibration: bool = False,
+        view: dream.DebugView | None = None,
     ) -> "StationController":
         """Opens both arms from the config and wires the per-run factories from it.
 
@@ -308,6 +309,8 @@ class StationController:
             here, for the life of the process.
         @param skip_tcp_calibration Run an arm file whose tool point was never marked (`robots.run.SKIP_TCP_FLAG`); its
             check, `robots.run.check_tool_point()`, runs here and again at every Start, with the Start's action space.
+        @param view The page of what the model sees (`dreamcli robot up --view`): every run's client is shown on it;
+            None shows none.
         @return The controller, idle.
         @throws ConfigError The camera names are not serve roles, the credentials name a malformed gateway, i2rt
             or mujoco is not installed (a Makers or Metal arm: python-can or dream's IK), System 0 is asked of a
@@ -356,7 +359,10 @@ class StationController:
             # as the file's were.
             started = run.with_action_space(cfg, action_space)
             run.check_tool_point(started, skip=skip_tcp_calibration)
-            return run.open_client(run.policy_config(started, checkpoint, sys0=sys0))
+            client = run.open_client(run.policy_config(started, checkpoint, sys0=sys0))
+            if view is not None:
+                view.watch(client)
+            return client
 
         return cls(
             make_arms(),
@@ -1085,6 +1091,7 @@ async def serve(
     arms_lock_path: pathlib.Path | None = None,
     sys0: bool = False,
     skip_tcp_calibration: bool = False,
+    view_port: int | None = None,
     ready: threading.Event | None = None,
 ) -> None:
     """Runs the station until SIGINT, SIGTERM or SIGHUP: opens the arms, serves the API, then stops cleanly.
@@ -1102,6 +1109,8 @@ async def serve(
     @param sys0 Drive the arms with System 0 (`robots.sys0`); main() turns it on for a YAM unless `--no-sys0`
         (`dreamcli robot up nosys0`) asks otherwise.
     @param skip_tcp_calibration Run an arm file whose tool point was never marked (`robots.run.SKIP_TCP_FLAG`).
+    @param view_port Serve the page of what the model sees (`dream.DebugView`) on 127.0.0.1 at this port, showing
+        every run's round trips (`dreamcli robot up --view`); None serves none.
     @param ready Set once the arms, the cameras, the Live View client and the API are up, so main() can tell a failed
         start (`robots.startup_failure`) from a failure after it.
     @throws ConfigError The config is not what dream and the serve accept, i2rt is missing, or the config has a
@@ -1121,15 +1130,29 @@ async def serve(
     for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         event_loop.add_signal_handler(signum, stop.set)
     log_path = inference_log_path or cfg.inference_log_path or os.path.expanduser(DEFAULT_INFERENCE_LOG)
-    with arms_lock.holding(arms_lock_path, arms_lock.STATION):
-        controller = await asyncio.to_thread(
-            StationController.from_config,
-            cfg,
-            inference_log_path=log_path,
-            sys0=sys0,
-            skip_tcp_calibration=skip_tcp_calibration,
-        )
-        await _serve_opened(cfg, controller, stop, host, api_port, log_path, account, ready)
+    view = None
+    if view_port is not None:
+        try:
+            view = dream.DebugView(None, port=view_port)
+        except OSError as exc:
+            raise errors.ConfigError(
+                f"--view cannot listen on port {view_port} ({exc}); pass another with --view-port"
+            ) from None
+        _log.info("station: what the model sees, every run: %s", view.url)
+    try:
+        with arms_lock.holding(arms_lock_path, arms_lock.STATION):
+            controller = await asyncio.to_thread(
+                StationController.from_config,
+                cfg,
+                inference_log_path=log_path,
+                sys0=sys0,
+                skip_tcp_calibration=skip_tcp_calibration,
+                view=view,
+            )
+            await _serve_opened(cfg, controller, stop, host, api_port, log_path, account, ready)
+    finally:
+        if view is not None:
+            view.close()
 
 
 async def _serve_opened(
@@ -1353,6 +1376,13 @@ def main(argv: list[str] | None = None) -> None:
         "commands). Unset runs the config's ik_solve, else traj "
         "(robots.config.DEFAULT_IK_SOLVE).",
     )
+    parser.add_argument(
+        "--view-port",
+        type=int,
+        default=None,
+        help="Serve the page of what the model sees (dream.DebugView) on 127.0.0.1 at this port, showing every run's "
+        "round trips (`dreamcli robot up --view`). Unset serves none.",
+    )
     parser.add_argument(run.SKIP_TCP_FLAG, action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     from robots import cli
@@ -1382,6 +1412,7 @@ def main(argv: list[str] | None = None) -> None:
                 arms_lock_path=lock_path,
                 sys0=sys0,
                 skip_tcp_calibration=args.skip_tcp_calibration,
+                view_port=args.view_port,
                 ready=ready,
             )
         )

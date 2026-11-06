@@ -1,6 +1,6 @@
 """HTTP control API for the station: Start / Stop / Home / prompt / status as JSON over the stdlib server.
 
-A dashboard or the operator's shell drives a station with curl-sized requests, so
+A dashboard and the operator's shell drive a station with curl-sized requests, so
 the API is six routes on `http.server.ThreadingHTTPServer`, no new dependency. Every request
 is handled on the server's thread and handed to the #robots.station.StationController through
 `asyncio.run_coroutine_threadsafe`, so the transition itself runs on the controller's event

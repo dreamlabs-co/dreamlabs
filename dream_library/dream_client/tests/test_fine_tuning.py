@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import ast
 import http.server
-import inspect
 import json
 import pathlib
 import re
@@ -250,6 +249,32 @@ def test_create_sends_only_the_knobs_named(service: FakeFineTuning) -> None:
     assert request[3] == {"dataset": "alice/towels", "suffix": "towels", "hyperparameters": {"batch_size": 16}}
 
 
+def test_create_sends_the_steps_and_the_model_to_resume_from_named(service: FakeFineTuning) -> None:
+    """`steps` and `resume_from` travel as knobs when named, and a call without them sends neither."""
+    fine_tuning.create(
+        "alice/towels", "towels-more", steps=1500, resume_from="dream-1-ft:a1b2c3d4-towels", api_key=KEY
+    )
+    dream.DreamClient(api_key=KEY).finetune("alice/towels", "towels-2k", steps=2000)
+    fine_tuning.create("alice/towels", "towels-3", api_key=KEY)
+    assert [request[3].get("hyperparameters") for request in service.requests] == [
+        {"steps": 1500, "resume_from": "dream-1-ft:a1b2c3d4-towels"},
+        {"steps": 2000},
+        None,
+    ]
+
+
+def test_create_sends_the_base_share_named_including_zero(service: FakeFineTuning) -> None:
+    """`base_share=0.0` is sent (it is not None), and a call without it leaves the service's default."""
+    fine_tuning.create("alice/towels", "towels-alone", base_share=0.0, api_key=KEY)
+    dream.DreamClient(api_key=KEY).finetune("alice/towels", "towels-half", base_share=0.5)
+    dream.DreamClient(api_key=KEY).finetune("alice/towels", "towels")
+    assert [request[3].get("hyperparameters") for request in service.requests] == [
+        {"base_share": 0.0},
+        {"base_share": 0.5},
+        None,
+    ]
+
+
 def test_create_sends_the_lr_schedule_named_and_none_leaves_it_to_the_service(service: FakeFineTuning) -> None:
     fine_tuning.create("alice/towels", "towels", lr_schedule="cosine", api_key=KEY)
     dream.DreamClient(api_key=KEY).finetune("alice/towels", "towels", lr_schedule="constant")
@@ -400,14 +425,18 @@ def _json_error(code: str, message: str) -> dict[str, Any]:
     return {"error": {"code": code, "message": message}}
 
 
-## The service's recipe: the bounds and defaults of the three knobs, which the client docstrings state.
-RECIPES = pathlib.Path(__file__).resolve().parents[3] / "data_service" / "src" / "data_service" / "faas" / "recipes.py"
+## The data service's source, beside this library where it is written; a copy of the library alone has none.
+SERVICE = pathlib.Path(__file__).resolve().parents[3] / "data_service"
+## The service's recipe: the bounds and defaults of the three knobs, which the client docstrings state; and the shared
+## constants, where the step choices and their default live.
+RECIPES = SERVICE / "src" / "data_service" / "faas" / "recipes.py"
+SHARED_CONSTANTS = SERVICE.parent / "shared" / "contracts" / "constants.py"
 
 
-def _recipe_constants() -> dict[str, Any]:
-    """The literal constants of the recipe module, read from its source: the client's environment cannot import it."""
+def _recipe_constants(source: pathlib.Path = RECIPES) -> dict[str, Any]:
+    """The literal constants of a module, read from its source: the client's environment cannot import it."""
     constants: dict[str, Any] = {}
-    for node in ast.parse(RECIPES.read_text(encoding="utf-8")).body:
+    for node in ast.parse(source.read_text(encoding="utf-8")).body:
         target = node.target if isinstance(node, ast.AnnAssign) else None
         if isinstance(target, ast.Name) and isinstance(node, ast.AnnAssign) and node.value is not None:
             try:
@@ -424,16 +453,24 @@ def _param(doc: str, name: str) -> str:
     return " ".join(found.group(1).split())
 
 
+@pytest.mark.skipif(not SERVICE.is_dir(), reason="the data service's source is not beside this library")
 @pytest.mark.parametrize("member", [fine_tuning.create, dream.DreamClient.finetune], ids=["create", "finetune"])
 def test_the_knob_ranges_and_defaults_the_docstrings_state_are_the_services(member: Any) -> None:
-    """The docstrings state the learning rate's and the schedule's range and default from the
-    data service's training recipes, so a change there fails here until both docstrings say the same; they state no
-    step count and no batch size, which users are not shown."""
+    """The docstrings state the step choices, the learning rate's and the schedule's range and default from the
+    data service's training recipes and the shared constants, so a change there fails here until both docstrings say
+    the same; they state no batch size, which users are not shown."""
     recipe = _recipe_constants()
+    shared = _recipe_constants(SHARED_CONSTANTS)
     doc = member.__doc__
 
-    assert "steps" not in inspect.signature(member).parameters, "steps are fixed; a steps argument would be refused"
-    assert f"{recipe['STEPS']} steps" not in " ".join(doc.split()), doc
+    steps = re.match(
+        r"The training steps, any multiple of `(\d+)` from `(\d+)` to `(\d+)`; None takes the service's default of "
+        r"(\d+)\.",
+        _param(doc, "steps"),
+    )
+    assert steps, _param(doc, "steps")
+    menu = ("FAAS_STEP_INCREMENT", "FAAS_STEP_FLOOR", "FAAS_STEP_CEILING", "FAAS_DEFAULT_STEPS")
+    assert tuple(int(n) for n in steps.groups()) == tuple(shared[name] for name in menu)
 
     rate = re.fullmatch(
         r"The learning rate, (\S+) to (\S+); None takes the service's default of (\S+)\.", _param(doc, "learning_rate")
