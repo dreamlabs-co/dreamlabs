@@ -102,7 +102,7 @@ def create(
         `processed`.
     @param suffix `[a-z0-9-]{1,40}`: the tail of the checkpoint id `dream-1-ft:<uid8>-<suffix>`; free among your
         models and active jobs.
-    @param steps The training steps, any multiple of `100` from `500` to `2000`; None takes the service's
+    @param steps The training steps, any multiple of `100` from `500` to `10000`; None takes the service's
         default of 1000.
         The price grows with the steps, and so does the time.
     @param resume_from The id of one of your fine-tuned models (`dream-1-ft:...`) to keep training: the job picks up
