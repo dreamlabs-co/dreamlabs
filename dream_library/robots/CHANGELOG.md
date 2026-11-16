@@ -1,5 +1,6 @@
 # Changelog
 
+- `dreamlabs` 1.0.39 requires and locks `dreamlabs-client` 1.1.5, whose dataset checks and upload accept standard LeRobot v3.x and whose server-side processing converts it to v2.1 before training (2026-11-15). Nothing else changes.
 - A `connection_timed_out` refusal keeps the session on the retry (2026-11-06, `dreamlabs` 1.0.36): the gateway holds a session until it can answer, and a new session would only start that wait over.
 - `dreamlabs` 1.0.35 requires and locks `dreamlabs-client` 1.1.2, whose model check sends 640x320 frames (2026-11-06). Nothing else changes.
 - `dreamcli robot run` waits for the dream client's IK to compile, its `traj` solve included, before it powers the arms, as `dreamcli robot up` does (2026-11-02, `dreamlabs` 1.0.33; `dream.DreamClient.wait_for_ik`): it opened and homed the arms while the client compiled `traj` on a thread of its own, and on a Metal arm a gripper then went up to 0.74 s without a frame, past its 500 ms CAN timeout (fault 0xD, "lost contact with the computer"). A run's start takes those seconds longer, before the arms open; nothing else changes.

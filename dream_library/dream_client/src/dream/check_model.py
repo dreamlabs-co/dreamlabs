@@ -1,10 +1,11 @@
 """`python -m dream.check_model`: your recorded demos through the model, compared with what you did, nothing moving.
 
 When the robot does the wrong thing, either what the model is given or the loop is at fault; this check leaves the
-robot out. It reads one session of your recordings in the layout fine-tuning takes (LeRobot v2.1, as
-#dream.datasets checks it), and at a few moments spread over one episode hands the client what your loop would at that
-moment: each camera's frames of the window before it, the state then and the episode's task. The model's chunk is set
-against the actions you recorded over the same 48 rows, and one PASS or PROBLEM line is printed per check (#judge):
+robot out. It reads one local LeRobot v2.1 session; v3.x is accepted for upload and converted during processing, but
+this local command does not convert it. At a few moments spread over one episode it hands the client what your loop
+would at that moment: each camera's frames of the window before it, the state then and the episode's task. The model's
+chunk is set against the actions you recorded over the same 48 rows, and one PASS or PROBLEM line is printed per check
+(#judge):
 
 - answers: the model answered every call;
 - start: each part's first row is near what you commanded at that moment (a state in other units, in another part

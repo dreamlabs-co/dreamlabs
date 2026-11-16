@@ -198,7 +198,7 @@ class DreamSessionExpired(DreamServerError):
 class DreamDatasetError(DreamError, ValueError):
     """The local checks refused the dataset, and nothing was sent; `str(error)` is the one line to fix.
 
-    The dataset is not a LeRobot v2.1 dataset of the embodiment named, or one of its files cannot be read.
+    The dataset is not a LeRobot v2.1 or v3.x dataset of the embodiment named, or one of its files cannot be read.
     `validate_dataset()` reports the same line; fix it and run `upload_dataset()` again. Import it from `dream.errors`.
     """
 

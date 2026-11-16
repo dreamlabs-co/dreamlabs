@@ -24,9 +24,10 @@ on their own, for a caller that passes `api_key` itself. The functions:
   when the upload or the processing could not finish (`error` says why). list_datasets() answers every one of the
   account's datasets, so an id upload_dataset() answered and was lost is found there by the dataset's name.
 
-A dataset directory holds one LeRobot v2.1 dataset per subdirectory (`<session>/meta/info.json`, `data/`, `videos/`;
-each subdirectory name letters, digits, `.`, `_` and `-`, at most 64), or is itself one (it has `meta/info.json`; its
-name is then the session's). Hidden files (a `.DS_Store`, a `.git/`) are neither checked nor sent, nor is a note
+A dataset directory holds one LeRobot v2.1 or v3.x dataset per subdirectory (`<session>/meta/info.json`, `data/`,
+`videos/`; each subdirectory name letters, digits, `.`, `_` and `-`, at most 64), or is itself one (it has
+`meta/info.json`; its name is then the session's). The service converts v3.x to v2.1 automatically before its existing
+processing and training stages. Hidden files (a `.DS_Store`, a `.git/`) are neither checked nor sent, nor is a note
 beside the session folders (a README, a `.txt` or a `.md`, `validation.is_stray()`): upload_dataset() warns
 `Not uploaded: README.txt (not inside a session folder).` for those.
 
@@ -294,8 +295,9 @@ def validate_dataset(path: str | os.PathLike[str], config: dict[str, Any]) -> Re
     They include each video's format, read with FFmpeg: H.264, HEVC, AV1 or VP9 in MP4, without a subtitle track, as
     the service requires.
 
-    @param path The dataset directory: one LeRobot v2.1 dataset per subdirectory, or one such dataset itself; `~` is
-        expanded, and hidden files are skipped.
+    @param path The dataset directory: one LeRobot v2.1 or v3.x dataset per subdirectory, or one such dataset itself;
+        `~` is expanded, and hidden files are skipped. A v3.x dataset is checked as the v2.1 episodes the service
+        converts it to automatically before training.
     @param config The embodiment config of the body it was recorded on (an #Embodiment's `embodiment_config`).
     @return The #Report: `ok`, the counts and the `notes` on what processing will change, or `ok=False` and `error`,
         the one line to fix before uploading (a file that cannot be read is such a line too).
@@ -321,7 +323,8 @@ def upload_dataset(
     reuses the dataset. A name that is `ready_to_process`, `processing` or `processed` is taken for good. Each of the
     checks' notes (#Report `notes`: what processing will change) is shown as a `UserWarning` before the upload.
 
-    @param path The dataset directory: one LeRobot v2.1 dataset per subdirectory, or one such dataset itself.
+    @param path The dataset directory: one LeRobot v2.1 or v3.x dataset per subdirectory, or one such dataset itself.
+        The service converts v3.x to v2.1 automatically before training; the upload is unchanged.
     @param name `[a-z0-9-]{1,64}`; free unless one of your datasets of that name is `ready_to_process`,
         `processing` or `processed`.
     @param embodiment The body it was recorded on: one of your own, as `<username>/<name>` (an #Embodiment's

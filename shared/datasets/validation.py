@@ -48,7 +48,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, BinaryIO, Protocol
 
-from shared.datasets import content_checks, embodiments, video_formats
+from shared.datasets import content_checks, embodiments, lerobot_v3, video_formats
 
 ## The LeRobot codebase version the recipe's loader reads.
 CODEBASE_VERSION: str = "v2.1"
@@ -517,6 +517,9 @@ def _check_session_layout(name: str, session: dict[str, FileEntry], embodiment: 
     """One directory's required files and its video directories against the body's video keys, from the names
     alone."""
     _check_session_info(name, session)
+    if lerobot_v3.is_v3_layout(list(session)):
+        _check_v3_layout(name, session, embodiment)
+        return
     for required in REQUIRED_META:
         if required not in session:
             raise content_checks.DatasetInvalidError(f"Directory '{name}': missing {required}.")
@@ -530,6 +533,27 @@ def _check_session_layout(name: str, session: dict[str, FileEntry], embodiment: 
                 f"{INFO_FILE}'s video_path to {_VIDEO_PATH_EXAMPLE}."
             )
     _check_video_keys(name, sorted({_video_key(rest) for rest in session if _is_mp4(rest)}), embodiment)
+
+
+def _check_v3_layout(name: str, session: dict[str, FileEntry], embodiment: embodiments.Embodiment) -> None:
+    """A v3.0 session's required files and key-first video directories, from names alone."""
+    for required in (lerobot_v3.INFO_FILE, lerobot_v3.TASKS_FILE):
+        if required not in session:
+            raise content_checks.DatasetInvalidError(f"Directory '{name}': missing {required}.")
+    if not any(path.startswith(lerobot_v3.EPISODES_DIR) and path.endswith(".parquet") for path in session):
+        raise content_checks.DatasetInvalidError(f"Directory '{name}': no parquet under {lerobot_v3.EPISODES_DIR}.")
+    if not any(_is_parquet(rest) for rest in session):
+        raise content_checks.DatasetInvalidError(f"Directory '{name}': no parquet file under data/.")
+    bad = [
+        path for path in session if _is_mp4(path) and not re.fullmatch(r"videos/[^/]+/chunk-\d+/file-\d+\.mp4", path)
+    ]
+    if bad:
+        raise content_checks.DatasetInvalidError(
+            f"Directory '{name}': {bad[0]} is not at videos/<video key>/chunk-<NNN>/file-<NNN>.mp4; "
+            "LeRobot v3.0 writes its camera before its chunk."
+        )
+    keys = sorted({path.split("/")[1] for path in session if _is_mp4(path)})
+    _check_video_keys(name, keys, embodiment)
 
 
 def _check_session_info(name: str, session: dict[str, FileEntry]) -> None:
@@ -614,6 +638,8 @@ def _check_session(
     def read(rest: str) -> bytes:
         return reader.read(f"{name}/{rest}")
 
+    if lerobot_v3.is_v3_layout(list(session)):
+        return _check_v3_session(name, session, embodiment, reader)
     fields, episodes, tasks = _session_meta(name, session, read)
     _check_embodiment(name, fields, embodiment)
     _check_episode_count(name, fields, episodes)
@@ -628,6 +654,94 @@ def _check_session(
         "note": note,
         **{k: fields[k] for k in SHARED_FIELDS},
     }
+
+
+def _check_v3_session(
+    name: str,
+    files: dict[str, FileEntry],
+    embodiment: embodiments.Embodiment,
+    reader: Reader,
+) -> dict[str, Any]:
+    """One v3.0 session checked as its converted v2.1 episodes will be trained."""
+
+    def read(rest: str) -> bytes:
+        return reader.read(f"{name}/{rest}")
+
+    parsed = lerobot_v3.read_session(name, {path: entry.size_bytes for path, entry in files.items()}, read)
+    if MODALITY_FILE in files:
+        _check_modality(name, read(MODALITY_FILE))
+    try:
+        fields = _info_fields(parsed.info)
+    except _MALFORMED_ERRORS as error:
+        raise content_checks.DatasetInvalidError(
+            f"Directory '{name}': {INFO_FILE} is not a LeRobot {lerobot_v3.CODEBASE_VERSION} info file."
+        ) from error
+    fields["fps"] = content_checks.check_fps(name, fields["fps"])
+    for key in fields["video_keys"]:
+        content_checks.check_camera_axes(name, key, parsed.info["features"][key])
+    _check_embodiment(name, fields, embodiment)
+    episodes = [
+        {"episode_index": episode.index, "length": episode.length, "tasks": episode.tasks}
+        for episode in parsed.episodes
+    ]
+    _check_episode_lengths(name, fields["fps"], episodes)
+    frames = 0
+    task_indices = set(parsed.tasks)
+    for data_file in parsed.data_files():
+        for episode, parquet in lerobot_v3.episode_tables(parsed, data_file, read(data_file)):
+            path = parsed.v21_data_path(episode)
+            facts = content_checks.check_parquet(name, path, parquet, fields["fps"])
+            if facts.episode_indices != {episode.index}:
+                raise content_checks.DatasetInvalidError(
+                    f"Directory '{name}': {data_file} has rows of another episode among episode {episode.index}."
+                )
+            for what, width, declared in (
+                ("action", facts.action_dim, fields["action_dim"]),
+                ("observation.state", facts.state_dim, fields["state_dim"]),
+            ):
+                if width != declared:
+                    raise content_checks.DatasetInvalidError(
+                        f"Directory '{name}': {data_file} has {width} {what} values per frame; "
+                        f"{INFO_FILE} says {declared}."
+                    )
+            unknown = (facts.task_indices | facts.annotation_indices) - task_indices
+            if unknown:
+                raise content_checks.DatasetInvalidError(
+                    f"Directory '{name}': {data_file} has task_index {min(unknown)}, which "
+                    f"{lerobot_v3.TASKS_FILE} does not define."
+                )
+            frames += facts.rows
+    if frames != fields["frames"]:
+        raise content_checks.DatasetInvalidError(
+            f"Directory '{name}': its data files hold {frames} frames; {INFO_FILE} says {fields['frames']}."
+        )
+    _check_v3_videos(name, parsed, reader, fields["fps"])
+    return {
+        "dir": name,
+        "episodes": len(parsed.episodes),
+        "frames": frames,
+        "note": (
+            f"Directory '{name}': LeRobot {parsed.info['codebase_version']} detected; processing converts it to "
+            f"{CODEBASE_VERSION} automatically before training."
+        ),
+        **{key: fields[key] for key in SHARED_FIELDS},
+    }
+
+
+def _check_v3_videos(name: str, session: lerobot_v3.Session, reader: Reader, fps: int) -> None:
+    """Each unique v3.0 video checked once, against all episode frames it contains."""
+    expected: dict[str, int] = {}
+    for episode in session.episodes:
+        for video in episode.videos.values():
+            expected[video.path] = expected.get(video.path, 0) + episode.length
+    for path, rows in expected.items():
+        head = reader.read_head(f"{name}/{path}", content_checks.MP4_PROBE_BYTES)
+        content_checks.check_mp4_head(name, path, head)
+        with reader.open(f"{name}/{path}") as file:
+            found = video_formats.answer(file)
+        where = f"Directory '{name}': {path}"
+        video_formats.refuse_unless_whitelisted(where, found)
+        video_formats.refuse_off_timing(where, found, fps, rows)
 
 
 def _session_meta(
