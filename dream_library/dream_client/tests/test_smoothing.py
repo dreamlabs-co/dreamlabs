@@ -291,7 +291,7 @@ def test_c42l_with_strict_off_a_pose_that_is_not_flat_takes_a_commanded_of_six_a
     server: FakeDreamAPI, long_config: dict[str, Any], pose: Any
 ) -> None:
     """C-42l: with strict off, an arm's pose that is not one flat run (a history, a scalar) gives the arm no joint
-    count, so a `commanded` of six is sent as given, not refused against 12 or 1."""
+    count, so a `commanded` of six is sent as before arms counted their own, not refused against 12 or 1."""
     long_config["strict"] = False
     first = line_chunk(0.0, 1.0, 0.0)
     serve_chunks(server, first)

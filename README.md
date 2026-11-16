@@ -1,6 +1,3 @@
-<!-- dreamlabs's PyPI page is a copy of this file, dream_library/README.pypi.md, with the logo at an absolute URL.
-Change the two together. -->
-
 <div align="center">
 
 <picture>
@@ -11,7 +8,8 @@ Change the two together. -->
 <p>
   <a href="https://dreamlabs.ai"><strong>Blog Post</strong></a> |
   <a href="https://platform.dreamlabs.ai"><strong>DreamAPI</strong></a> |
-  <a href="https://platform.dreamlabs.ai/api-documentation"><strong>Documentation</strong></a>
+  <a href="https://platform.dreamlabs.ai/api-documentation"><strong>Documentation</strong></a> |
+  <a href="https://discord.gg/UAPxxH6tTg"><strong>Discord</strong></a>
 </p>
 
 </div>

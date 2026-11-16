@@ -72,9 +72,9 @@ KD_RANGE = (0.0, 5.0)
 ## How long one state query waits for its reply, seconds (the vendor's RUNNING_TIMEOUT).
 QUERY_TIMEOUT_S = 0.003
 ## Per-motor reply wait after an MIT command, seconds: a ceiling, not a delay, since the wait ends when the reply
-## lands. 5 ms where the vendor has 1 ms: a reply can take 1.4-2.8 ms instead of 0.5 ms after a re-plug, a 1 ms
-## ceiling then sends the seven frames of a tick back to back, and the CANable stops taking writes (the arm
-## freezes mid-move). One frame in flight at a time on any USB topology.
+## lands. 5 ms where the vendor had 1 ms: on a Maker Arm station the reply latency went from 0.5 ms to 1.4-2.8 ms after
+## a re-plug, a 1 ms ceiling then sent the seven frames of a tick back to back, and the CANable stopped taking
+## writes (the arm froze mid-move). One frame in flight at a time on any USB topology.
 COMMAND_REPLY_TIMEOUT_S = 0.005
 ## Handshake: a motor silent this long is missing, seconds.
 HANDSHAKE_TIMEOUT_S = 0.05
@@ -695,7 +695,7 @@ class RobstrideChain:
     """One arm's RobStride motors on its adapter, as #robots.motor_arm.MotorArm drives them (a
     #robots.motor_arm.Chain).
 
-    The Makers Arm follower and the safety checks its driver makes on every tick:
+    A Makers station's follower and the safety checks its driver makes on every tick:
 
     - full-turn wrap: after a power cycle a motor can report its angle a whole turn off; a joint outside its soft
       limits that a 360 degree shift brings inside gets that shift for the session;

@@ -1502,7 +1502,7 @@ def test_limit_opencv_threads_caps_the_pool_unless_the_environment_sizes_it(monk
     cameras.limit_opencv_threads(pytypes.SimpleNamespace())
 
 
-# --- managed exposure (a YAM station's controller) -----------------------------------------------
+# --- managed exposure (our YAM stations' controller) ---------------------------------------------
 
 
 class _GainRange:

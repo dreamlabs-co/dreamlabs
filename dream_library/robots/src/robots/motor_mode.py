@@ -5,7 +5,8 @@ its `CTRL_MODE` register (#CTRL_MODE_REGISTER): MIT (1), position-speed (2), spe
 The station drives the arms through i2rt, which speaks MIT and nothing else, so a motor in any other mode answers
 every status request and moves for none of them. New OpenYAM arms often ship with the gripper motor (id 7) in
 position-speed mode: the wizard's gripper check then reports a gripper that did not move, and a station start
-calibrates against a gripper that stands still. This module is the fix `dreamcli motors` runs.
+calibrates against a gripper that stands still. This module is the fix `dreamcli motors` runs, ported from the
+station scripts that check and set a motor's mode.
 
 Two operations, each on one link and a list of motor ids, each on a socket of its own opened and closed here so no
 reply is left queued for anyone else to misread, the way the wizard's joint reading works:

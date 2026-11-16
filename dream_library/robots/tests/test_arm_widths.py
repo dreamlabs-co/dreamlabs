@@ -535,8 +535,8 @@ def test_an_episode_of_a_7_and_a_5_joint_arm_names_each_arms_own_joints(tmp_path
 def test_a_journal_of_arms_not_both_six_joints_has_its_own_name_so_an_older_release_never_misreads_it(
     tmp_path: pathlib.Path,
 ) -> None:
-    """While two 7-joint arms record, the journal is `ticks_wide.f64`, never `ticks.f64`, a name that is read as
-    rows of two six-joint arms; finishing reads it and deletes it."""
+    """While two 7-joint arms record, the journal is `ticks_wide.f64`, never `ticks.f64`, which a release from before
+    each arm counted its joints reads as rows of two six-joint arms; finishing reads it and deletes it."""
     recorder = test_rollouts.make_recorder(tmp_path, joints=(7, 7))
     root = recorder.begin(conftest.TASK)
     for i in range(test_rollouts.TICKS):

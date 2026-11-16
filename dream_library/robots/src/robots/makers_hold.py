@@ -14,7 +14,7 @@
 
 The gripper is a position-controlled motor, so grip force is `kp x position error`: a close commanded onto an object
 leaves the error large and the motor pushes with everything it has (the vendor measured 13.5 N.m before holding
-engaged). The control law and its numbers are the vendor's, not tuned here:
+engaged). The control law and its numbers are the vendor's, tested on a Maker Arm station and not tuned here:
 
 - closing cap, every update, holding or not: while closing, `kp` is scaled so that `kp x error` never exceeds
   `max(1 N.m, 2 x hold torque)`, and `kd` drops to #CAPPED_CLOSING_KD so a free close is not damped to a crawl. The

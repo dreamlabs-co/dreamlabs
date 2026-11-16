@@ -14,7 +14,7 @@ trains, records or teleoperates.
 | `robots.bodies` | `Body`, `BODIES`, `for_config()`: what differs between the robots (wire, default model, the client's IK, driver, kinematics), picked by the config's `body`; `so101_body()` builds an SO-101 on its config's embodiment, `custom_body()` builds a robot of your own from its config |
 | `robots.driver_template` | `TemplateArm`: the commented starting point for a robot of your own (`body: custom`), an arm in memory as shipped |
 | `robots.makers` | The Makers Arm's table (`ARM`): its seven RobStride motors, 60 Hz, its linear gripper stroke, dream's `makers` IK |
-| `robots.robstride` | `RobstrideBus`: the RobStride MIT codec and request/reply bus on one CAN adapter (the only module that knows python-can); `RobstrideChain`, a RobStride arm for `MotorArm` (full-turn wrap, stale zero, gripper hold, silence watch), a port of Dream Labs' Makers driver |
+| `robots.robstride` | `RobstrideBus`: the RobStride MIT codec and request/reply bus on one CAN adapter (the only module that knows python-can); `RobstrideChain`, a RobStride arm for `MotorArm` (full-turn wrap, stale zero, gripper hold, silence watch), a port of our stations' Makers driver |
 | `robots.makers_hold` | `GripperHold`: the Makers gripper's holding torque and closing cap; `HoldingController`, the holding law the Metal gripper runs too |
 | `robots.metal` | The Metal arm's table (`ARM`): its seven Damiao motors, 30 Hz, the Metal grip, dream's `metal` IK |
 | `robots.metal_gripper` | `MetalGripper`: the Metal gripper's setup, holding control and safety stops (watchdog, temperature, fault latch) |

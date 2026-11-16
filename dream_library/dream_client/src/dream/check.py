@@ -14,7 +14,9 @@ a side taken out:
   (#dream.check_arm): the hand poses the client's `ik` config key sends, or a YAM's parts; a loop that sends neither
   is refused before anything moves. It passes when nothing moves more than 1 degree while the robot is told to hold,
   each command moves its own joint (any other under 2 degrees), the right way and x0.8 to x1.2 as far, at most 0.25 s
-  late, and the loop plays rows within 5% of `--rate`.
+  late, each part off its targets after that by at most 1 degree or 0.5 cm (a hand the client's IK drives, by what
+  joints each 1 degree off give it), and the loop plays rows within 5% of `--rate`, else of the client's
+  `action_hz`.
 - INPUTS, what the model sees: every call your loop makes during LOOP shows on the page (#dream.DebugView, on this
   computer only): each camera live, the state and the prompt, as the model gets them. The check counts how fast your
   loop fills each camera's history, the frames new to each call a second (#dream.check_loop.camera_rate): more than 10%
@@ -30,11 +32,14 @@ a side taken out:
   (the client adds it with the `ik` config key).
   Each 48-row chunk is set against what you commanded over the same rows. It passes when the model's squared error,
   summed over every moment, row and number, is at most #MODEL_LIMIT of holding still's (repeating what you commanded
-  at each moment). Without `--recording` the MODEL line is a SKIP (#UNRECORDED).
+  at each moment). Without `--recording` the MODEL line is a SKIP (#UNRECORDED). At the loop's first call, before
+  anything moves, the recording is read against the body the checkpoint reads; one that does not fit it, or that
+  cannot be read once that body names its cameras, is said then, and the MODEL line is a SKIP that says why (#UNFIT,
+  #UNREAD).
 
 The last four lines are the verdict:
 
-    LOOP:   PASS | PROBLEM <what the loop got wrong>
+    LOOP:   PASS | PROBLEM <what the loop got wrong> (with more than one PROBLEM, the names of each first)
     INPUTS: PASS | PROBLEM | SKIP (no answer)
     MODEL:  PASS | PROBLEM <how far the model is from your demos> | SKIP (no --recording)
     FAULT:  your control loop | your loop's inputs | the model (DreamLabs) | none found
@@ -60,6 +65,7 @@ import threading
 import time
 import warnings
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -80,8 +86,11 @@ MOMENTS = 8
 UNASKED = "MODEL:  SKIP    could not ask the model:"
 ## The MODEL line when no recording was given: the model is not asked.
 UNRECORDED = "MODEL:  SKIP    no recording given; add --recording <folder> to check the model too"
-## The MODEL line's start when the recording is not in the layout the check reads (#model_line).
+## The MODEL line's start when the recording is not in the layout the check reads (#model_line, #read_first).
 UNREAD = "MODEL:  SKIP    could not read your recording:"
+## The MODEL line's start when the recording does not fit the body the checkpoint reads, said at the loop's first
+## call, before anything moves (#read_first).
+UNFIT = "MODEL:  SKIP    your recording does not fit the checkpoint:"
 ## The MODEL line's start when the model refused what it was sent (`DA-4000`): no verdict on the model (#fault).
 REFUSED = "MODEL:  PROBLEM the model refused what your loop sends:"
 ## The port of the page of what the model sees.
@@ -93,10 +102,16 @@ YAM_PARTS = {"right_arm": [0, 6], "right_gripper": [6, 7], "left_arm": [7, 13], 
 def loop_verdict(lines: Sequence[check_loop.Line]) -> str:
     """The LOOP line: PASS when every measurement passed, else the first that did not, in its own words.
 
+    When more than one is a PROBLEM, the line names each, in the order they ran, then gives the first one's words.
+
     @param lines #dream.check_loop.judge()'s lines.
     @return The line.
     """
     bad = [line for line in lines if line.status != "PASS"]
+    problems = [line for line in bad if line.status == "PROBLEM"]
+    if len(problems) > 1:
+        names = ", ".join(line.check for line in problems)
+        return f"LOOP:   PROBLEM {len(problems)} lines ({names}); the first, {problems[0].check}: {problems[0].detail}"
     if bad:
         return f"LOOP:   PROBLEM {bad[0].check}: {bad[0].detail}"
     return "LOOP:   PASS    your loop moved the arms as told"
@@ -218,6 +233,101 @@ def fault(loop: str, inputs: str, model: str) -> str:
     return "FAULT:  none found"
 
 
+def read_first(
+    session: pathlib.Path, episode: int, checkpoint: str | None, cameras: Sequence[str], yam: bool
+) -> str | None:
+    """Whether the recording fits the body the loop's checkpoint reads (#misfit), said when it does not.
+
+    Called at the loop's first call, before anything moves. A recording that cannot be read once that body names its
+    cameras (#dream.check_model.Unreadable: a video missing, one that does not open or whose own count of frames ends
+    before the last moment, an episode shorter than one chunk, a damaged data file) is said as such. A lookup that
+    fails, a body it cannot name, a reader the install lacks, or a video that opens but decodes short are left to the
+    MODEL check, which says so after the arms move.
+
+    @param session The recording (`--recording`).
+    @param episode The episode_index.
+    @param checkpoint The model the loop named, or None.
+    @param cameras The camera roles the loop sent.
+    @param yam True when the arms are YAMs (#ask_model).
+    @return The MODEL line, #UNFIT or #UNREAD with why; None when it fits, or that could not be told.
+    """
+    import dream
+
+    if checkpoint is None:
+        return None
+    try:
+        with dream.DreamClient() as client:
+            embodiment = body(client, checkpoint, cameras, yam)
+        recording = check_model.read_episode(session, episode, embodiment["video"])
+        check_model.reach(recording, max(check_model.moments(len(recording.state), recording.fps, MOMENTS)))
+        why = misfit(recording, embodiment)
+    except check_model.Unreadable as error:
+        said, line = f"could not read your recording: {error}", f"{UNREAD} {error}"
+    except (DreamError, ImportError):
+        return None
+    else:
+        if why is None:
+            return None
+        said, line = f"your recording does not fit {checkpoint}: {why}", f"{UNFIT} {why}"
+    print(f"\n{COMMAND}: {said}\nThe model will not be asked; LOOP and INPUTS run as before.", flush=True)
+    return line
+
+
+def misfit(recording: check_model.Episode, embodiment: Mapping[str, Any]) -> str | None:
+    """Why a recording does not fit a body, in words: a state or action part of the body past the recording's width.
+
+    @param recording The episode.
+    @param embodiment The body the checkpoint reads (#body).
+    @return What the recording has, what the checkpoint reads and what to record instead; None when every part is
+        inside the recording.
+    """
+    said, order = [], []
+    for name, rows, parts in (
+        ("observation.state", recording.state, embodiment["state"]),
+        ("action", recording.action, embodiment["action"]),
+    ):
+        width, need = rows.shape[1], max(hi for _, hi in parts.values())
+        if need <= width:
+            continue
+        spans = sorted(parts.items(), key=lambda item: item[1][0])
+        past = [part for part, (_, hi) in spans if hi > width]
+        said.append(
+            f"its {name} has {width} numbers a row, where the checkpoint reads {need}: it has no {', '.join(past)}"
+        )
+        order.append(f"{name} " + ", ".join(f"{part} ({hi - lo})" for part, (lo, hi) in spans))
+    if not said:
+        return None
+    return (
+        "; ".join(said)
+        + "; record with the parts of the body it was fine-tuned on, in its order ("
+        + "; ".join(order)
+        + "), as its training recordings were, or give a recording of that body"
+    )
+
+
+def body(client: Any, checkpoint: str, cameras: Sequence[str], yam: bool) -> dict[str, Any]:
+    """The body (embodiment config) a checkpoint reads, as the model check sends it.
+
+    @param client The DreamClient.
+    @param checkpoint The model the loop named.
+    @param cameras The camera roles the loop sent; each is the recording's `observation.images.<role>`.
+    @param yam True when the arms are YAMs: a checkpoint the platform lists no body for is then read as a YAM pair.
+    @return The platform's body for it, or a YAM pair's with the loop's cameras.
+    @throws DreamConfigError The platform lists no body for it, and the arms are not YAMs.
+    """
+    listed: dict[str, Any] | None = client._embodiment_config_for(checkpoint)
+    if listed is None and not yam:
+        raise DreamConfigError(
+            f"the platform lists no body for {checkpoint!r}, and on an arm that is not a YAM the check reads your "
+            "recording's parts from the body of a fine-tune of that arm: name one in your loop"
+        )
+    return listed or {
+        "state": YAM_PARTS,
+        "action": YAM_PARTS,
+        "video": {role: f"observation.images.{role}" for role in cameras},
+    }
+
+
 def ask_model(
     session: pathlib.Path, checkpoint: str, cameras: Sequence[str], poses: bool, yam: bool, episode: int
 ) -> tuple[list[tuple[dict[str, np.ndarray], dict[str, np.ndarray]]], DreamError | None]:
@@ -236,17 +346,7 @@ def ask_model(
     # The reminder to look at what the model sees is for a live loop; these frames are your recordings.
     warnings.filterwarnings("ignore", message=input_check.REMINDER)
     with dream.DreamClient() as client:
-        listed = client._embodiment_config_for(checkpoint)
-        if listed is None and not yam:
-            raise DreamConfigError(
-                f"the platform lists no body for {checkpoint!r}, and on an arm that is not a YAM the check reads your "
-                "recording's parts from the body of a fine-tune of that arm: name one in your loop"
-            )
-        embodiment = listed or {
-            "state": YAM_PARTS,
-            "action": YAM_PARTS,
-            "video": {role: f"observation.images.{role}" for role in cameras},
-        }
+        embodiment = body(client, checkpoint, cameras, yam)
         recording = check_model.read_episode(session, episode, embodiment["video"])
         rows = check_model.moments(len(recording.state), recording.fps, MOMENTS)
         step = 1 / _window.OBS_FPS
@@ -299,9 +399,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--view-port", type=int, default=VIEW_PORT, help="the port of the page of what the model sees (8643)"
     )
     parser.add_argument(
-        "--rate", type=float, default=check_loop.DEFAULT_RATE, help="rows a second your loop plays (20)"
+        "--rate",
+        type=float,
+        help="rows a second your loop plays (the client's action_hz, which it names; else 20)",
     )
     args = parser.parse_args(argv)
+    read = args.recording is not None  # whether to read the recording against the checkpoint at the first call
     if args.recording is not None:
         if not (args.recording / "meta" / "info.json").is_file():
             print(
@@ -311,6 +414,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             check_model.readable(args.recording, args.episode)
         except check_model.Unreadable as error:
+            read = False
             print(
                 f"{COMMAND}: {args.recording}: {error}\nMODEL will read SKIP; LOOP and INPUTS still run.",
                 file=sys.stderr,
@@ -326,14 +430,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    moving = (check_loop.HORIZON + check_loop.TOGETHER_ROWS + check_loop.REST_ROWS) / args.rate
     if not check_loop.confirm(
-        f"The arms will move for about {moving:.0f} s (longer if a part is at fault), with no model: each hand "
-        f"circles twice, {200 * check_loop.CIRCLE_R:.0f} cm across, while every joint turns."
+        f"The arms will move for {check_loop.motion_time(args.rate)} (longer if a part is at fault), with no model: "
+        f"each hand circles twice, {200 * check_loop.CIRCLE_R:.0f} cm across, while every joint turns."
     ):
         return 2
+    first: str | None = None  # the MODEL line from reading the recording at the first call (#read_first)
+
+    def first_call(stand_in: check_loop.StandIn) -> None:
+        nonlocal first
+        assert args.recording is not None
+        first = read_first(args.recording, args.episode, stand_in.checkpoint, stand_in.cameras, stand_in.arm == "yam")
+
     with DebugView(None, args.view_port) as view:
-        stand_in = check_loop.StandIn(rate=args.rate, view=view)
+        stand_in = check_loop.StandIn(rate=args.rate, view=view, on_first_call=first_call if read else None)
         view.show_arms(stand_in.arms)
         url = stand_in.serve(args.port)
         if command is None:
@@ -381,12 +491,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         model = UNRECORDED
     elif stand_in.checkpoint is None:
         model = "MODEL:  SKIP    the loop's calls named no checkpoint"
+    elif first is not None:
+        model = first
     else:
         print(f"Asking {stand_in.checkpoint} about {MOMENTS} moments of episode {args.episode}; nothing moves.")
         yam = stand_in.arm == "yam"
         model = model_line(args.recording, stand_in.checkpoint, stand_in.cameras, stand_in.poses, yam, args.episode)
     print(f"\n{loop}\n{inputs}\n{model}\n{fault(loop, inputs, model)}")
-    return 1 if "PROBLEM" in loop + inputs + model or model.startswith((UNASKED, UNREAD)) else 0
+    return 1 if "PROBLEM" in loop + inputs + model or model.startswith((UNASKED, UNREAD, UNFIT)) else 0
 
 
 if __name__ == "__main__":

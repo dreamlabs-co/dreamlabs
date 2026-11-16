@@ -25,14 +25,14 @@ def read(urdf: str) -> dict[str, Any]:
     """Every link of a URDF at the arm's zero, how they hang together, and the guess of its base and flange.
 
     @param urdf The URDF's text.
-    @return `{"links", "parents", "joints", "moving", "poses", "visuals", "base", "flange"}`: the link names in the
-        file's order; per link, the index of the link it hangs off (-1 for the root); per link, the name of the joint
-        it hangs off (None for the root); per link, whether that joint moves; per link, its pose as
-        `[qw, qx, qy, qz, x, y, z]` in the root's frame (the form of #robots.setup_model.ArmModel.poses()), rounded to
-        10 micrometres, each moving joint at 0 or the limit nearest it (the arm file's `rest`,
-        SetupServer.add_arm()); per link, what its `<visual>`s draw (_visuals()); the root's index; and the guess of
-        the flange, the end of the longest chain (the link with no child after the most moving joints, then the most
-        joints, then first in the file), less a gripper's fingers (_before_fingers()).
+    @return `{"links", "parents", "moving", "poses", "visuals", "base", "flange"}`: the link names in the file's
+        order; per link, the index of the link it hangs off (-1 for the root); per link, whether the joint it hangs
+        off moves; per link, its pose as `[qw, qx, qy, qz, x, y, z]` in the root's frame (the form of
+        #robots.setup_model.ArmModel.poses()), rounded to 10 micrometres, each moving joint at 0 or the limit nearest
+        it (the arm file's `rest`, SetupServer.add_arm()); per link, what its `<visual>`s draw (_visuals()); the
+        root's index; and the guess of the flange, the end of the longest chain (the link with no child after the
+        most moving joints, then the most joints, then first in the file), less a gripper's fingers
+        (_before_fingers()).
     @throws ValueError The text is not a URDF whose links hang from one root, or a visual's shape lacks its sizes.
     """
     try:
@@ -74,7 +74,6 @@ def read(urdf: str) -> dict[str, Any]:
     return {
         "links": links,
         "parents": parents,
-        "joints": [None if joint is None else joint.get("name") for joint in joints],
         "moving": [joint is not None and joint.get("type") in MOVING for joint in joints],
         "poses": [_pose(poses[i]) for i in range(len(links))],
         "visuals": [_visuals(link) for link in elements],

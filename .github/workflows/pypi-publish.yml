@@ -95,7 +95,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { persist-credentials: false }
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with: { python-version: "3.12" }
 
       - name: Build the wheels to publish, and check their metadata
@@ -108,7 +108,7 @@ jobs:
           if [ "$CLIENT" = true ]; then uv build --no-sources --wheel -o dist/client dream_library/dream_client; fi
           if [ "$LIBRARY" = true ]; then uv build --no-sources --wheel -o dist/library dream_library; fi
           find dist -name '*.whl' -print
-          uvx twine check --strict dist/*/*.whl
+          uvx twine@7.0.0 check --strict dist/*/*.whl
 
       - uses: actions/upload-artifact@v4
         with:
@@ -134,12 +134,12 @@ jobs:
 
       - name: dreamlabs-client to PyPI
         if: needs.plan.outputs.client == 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist/client/
 
       - name: dreamlabs to PyPI
         if: needs.plan.outputs.library == 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist/library/

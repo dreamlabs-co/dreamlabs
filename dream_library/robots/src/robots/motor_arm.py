@@ -58,7 +58,8 @@ if TYPE_CHECKING:
     # Annotations only: config imports the Metal gripper, which imports the buses, which import this module.
     from robots import config
 
-## Deprecated: the revolute joints of a six-joint arm; an arm's own count is its config's.
+## Deprecated: the revolute joints of a six-joint arm, for code written when every arm had six; an arm's own count
+## is its config's.
 ARM_DOF = followers.JOINT_COUNT
 
 # The thread's rates, in physical units; the thread turns them into per-tick steps at the robot's tick rate.

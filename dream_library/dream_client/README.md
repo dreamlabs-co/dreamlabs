@@ -204,7 +204,7 @@ The config is the dict `policy()` takes, and the user owns it. The client consum
 | `timeout_ms` | `int` | `15000` | Per-request connect, send and receive timeout |
 | `strict` | `bool` | `True` | Validate observations and actions against `config["embodiment"]` |
 | `execution_horizon` | `int` | `30` | Rows of each chunk the loop executes before the next takes over ("Pacing"); never sent |
-| `action_hz` | `float` | `20` | The loop's row rate, rows per second; turns a round trip into rows ("Pacing"); never sent |
+| `action_hz` | `float` | `20` | The loop's row rate, rows per second; turns a round trip into rows ("Pacing"); sent only to the loop check on this computer (`python -m dream.check`) |
 | `sync_above_ms` | `float` | `700` | Round trip past which the client paces synchronously ("Pacing"); never sent |
 | `obs_window` | `int` | `9` | Frames the client keeps per window key, at least 1 ("Running a model"); never sent |
 | `obs_fps` | `float` | `5` | Frames kept per second of `set_observation`'s timestamps ("Running a model"); never sent |
@@ -478,7 +478,7 @@ print(view.url)  # http://127.0.0.1:<port>/; in Jupyter, leave `view` as the cel
 `python -m dream.check_loop` stands in for the model on this computer, so a loop can be checked with no model in it: point the loop at the address it prints (`DREAM_GATEWAY_URL=http://127.0.0.1:8642`) and run the loop as it is.
 
 - Every `get_action()` gets a chunk shaped like the model's, of a scripted motion from where the arms stand: a hold, then every joint and gripper at once, each hand round a circle 8 cm across, twice, while every joint turns; then, only for the parts at fault, each alone. It reads the arm from the first call (the hand poses the client's `ik` key sends, or a YAM's parts) and answers the joints and the hand poses alike, so it takes no setting for the robot.
-- At the end it prints one PASS or PROBLEM line per check (the hold, the part each command moved, direction and size, lag, the play rate, whether each hand drew its circle, not a flat band, how fast each camera's history fills) and refuses the next call with `DA-5000`, never retryable, so the loop stops.
+- At the end it prints one PASS or PROBLEM line per check (the hold, the part each command moved, direction and size, lag, the play rate, whether each hand drew its circle, not a flat band, how fast each camera's history fills) and refuses the next call with `DA-5000`, never retryable, so the loop stops. A PROBLEM on a line that reads the hands ends with the joints behind it, each joint's follow ratio and lag against its own command.
 - The arms move: keep a hand on the e-stop. A coding agent never runs it; it asks the person at the robot to, and to read back the lines.
 
 ## Check the model on your recordings

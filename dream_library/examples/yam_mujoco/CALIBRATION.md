@@ -19,7 +19,7 @@ Applied:
 - Center stand/housing follows the new camera position and orientation.
 - The center camera is then deliberately moved off the calibration: `TOP_CAMERA_LOWER_M` (0.15 m) lower and `TOP_CAMERA_TILT_UP_DEG` (5 degrees) pitched up, in `yam_env.py`, for a closer view of the table. Its images no longer match the calibrated station's; set both to 0 to restore it. The wrist cameras are as calibrated.
 
-Intrinsic convention: MuJoCo principalpixel is an image-plane offset. The example uses
+Intrinsic convention: MuJoCo principalpixel is an image-plane offset. We use
 (320-cx, cy-240), since rendered RGB pixels have a top-left origin. After cropping,
 output cy is source cy-60; focal lengths and cx do not change.
 
@@ -33,7 +33,7 @@ Remaining differences, deliberately NOT overwritten by the camera import:
 - USD reference joint maxima: J1 3.05433, J2/J3 3.66519 radians;
   demo Dream URDF: J1 3.13, J2 3.65, J3 3.13.
 - Reference TCP extension .14256m with a small tool roll; demo .1347m and
-  the stock linear4310 gripper mount from the URDF.
+  the stock linear4310 gripper mount from the browser model.
 - Gripper slide signs differ between USD and the stock STL hierarchy; normalized
   opening remains 0=closed, 1=open.
 - Demo collision geometry, dynamics, home pose and task objects are not a full

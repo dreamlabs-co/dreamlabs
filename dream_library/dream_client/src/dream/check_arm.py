@@ -13,6 +13,7 @@ joints' limits, and the chain of joints the page draws.
 
 from __future__ import annotations
 
+import importlib
 from collections.abc import Mapping
 from typing import Any
 
@@ -154,11 +155,18 @@ def turned(rot6: np.ndarray, start: np.ndarray) -> np.ndarray:
 def ik_specs() -> Any:
     """dream's IK's arm models (`dream_ik.specs`), which the library ships.
 
+    Its decoder and the URDF reader load here too, before the arms move. The check uses them while the arms move; on
+    a fresh install (uv does not compile modules at install) their first import is slow, and made at the loop's first
+    call it slowed the first run.
+
     @return The module.
     @throws DreamConfigError The library is not installed.
     """
     try:
         from dream_ik import specs
+
+        for module in ("dream_ik.decode", "yourdfpy"):
+            importlib.import_module(module)
     except ImportError as error:
         raise DreamConfigError(
             f"the check reads your arm's kinematics from dream's IK, which the library ships for Python 3.11 or "

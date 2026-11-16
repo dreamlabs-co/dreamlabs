@@ -1,10 +1,10 @@
 """Each arm in a process of its own, with System 0: i2rt's motor threads and the tracker, and nothing else.
 
 With System 0 the tracker writes each motor's torque every 4 ms, and i2rt's fast motor loop
-(#robots.sys0.fast_loop) carries it to the bus. In the agent's process those threads would share one interpreter
-lock with the cameras, the control loop and the server, where the tracker waits 50 to 70 ms for it, so every
-run stops on the stale-block watchdog (the robot loop at 41 to 67 Hz where it runs at hundreds, the
-20 Hz tick overrunning by up to 370 ms). So each arm gets a process of its own.
+(#robots.sys0.fast_loop) carries it to the bus. In the agent's process those threads share one interpreter lock
+with the cameras, the control loop and the server, and on a station the tracker waited 50 to 70 ms for it, so every
+run stopped on the stale-block watchdog (the robot loop at 41 to 67 Hz where it runs at hundreds, the
+20 Hz tick overrunning by up to 370 ms). The YAM followers run one process per arm; so does this.
 
 open_arms() spawns one process per arm and returns a #RemoteArm for each, which the station uses as it uses a
 `FollowerArm` (#robots.followers.Arm): read(), hold(), is_alive() and the rest are requests answered by the arm's

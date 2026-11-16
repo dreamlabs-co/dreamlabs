@@ -39,7 +39,7 @@ VEL_SCALE: float = 0.1
 OBS_CLIP: float = 10.0
 ## Width of the observation: q, q-dot, the previous action, then the reference now and the look-ahead as errors.
 OBS_DIM: int = ARM_DOF * 3 + (FUTURE_FRAMES + 1) * ARM_DOF
-## The weights the station runs: the YAM tracker, in the form the module docstring gives.
+## The weights the station runs: our YAM stations' tracker, in the form the module docstring gives.
 WEIGHTS_PATH: pathlib.Path = pathlib.Path(__file__).with_name("tracker.npz")
 
 

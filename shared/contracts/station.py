@@ -20,12 +20,12 @@ SETUP_WIZARD_V2: bool = flag_from_env("DREAM_SETUP_WIZARD_V2", True)
 ## /api/motors/gripper_mit`, `robots.motor_mode.set_mit()` on that arm's CAN link), in place of the four steps that
 ## stop setup and run `dreamcli motors set-mit`. Read on the station, by the wizard process, not by any server.
 ## `DREAM_SETUP_GRIPPER_MIT` sets it (`1`/`true`/`yes`/`on` or `0`/`false`/`no`/`off`); unset or empty is off, the
-## four steps.
+## four steps as before.
 SETUP_GRIPPER_MIT: bool = flag_from_env("DREAM_SETUP_GRIPPER_MIT", False)
 
 ## Whether the station setup page checks each SO-101 calibration file against the arms that are plugged in when an
 ## SO-101 is picked (`GET /api/so101/match`): it reads what each arm's servos hold, without writing a register, and
 ## says per file which arm it matches, that it matches none, or that it is no calibration file at all. Read on the
 ## station, by the wizard process, not by any server. `DREAM_SETUP_SO101_MATCH` sets it (`1`/`true`/`yes`/`on` or
-## `0`/`false`/`no`/`off`); unset or empty is off, the plain file list.
+## `0`/`false`/`no`/`off`); unset or empty is off, the plain file list as before.
 SETUP_SO101_MATCH: bool = flag_from_env("DREAM_SETUP_SO101_MATCH", False)

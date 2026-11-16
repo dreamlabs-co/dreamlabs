@@ -139,7 +139,7 @@ class SeamSmoother:
 
         @param observation The observation a chunk will answer.
         @return Per chunk key, the count, or None when the observation carries no flat pose of that arm that is
-            numbers (then `commanded` may have any length). A non-dict
+            numbers (then `commanded` may have any length, as before arms counted their own joints). A non-dict
             observation carries none; sending it fails.
         """
         out: dict[str, int | None] = {}

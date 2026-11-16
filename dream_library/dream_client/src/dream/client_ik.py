@@ -78,6 +78,10 @@ ARM_HEADER = "x-dream-arm"
 ## The header in which each call to #CHECK_HOST names the `ik` head (#HEADS): with `eef` the client's IK picks the
 ## joints, so the check reads the hands (`dream.check_loop.Plan`); a call to any other host never carries it.
 HEAD_HEADER = "x-dream-head"
+## The header in which each call to #CHECK_HOST names the rows a second the client paces the loop at (its `action_hz`),
+## the rate the check then expects the loop to play (`dream.check_loop.StandIn`); a call to any other host never
+## carries it.
+RATE_HEADER = "x-dream-rate"
 ## The solver's libraries whose loguru lines the client turns off (`logger.enable(name)` turns one back on).
 QUIET_LOGS = ("jaxls", "pyroki")
 
@@ -197,7 +201,7 @@ class ClientIK:
         ## Per side with a `reach`, its points `[n, 2]`, metres, in that arm's base frame (#clamp_to_reach).
         self.reach = _reach(config["reach"], spec.sides) if "reach" in config else {}
         self._solver: Any = ChunkIK(arm, SERVE.tool, action_hz, obstacles)
-        # Both arms in one FK call when they share one arm spec: one compiled FK.
+        # Both arms in one FK call when they share one arm spec: one compiled FK, as before there were specs per side.
         self._one_arm = not isinstance(spec.arm, dict)
         ## Per chunk key, the joints of the arm it drives, as the loop reads and writes them.
         self.joints = {SIDES[side][0]: wire.joints for side, wire in self.wires.items()}

@@ -3,7 +3,7 @@
 Every test drives the loop with the injected `ManualClock`, so tick time never comes from the
 wall clock. Worker threads (the fake policy in `asyncio.to_thread`, the fake capture threads)
 still do real work, and a test waits for them through the event loop rather than by sleeping
-for a control period. Each docstring names the behaviour it pins.
+for a control period. Each docstring names the design-doc section it pins.
 """
 
 import asyncio

@@ -8,10 +8,10 @@ buffered, one per tick from then, as the loop will command them. Each arm's #Arm
 (`FollowerArm.write_motor_command`).
 
 On a station each arm's #ArmMotors runs in that arm's own process (#robots.sys0.arm_process), beside i2rt's motor
-threads and nothing else. In the agent's process the tracker's 4 ms tick would share one interpreter lock with
-three cameras, the control loop and the server, where it waits 50 to 70 ms for it, past #BLOCK_STALE_S, so
-every run stops on the watchdog within a second of the ramp. An arm in this process (the tests) is driven by
-#MotorPath's own thread.
+threads and nothing else. In the agent's process the tracker's 4 ms tick shares one interpreter lock with three
+cameras, the control loop and the server, and on a station it waited 50 to 70 ms for it, past #BLOCK_STALE_S, so
+every run stopped on the watchdog within a second of the ramp. The YAM's follower processes run
+one process per arm for the same reason. An arm in this process (the tests) is driven by #MotorPath's own thread.
 
 Who drives is decided per submission, the way the YAM followers decide it per command:
 

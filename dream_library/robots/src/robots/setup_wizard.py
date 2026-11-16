@@ -42,8 +42,8 @@ file written by hand: it answers #TCP_ROUTES alone and needs no key.
 | `GET /api/reference_arm` | the URDF step's example arm, a YAM with its tool point (#robots.setup_view.reference()) |
 | `GET /api/files?dir=` | a folder of this computer, for the driver's file picker (#robots.setup_files.folder()) |
 | `GET /api/classes?file=` | the classes a Python file defines, read, not run (#robots.setup_files.classes()) |
-| `POST /api/urdf` | `{"urdf"}`: its links at the arm's zero, a guess of base and flange (SetupServer.read_urdf()) |
-| `POST /api/arm_file` | the URDF, its links, the tool point, `tcp_calibration`, `fixed` (SetupServer.add_arm()) |
+| `POST /api/urdf` | `{"urdf"}`: its links at the arm's zero and a guess of base and flange (SetupServer.read_urdf()) |
+| `POST /api/arm_file` | the URDF, its base and flange, the tool point and `tcp_calibration` (SetupServer.add_arm()) |
 | `POST /api/robot` | `{"body"}`, with `calibration` and `embodiment` (null for a new one) on an SO-101; `{"custom"}` |
 | `POST /api/arms/typed` | `{"address"}`: an arm the scan misses, as its driver opens it (SetupServer.type_arm()) |
 | `POST /api/cameras/typed` | `{"address"}`: a camera the scan misses, address or class (SetupServer.type_camera()) |
@@ -1085,21 +1085,10 @@ class SetupServer:
 
         @param body `{"urdf"}`: the URDF's text.
         @return #robots.setup_urdf.read() plus `most_joints`, the most moving joints the loop drives per arm
-            (`robots.followers.MAX_JOINTS`), which the page holds the chosen chain to, and `joint_map` (joint_map()).
+            (`robots.followers.MAX_JOINTS`), which the page holds the chosen chain to.
         @throws ValueError The text is not a URDF whose links hang from one root.
         """
-        tree = setup_urdf.read(_text(body, "urdf"))
-        return {**tree, "most_joints": followers.MAX_JOINTS, "joint_map": self.joint_map()}
-
-    def joint_map(self) -> dict[str, Any] | None:
-        """The URDF joints the robot drives, which the page holds the chain's moving joints to.
-
-        None here: the arm the URDF step builds is its own embodiment's (_zero_shot_embodiment()), so it drives every
-        joint of the chain. `dreamcli tcp` reads the station file's (TcpServer.joint_map()).
-
-        @return None.
-        """
-        return None
+        return {**setup_urdf.read(_text(body, "urdf")), "most_joints": followers.MAX_JOINTS}
 
     def add_arm(self, body: dict[str, Any]) -> dict[str, Any]:
         """Takes the URDF of an arm of your own, so dream's IK solves it and Dream Labs' base models run on it.
@@ -1111,12 +1100,11 @@ class SetupServer:
         (`robots.kinematics.TCP_CALIBRATION`), which every launch checks (`robots.run.check_tool_point()`). A second
         upload of the same name writes the files again. The arm's embodiment is the pick's (_picked_embodiment()).
 
-        @param body `{"filename", "urdf", "base", "flange", "tcp", "approach", "jaw", "tcp_calibration", "fixed"}`:
-            the URDF's file name and text, the link the hand's pose is measured from, the link the gripper hangs off,
-            the tool's point (metres) and its approach and jaw axes in the flange's frame, `calibrated` (Set tool
-            center point, recorded with `dream.arm_file.tool_digest()`, which dream checks at `policy()`) or `skipped`
-            (Skip calibration, confirmed), and the chain's joints the operator said the robot holds still (the arm
-            file's `fixed`, `dream.arm_file.FIXED_KEY`; written only when there are any).
+        @param body `{"filename", "urdf", "base", "flange", "tcp", "approach", "jaw", "tcp_calibration"}`: the URDF's
+            file name and text, the link the hand's pose is measured from, the link the gripper hangs off, the tool's
+            point (metres) and its approach and jaw axes in the flange's frame, and `calibrated` (Set tool center
+            point, recorded with `dream.arm_file.tool_digest()`, which dream checks at `policy()`) or `skipped` (Skip
+            calibration, confirmed).
         @return `{"ik", "joints"}`: the arm file's path (the config's `custom.ik`) and the arm's joints from `base`.
         @throws ValueError A field is missing or malformed.
         @throws ConfigError dream cannot build the arm from the URDF, links and axes given; the message says why.
@@ -1131,14 +1119,11 @@ class SetupServer:
             raise ValueError(
                 f"'{kinematics.TCP_CALIBRATION}' must be one of {list(kinematics.TCP_STATUSES)}, got {status!r}"
             )
-        fixed = body.get(arm_file.FIXED_KEY)
-        if not isinstance(fixed, list) or not all(isinstance(joint, str) for joint in fixed):
-            raise ValueError(f"'{arm_file.FIXED_KEY}' must be a list of the chain's joints your robot holds still")
         folder = self.config_path.parent / ARMS_DIR
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / f"{name}.json"
         try:
-            _, joints, limits, _ = arm_file._chain(urdf.encode("utf-8"), base, flange, tuple(fixed), path)
+            _, joints, limits, _ = arm_file._chain(urdf.encode("utf-8"), base, flange, path)
         except dream.DreamConfigError as exc:
             raise errors.ConfigError(str(exc)) from exc
         rest = [min(max(0.0, lo), hi) for lo, hi in limits]
@@ -1149,8 +1134,6 @@ class SetupServer:
         if status == "calibrated":
             record["digest"] = arm_file.tool_digest(arm, (folder / f"{name}.urdf").read_bytes())
         arm[kinematics.TCP_CALIBRATION] = record
-        if fixed:
-            arm[arm_file.FIXED_KEY] = fixed
         path.write_text(json.dumps(arm, indent=2) + "\n", encoding="utf-8")
         kinematics.arm_layout(str(path))
         return {"ik": str(path), "joints": list(joints)}
@@ -1585,8 +1568,7 @@ class TcpServer(SetupServer):
 
     The wizard's server answering #TCP_ROUTES only: the page opens on the URDF step alone (state()), and its "Set
     tool center point" writes the arm file SetupServer.add_arm() writes, beside the station file. It opens no arm or
-    camera; of the account it asks only the station file's embodiment, whose joint map the page holds the chain to
-    (joint_map()).
+    camera and asks nothing of the account.
     """
 
     def state(self) -> dict[str, Any]:
@@ -1595,32 +1577,6 @@ class TcpServer(SetupServer):
         @return The dict.
         """
         return {**super().state(), "tool": "tcp"}
-
-    def joint_map(self) -> dict[str, Any] | None:
-        """The URDF joints the station file's embodiment (`custom.embodiment`) drives, asked of the account.
-
-        They are its config's `urdf.joints` (`shared.datasets.embodiments.Urdf.joints`). With none to read, the page
-        asks about every moving joint of the chain; when the account could not be asked, it says why first, never
-        falling back silently (2026-10-18).
-
-        @return `{"embodiment", "joints", "error"}`: the embodiment's name, None when the file names none; its joints,
-            sorted, None when its config has no URDF or the account could not be asked; and why it could not be
-            asked, one line, else None.
-        """
-        name = _section(self.existing, "custom").get("embodiment")
-        if name is None:
-            return {"embodiment": None, "joints": None, "error": None}
-        if self.account.api_key is None:
-            error = f"could not read {name}'s joints: your credentials hold no API key"
-            return {"embodiment": name, "joints": None, "error": error}
-        try:
-            config = self._embodiment(name).embodiment_config
-        except ValueError as exc:
-            return {"embodiment": name, "joints": None, "error": f"could not read {name}'s joints: {exc}"}
-        if "urdf" not in config:
-            return {"embodiment": name, "joints": None, "error": None}
-        joints = sorted({joint for names in config["urdf"]["joints"].values() for joint in names})
-        return {"embodiment": name, "joints": joints, "error": None}
 
     def add_arm(self, body: dict[str, Any]) -> dict[str, Any]:
         """SetupServer.add_arm(), with the arm file's path in the terminal too.
@@ -2089,8 +2045,7 @@ def tcp_main(config_path: pathlib.Path, *, host: str | None, port: int | None, b
 
     For a station file written by hand (`dreamcli setup`, Set it up myself): the operator gives the arm's URDF, its end
     and its tool point on the page, and "Set tool center point" writes the arm file to #ARMS_DIR beside `config_path`,
-    the path the file's `custom.ik` takes. The credentials give the page the platform's address; no key is needed,
-    though with one the page holds the arm's joints to the station file's embodiment (TcpServer.joint_map()).
+    the path the file's `custom.ik` takes. The credentials give the page the platform's address; no key is needed.
 
     @param config_path The station file (`robots.cli.Paths.config`); the arm files are written beside it.
     @param host Bind address; #DEFAULT_HOST when None.

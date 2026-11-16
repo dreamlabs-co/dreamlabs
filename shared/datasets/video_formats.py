@@ -43,8 +43,8 @@ class VideoFormat:
 ## table fails for an entry without one), and a GPU qualification on a dataset in it,
 ## since the trainer must decode it too. Three are what LeRobot records: AV1 by default (`libsvtav1`), H.264 and
 ## HEVC when the recorder picks them or a hardware encoder does, and HEVC for depth cameras. VP9 is what the
-## robots run recorder writes (`robots.rollouts`, `libvpx-vp9`: the library opens no GPL x264 encoder), so a
-## station's recordings upload as they are; decord2's FFmpeg decodes it natively. One
+## robots run recorder writes (`robots.rollouts`, `libvpx-vp9` since the library stopped opening the GPL x264
+## encoder, PR #921), so a station's recordings upload as they are; decord2's FFmpeg decodes it natively. One
 ## codec can have two tags: FFmpeg, and so LeRobot, writes HEVC as `hev1`, Apple's tools as `hvc1`. An audio track
 ## beside the video is allowed (the probe decodes nothing; the trainer's FFmpeg may decode it while opening the
 ## file); a subtitle track is refused (probe()), so no subtitle code of the trainer's FFmpeg ever reads a customer's

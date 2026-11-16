@@ -134,8 +134,8 @@ def glb(data: dict[str, object], binary: bytes) -> bytes:
 
 
 def test_a_glb_or_gltf_mesh_is_drawn_in_its_links_frame_with_its_own_node_turns(tmp_path: pathlib.Path) -> None:
-    """A robot whose URDF names .glb meshes is drawn with them, not as sticks. A made-up triangle in a glTF whose
-    node turns it a quarter about x and lifts it: the view's own
+    """A robot whose URDF names .glb meshes was drawn as sticks: the view read STL, OBJ and
+    COLLADA only. A made-up triangle in a glTF whose node turns it a quarter about x and lifts it: the view's own
     loader, under node with three.js as the page's import map pins it (each file checked against its hash), draws it
     where the node puts it in the link's frame, with no turn for glTF's y up, as ROS does; as a .glb, an upper-case
     .GLB, or a .gltf whose buffer is a file beside it. A .gltf whose buffer the zip lacks is not drawn, so the page

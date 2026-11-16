@@ -5,9 +5,7 @@ malformed file is a `DreamConfigError` naming what to fix."""
 from __future__ import annotations
 
 import json
-import math
 import pathlib
-import re
 import warnings
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -191,9 +189,6 @@ def test_the_speed_caps_are_the_urdfs_at_most_yams(tmp_path: pathlib.Path) -> No
         ({"rest": {"right": [0.0] * 6}}, "rest must be the arm's joints in radians"),
         ({"urdf": "missing.urdf"}, "is not a file"),
         ({"hz": 30}, "must be an object with the keys"),
-        ({"fixed": "joint6"}, "fixed must be a list of joint names"),
-        ({"fixed": ["finger_joint"]}, "fixed names 'finger_joint', which is not a moving joint on the chain"),
-        ({"fixed": ["joint6"]}, "rest has 6 joints, the chain from 'base_link' to 'link6' has 5"),
     ],
     ids=[
         "no_such_flange",
@@ -206,9 +201,6 @@ def test_the_speed_caps_are_the_urdfs_at_most_yams(tmp_path: pathlib.Path) -> No
         "rest_per_side",
         "no_urdf",
         "extra_key",
-        "fixed_not_a_list",
-        "fixed_off_the_chain",
-        "fixed_left_in_rest",
     ],
 )
 def test_a_bad_arm_file_is_a_config_error(tmp_path: pathlib.Path, changes: dict[str, Any], message: str) -> None:
@@ -216,90 +208,13 @@ def test_a_bad_arm_file_is_a_config_error(tmp_path: pathlib.Path, changes: dict[
         arm_file.register(str(write(tmp_path, **changes)))
 
 
-@pytest.mark.parametrize(
-    ("limit", "speed"),
-    [("", arm_file.MAX_SPEED), ('<limit effort="30" velocity="1.5"/>', 1.5)],
-    ids=["no_limit", "velocity_only"],
-)
-def test_a_continuous_joint_on_the_chain_turns_a_full_turn_each_way(
-    tmp_path: pathlib.Path, limit: str, speed: float
-) -> None:
-    """A continuous joint, as a URDF writes a hand mount that turns without end (a humanoid's hand mount roll,
-    2026-10-18: `dreamcli tcp` refused it), is solved as a revolute one within [-pi, pi] at its velocity, at most
-    YAM's: pyroki builds the arm from the cut URDF, which it refuses with no limits on a continuous joint, and the
-    arm's poses are Metal's."""
+def test_a_continuous_joint_on_the_chain_is_a_config_error(tmp_path: pathlib.Path) -> None:
     urdf = (dream_ik_specs.ASSETS / "metal.urdf").read_text()
-    continuous = re.sub(
-        r'(<joint name="joint1") type="revolute">(.*?)<limit [^>]*/>',
-        rf'\1 type="continuous">\2{limit}',
-        urdf,
-        count=1,
-        flags=re.DOTALL,
-    )
-    assert 'name="joint1" type="continuous"' in continuous
-    name = arm_file.register(str(write(tmp_path, continuous)))
-    spec = dream_ik_specs.EMBODIMENTS[name].arm
-    assert spec.max_speed[0] == speed
-    cut = ET.parse(spec.urdf).getroot().find("joint[@name='joint1']")
-    assert cut is not None and cut.get("type") == "revolute"
-    ours, metal = ChunkIK(name, "tcp", 30.0), ChunkIK("metal", "tcp", 30.0)
-    assert (ours.lo[0], ours.hi[0]) == pytest.approx((-math.pi + spec.limit_margin, math.pi - spec.limit_margin))
-    q = np.random.default_rng(1).uniform(metal.lo, metal.hi, (20, 6))  # (poses, joints)
-    assert np.allclose(ours.fk(q), metal.fk(q), atol=1e-6)
-
-
-def test_a_joint_the_file_holds_still_is_cut_at_its_zero(tmp_path: pathlib.Path) -> None:
-    """`fixed` names a chain joint the robot holds still though the URDF lets it move (a passive mount, set by a
-    person on the setup page): the arm is the chain's other joints, and its poses are Metal's with that joint at 0."""
-    name = arm_file.register(str(write(tmp_path, fixed=["joint6"], rest=METAL["rest"][:5])))
-    spec = dream_ik_specs.EMBODIMENTS[name].arm
-    assert spec.joints == dream_ik_specs.EMBODIMENTS["metal"].arm.joints[:5]
-    ours, metal = ChunkIK(name, "tcp", 30.0), ChunkIK("metal", "tcp", 30.0)
-    q = np.random.default_rng(2).uniform(metal.lo, metal.hi, (20, 6))  # (poses, joints)
-    q[:, 5] = 0.0
-    assert np.allclose(ours.fk(q[:, :5]), metal.fk(q), atol=1e-6)
-
-
-## A made-up humanoid's left side, base to hand: a three-joint torso, the arm's seven joints on it, and the hand on a
-## mount that turns without end (`continuous`, no limits), as a humanoid's URDF may write it.
-HUMANOID_LEFT = (
-    '<robot name="humanoid"><link name="base"/>'
-    + "".join(
-        f'<link name="{child}"/>'
-        f'<joint name="{joint}" type="{"continuous" if joint == "L_hand_roll" else "revolute"}">'
-        f'<parent link="{parent}"/><child link="{child}"/><origin xyz="0 0 0.1"/><axis xyz="0 {i % 2} {1 - i % 2}"/>'
-        + ("" if joint == "L_hand_roll" else '<limit lower="-1.5" upper="1.5" velocity="2"/>')
-        + "</joint>"
-        for i, (joint, parent, child) in enumerate(
-            [("torso_j1", "base", "torso_1"), ("torso_j2", "torso_1", "torso_2"), ("torso_j3", "torso_2", "torso_3")]
-            + [(f"L_arm_j{n}", "torso_3" if n == 1 else f"L_arm_{n - 1}", f"L_arm_{n}") for n in range(1, 8)]
-            + [("L_hand_roll", "L_arm_7", "L_hand")]
-        )
-    )
-    + "</robot>"
-)
-
-
-def test_a_humanoids_left_arm_builds_through_its_continuous_hand_mount(tmp_path: pathlib.Path) -> None:
-    """A humanoid's chain like the one `dreamcli tcp` refused (2026-10-18), base to hand: a three-joint torso, the
-    arm's seven and the hand mount's continuous roll. It builds either way a person answers the page: every joint
-    moving (eleven, the mount within a full turn), or the torso and the mount held still (the arm's own seven), whose
-    poses are the eleven's with those at 0."""
-    (tmp_path / "humanoid.urdf").write_text(HUMANOID_LEFT)
-    humanoid = {**METAL, "urdf": "humanoid.urdf", "base": "base", "flange": "L_hand"}
-    arm = [f"L_arm_j{i}" for i in range(1, 8)]
-    held = ["torso_j1", "torso_j2", "torso_j3", "L_hand_roll"]
-    rest = [0.0] * 11  # every joint's zero is inside its limits
-    (tmp_path / "all.json").write_text(json.dumps({**humanoid, "rest": rest}))
-    (tmp_path / "arm.json").write_text(json.dumps({**humanoid, "rest": rest[:7], "fixed": held}))
-    every = arm_file.register(str(tmp_path / "all.json"))
-    own = arm_file.register(str(tmp_path / "arm.json"))
-    assert dream_ik_specs.EMBODIMENTS[every].arm.joints == ("torso_j1", "torso_j2", "torso_j3", *arm, held[3])
-    assert dream_ik_specs.EMBODIMENTS[own].arm.joints == tuple(arm)
-    eleven, seven = ChunkIK(every, "tcp", 30.0), ChunkIK(own, "tcp", 30.0)
-    q = np.random.default_rng(3).uniform(seven.lo, seven.hi, (20, 7))  # (poses, arm joints)
-    q11 = np.concatenate([np.zeros((20, 3)), q, np.zeros((20, 1))], axis=1)  # (poses, torso + arm + mount)
-    assert np.allclose(seven.fk(q), eleven.fk(q11), atol=1e-6)
+    first = next(j for j in ET.fromstring(urdf).findall("joint") if j.get("type") == "revolute").get("name")
+    continuous = urdf.replace(f'name="{first}" type="revolute"', f'name="{first}" type="continuous"')
+    assert continuous != urdf
+    with pytest.raises(DreamConfigError, match=f"joint '{first}' between 'base_link' and 'link6' is continuous"):
+        arm_file.register(str(write(tmp_path, continuous)))
 
 
 def test_a_file_that_is_not_json_is_a_config_error(tmp_path: pathlib.Path) -> None:

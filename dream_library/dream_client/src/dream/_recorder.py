@@ -22,8 +22,8 @@ Recording is best effort, and get_action() always comes first:
   it finishes at most the one message it is in the middle of. The socket keeps what the kernel queues small, as
   `dream.LiveViewClient`'s does, so that message is short.
 - A link the live service refuses as record-only (#CLOSE_RECORD_OFF, or #CLOSE_PROTOCOL from a service that does not
-  know the mode) ends recording for the rest of the policy, with one DEBUG line on the `dream` logger: a platform
-  that does not take recordings refuses, which is an expected outcome, not a fault of the caller's. A key refusal
+  know the mode) ends recording for the rest of the policy, with one DEBUG line on the `dream` logger: every platform
+  but dev refuses today, so this is the expected outcome there, not a fault of the caller's. A key refusal
   (#CLOSE_UNAUTHORIZED, #CLOSE_NOT_FOUND, #CLOSE_REVOKED) is retried after #REFUSAL_WAIT_S; anything else, a network
   fault, another close or no `hello_ok` within #HELLO_TIMEOUT_S, after a jittered backoff from #LINK_RECONNECT_MIN_S
   to #LINK_RECONNECT_MAX_S. Failures are counted in stats() and logged at DEBUG at most once a minute per kind;

@@ -291,7 +291,8 @@ def test_up_reports_an_agent_that_dies_while_opening_the_cameras_not_a_false_sta
 def test_up_says_why_a_start_failed_first_even_under_a_long_traceback(
     home: cli.Paths, agent: Callable[[str], list[str]]
 ) -> None:
-    """When `robot up` exits within seconds, the cause is not lost in the log: the station's could-not-start line
+    """A YAM station: `robot up` exited within seconds and the cause was lost in the log. The station's could-not-start
+    line
     (`robots.startup_failure`) is printed first, however long the traceback after it, and only this start's."""
     home.log.write_text(f"{cli.LOG_HEADER} earlier\n{startup_failure.MARKER}an arm: old Fix: old\n", encoding="utf-8")
     out = io.StringIO()

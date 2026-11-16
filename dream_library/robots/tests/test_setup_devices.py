@@ -138,10 +138,10 @@ def test_arm_adapters_are_named_by_serial_and_only_fall_back_to_the_port(tree: p
 
 
 def test_adapters_that_share_a_serial_or_have_none_are_named_by_their_usb_port(tree: pathlib.Path) -> None:
-    """Both Damiao USB2CAN bridges on a reBot report serial 00000000050C, so udev makes one by-id
-    link, pointing at whichever came up last: named by it, the wizard would find one adapter of two and a replug could
-    swap the arms. Each is named by its USB port, as is an adapter with no serial and a CAN adapter whose serial
-    another shares; a `usbv2-` spelling or a local alias is not a name."""
+    """Both Damiao USB2CAN bridges on a reBot report serial 00000000050C: udev made one by-id
+    link, pointing at whichever came up last, so the wizard found one adapter of two and a replug could swap the arms.
+    Each is named by its USB port now, as is an adapter with no serial and a CAN adapter whose serial another shares; a
+    `usbv2-` spelling or a local alias is not a name."""
     dev, by_id, by_path, tty = (tree / name for name in ("dev", "serial-by-id", "serial-by-path", "tty"))
     damiao = ("2e88", "4603", "HDSC CDC Device")
     shared = "00000000050C"

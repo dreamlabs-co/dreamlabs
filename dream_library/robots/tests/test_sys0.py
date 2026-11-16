@@ -117,7 +117,7 @@ def _path(clock: conftest.ManualClock | None = None) -> tuple[motors.MotorPath, 
 
 
 def test_bundled_network_answers_what_the_station_checkpoint_answers() -> None:
-    """Golden actions from the tracker's PyTorch checkpoint, for three fixed observations."""
+    """Golden actions from our YAM stations' tracker in PyTorch, for three fixed observations."""
     net = policy.load()
     golden = {
         0.0: [-0.023347, -0.030628, 0.042198, -0.025848, 0.019952, -0.010469, -0.002534],
@@ -620,7 +620,7 @@ class _Bus:
 
 
 def test_fast_driver_loop_lets_the_robot_loop_take_the_lock_between_cycles() -> None:
-    """On Python 3.10, i2rt's sleep(0) keeps the lock from the robot loop (3.12 hands it over anyway)."""
+    """i2rt's sleep(0) kept the lock from the robot loop on Python 3.10 (a station's; 3.12 hands it over anyway)."""
     bus = _Bus()
     driver = threading.Thread(target=fast_loop._driver_loop, args=(bus,), daemon=True)
     driver.start()

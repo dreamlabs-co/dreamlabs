@@ -15,7 +15,9 @@ import json
 import math
 import pathlib
 import re
+import subprocess
 import sys
+import threading
 import urllib.request
 import warnings
 from collections.abc import Callable, Sequence
@@ -61,6 +63,10 @@ class Faults:
     - invert_grip: The loop sends the gripper the wrong way round.
     - play_hz: Rows a second the loop actually plays (it believes it plays ROW_HZ).
     - degrees: The loop sends degrees where the robot reads radians.
+    - wobble: Once the hold is over, each joint reads this far off (radians), a sine of its own: an arm that follows
+      its commands less closely, every joint alike.
+    - weak: A joint (0-based) and the share of the way from where it stood to its targets it goes: a joint that sags
+      under its weight or sticks, as on low position gains.
     """
 
     swap: tuple[int, int] | None = None
@@ -70,6 +76,8 @@ class Faults:
     invert_grip: bool = False
     play_hz: float = ROW_HZ
     degrees: bool = False
+    wobble: float = 0.0
+    weak: tuple[int, float] | None = None
 
 
 @dataclasses.dataclass
@@ -99,6 +107,7 @@ def run(
     tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
     refill: int = 0,
+    paced: float | None = None,
     **options: Any,
 ) -> tuple[list[str], check_loop.StandIn]:
     """Runs the plan on the simulated robot through the real client and returns the lines the check prints.
@@ -111,11 +120,13 @@ def run(
     @param monkeypatch Points the client at the stand-in.
     @param refill Rows of a chunk left when the loop asks for the next one, which then replaces them (0: it plays
         every row first).
+    @param paced The client's `action_hz`, which the check then takes for the rate, given no `--rate`; None for the
+        client's default and `--rate` #ROW_HZ.
     @param options More #check_loop.StandIn options (`view`).
     @return Each line as printed, and the stand-in after the run.
     """
     clock = Clock()
-    stand_in = check_loop.StandIn(rate=ROW_HZ, clock=clock, **options)
+    stand_in = check_loop.StandIn(rate=ROW_HZ if paced is None else None, clock=clock, **options)
     monkeypatch.setenv("DREAM_GATEWAY_URL", stand_in.serve(0))
     arms = {side: arm.pose.copy() for side in ("right", "left")}
     history: list[tuple[float, dict[str, np.ndarray]]] = []
@@ -124,7 +135,8 @@ def run(
     dt = 1 / faults.play_hz
     try:
         with dream.DreamClient() as client:
-            client.policy({"checkpoint": "dreamlabs/dream-1-beta", "embodiment": YAM})
+            pacing = {} if paced is None else {"action_hz": paced}
+            client.policy({"checkpoint": "dreamlabs/dream-1-beta", "embodiment": YAM, **pacing})
             for tick in range(int(80 * faults.play_hz)):
                 observation: dict[str, Any] = {"prompt": "check the loop"}
                 for side in ("right", "left"):
@@ -242,6 +254,14 @@ def test_lagging_joint_is_a_lag_problem(tmp_path: pathlib.Path, monkeypatch: pyt
     assert status["lag and tracking"] == "PROBLEM", lines
     late = next(line for line in lines if "lag and tracking" in line)
     assert "joint 3" in late and "the rest is on time, so the joints that move it follow" in late, late
+    assert "by joint" not in late, late  # the line reads the joints already
+    # The circle reads the hands, so its PROBLEM names the joints behind it.
+    circle = next(line for line in lines if line[9:].startswith("circle"))
+    assert re.search(
+        r"by joint, (left|right)_arm joint 3 followed x1\.00 of its command, 0\.\d\d s late, "
+        r"(left|right)_arm joint 3 followed",
+        circle,
+    ), circle
     assert status["hold"] == status["right part moved"] == status["play rate"] == "PASS", lines
     # The together-motion caught it; then only the two joints 3 moved alone.
     assert (
@@ -270,6 +290,15 @@ def test_inverted_gripper_is_caught(tmp_path: pathlib.Path, monkeypatch: pytest.
     status = _status(lines)
     assert status["direction and size"] == "PROBLEM", lines
     assert "gripper closed when told to open" in next(line for line in lines if "direction and size" in line)
+
+
+def test_the_rate_the_client_paces_at_is_the_rate_the_loop_means(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With no --rate, a loop that plays 30 rows a second, its client paced at 30, passes: each call names its rate."""
+    lines, _ = run(Faults(play_hz=30.0), SIM_YAM, tmp_path, monkeypatch, paced=30.0)
+    assert set(_status(lines).values()) == {"PASS"}, lines
+    assert next(line for line in lines if "play rate" in line).endswith("(your client's action_hz 30)"), lines
 
 
 def test_slow_play_is_a_rate_problem(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -309,7 +338,7 @@ def run_direct(
             observation: dict[str, Any] = {f"state.{k}": v for k, v in report().items()}
             if robot is not None:
                 observation["embodiment"] = robot
-            reply = stand_in.answer({"session_id": session, "observation": observation}, None, None)
+            reply = stand_in.answer({"session_id": session, "observation": observation}, None, None, None)
             session = reply["session_id"]
             if reply["actions"] is None:
                 break  # the stand-in has finished or stopped
@@ -412,6 +441,24 @@ def test_a_metal_arm_named_by_its_hand_poses_circles_in_its_joints_and_a_swapped
     assert stand_in.read_as() == "metal arms"
     lines, _ = run_metal(Faults(swap=(3, 5)))  # both wrist joints at 0
     assert _status(lines)["right part moved"] == "PROBLEM", lines
+
+
+def test_after_judging_the_parts_move_alone_from_the_row_due_then(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Judging the together-motion inside a call takes time, while the loop holds where it ended; the loop then starts
+    the answer at the row due when it lands (the clock row), so the first part moves alone from there."""
+    judge = check_loop._judge
+
+    def slow(stand_in: check_loop.StandIn) -> tuple[list[check_loop.Line], list[check_loop.Channel]]:
+        stand_in.clock.t += 0.5  # type: ignore[attr-defined]  # the fake #Clock
+        return judge(stand_in)
+
+    monkeypatch.setattr(check_loop, "_judge", slow)
+    _, stand_in = run_metal(Faults(swap=(3, 5)))
+    assert stand_in.plan is not None and stand_in.alone, stand_in.first
+    together = next(s for s in stand_in.plan.segments if s.kind == "together")
+    judged = next(c for c in stand_in.calls if c.row >= together.end)
+    alone = next(s for s in stand_in.plan.segments if s.kind == "joint")
+    assert alone.start == judged.row + round(0.5 * ROW_HZ)
 
 
 def test_the_arm_is_read_from_the_first_call() -> None:
@@ -526,8 +573,11 @@ def run_ik(
             client.policy({"checkpoint": record["id"], "ik": {"arm": arm, "head": "eef", "solve": solve}})
             for tick in range(int(120 * ROW_HZ)):
                 observation: dict[str, Any] = {"prompt": "check the loop"}
+                t = tick / ROW_HZ
+                # (joints,): each joint off by its own sine once the hold is over
+                off = faults.wobble * np.sin(2 * math.pi * t / 1.3 + np.arange(6)) * (t > check_loop.HORIZON / ROW_HZ)
                 for side, value in arms.items():
-                    observation[f"state.{side}_arm"] = value[:-1].copy()
+                    observation[f"state.{side}_arm"] = value[:-1] + off
                     observation[f"state.{side}_grip"] = value[-1:].copy()
                 client.set_observation({"video.top": _picture(f"top {tick}")}, observation, timestamp=clock.t)
                 if not rows:
@@ -537,7 +587,11 @@ def run_ik(
                         break  # the stand-in has finished or stopped
                     rows = list(zip(np.asarray(action["q_r_chunk"]), np.asarray(action["q_l_chunk"]), strict=True))
                 for side, row in zip(("right", "left"), rows.pop(0), strict=True):
-                    arms[side] = _servo(arms[side], _through_loop(np.asarray(row), faults), 1 / ROW_HZ, limits)
+                    target = _through_loop(np.asarray(row), faults)
+                    if faults.weak is not None:
+                        joint, share = faults.weak
+                        target[joint] = pose[joint] + share * (target[joint] - pose[joint])
+                    arms[side] = _servo(arms[side], target, 1 / ROW_HZ, limits)
                 clock.t += 1 / ROW_HZ
     finally:
         stand_in.close()
@@ -604,6 +658,22 @@ def test_from_the_metal_home_the_clients_ik_is_judged_by_where_the_hands_go(monk
     assert "PROBLEM" in _status(joints).values(), joints
 
 
+@pytest.mark.parametrize(("wobble", "status"), [(math.radians(0.5), "PASS"), (math.radians(2.0), "PROBLEM")])
+def test_a_hand_the_clients_ik_drives_may_miss_what_its_joints_each_within_a_degree_do(
+    wobble: float, status: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each joint of a Metal arm half a degree off adds up to more than a degree at the hand's turn: within what six
+    joints each within the joint limit give it, a PASS. Two degrees each is a PROBLEM."""
+    lines, _ = run_ik(
+        client_ik.CHECK_HOST, "metal", METAL_HOME, METAL_RECORD, "traj", Faults(wobble=wobble), monkeypatch
+    )
+    assert _status(lines)["lag and tracking"] == status, lines
+    assert _status(lines)["hold"] == "PASS", lines
+    late = next(line for line in lines if line[9:].startswith("lag and tracking"))
+    # Every joint off alike: no one joint explains it, though the IK keeps the elbow off the limit it starts at.
+    assert ("no one joint explains it" in late) == (status == "PROBLEM") and "_arm joint" not in late, late
+
+
 def test_a_joint_the_loop_flips_after_the_clients_ik_sends_the_hand_the_other_way(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -618,6 +688,47 @@ def test_a_joint_the_loop_flips_after_the_clients_ik_sends_the_hand_the_other_wa
     assert _status(lines)["direction and size"] == "PROBLEM", lines
     assert "right hand moved x0." in next(line for line in lines if "direction and size" in line), lines
     assert stand_in.plan is not None
+
+
+def test_a_hand_problem_names_the_joint_that_follows_least(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each elbow (joint 3) going a seventh of the way to its targets sends each hand short of its moves, and the
+    lines that read the hands are PROBLEMs; each names the elbows, their follow ratio and lag, against the rest of the
+    joints, read from the calls. A PASS line names no joint."""
+    lines, _ = run_ik(
+        client_ik.CHECK_HOST, "metal", METAL_POSE, METAL_RECORD, "traj", Faults(weak=(2, 0.15)), monkeypatch
+    )
+    status = _status(lines)
+    hands = ("direction and size", "lag and tracking", "circle")
+    assert all(status[name] == "PROBLEM" for name in hands), lines
+    for line in lines:
+        if line[9:].startswith(hands):
+            assert re.search(
+                r"; by joint, (right|left)_arm joint 3 followed x0\.1\d of its command, 0\.\d\d s late, "
+                r"(right|left)_arm joint 3 followed x0\.1\d of its command, 0\.\d\d s late "
+                r"\(the other joints x(0\.9\d|1\.0\d) to x1\.0\d\)$",
+                line,
+            ), line
+        else:
+            assert "by joint" not in line, line
+
+
+def test_the_loop_line_names_every_line_that_did_not_pass() -> None:
+    """The LOOP verdict names each line that did not pass, in the order they ran, then the first one's words."""
+    from dream import check
+
+    lines = [
+        check_loop.Line("PASS", "hold", "nothing moved during the hold (calls: 1)"),
+        check_loop.Line("PROBLEM", "direction and size", "right hand moved x0.6 of its command"),
+        check_loop.Line("PROBLEM", "lag and tracking", "left hand is 0.42 s behind"),
+        check_loop.Line("PASS", "play rate", "the loop played 20.0 rows a second"),
+        check_loop.Line("PROBLEM", "circle", "the right hand traced a flat band"),
+    ]
+    assert check.loop_verdict(lines) == (
+        "LOOP:   PROBLEM 3 lines (direction and size, lag and tracking, circle); the first, direction and size: "
+        "right hand moved x0.6 of its command"
+    )
+    assert check.loop_verdict(lines[:2]) == "LOOP:   PROBLEM direction and size: right hand moved x0.6 of its command"
+    assert check.loop_verdict(lines[:1]) == "LOOP:   PASS    your loop moved the arms as told"
 
 
 def test_a_hands_turn_is_read_about_the_bases_axes() -> None:
@@ -640,7 +751,7 @@ def test_a_first_call_that_names_no_arm_is_refused_before_anything_moves() -> No
 
     stand_in = check_loop.StandIn(rate=ROW_HZ, clock=Clock())
     observation = {"state.right_arm": [0.0] * 7, "state.right_gripper": [0.5]}
-    reply = stand_in.answer({"session_id": None, "observation": observation}, None, None)
+    reply = stand_in.answer({"session_id": None, "observation": observation}, None, None, None)
     assert reply["actions"] is None and stand_in.plan is None
     loop = check.loop_verdict(check_loop.judge(stand_in))
     assert loop.startswith("LOOP:   PROBLEM hold: stopped: the first call names no arm the check knows"), loop
@@ -937,6 +1048,22 @@ def test_nothing_starts_until_the_workspace_is_clear(
     assert ("Not started: nothing moved." in capsys.readouterr().out) is not starts
 
 
+def test_what_the_arms_need_loads_before_the_start_words() -> None:
+    """dream's IK decoder and the URDF reader load before the check asks for the start words, not at the loop's first
+    call: on a fresh install their first import is slow, and made while the arms moved it slowed the first run."""
+    probe = (
+        "import builtins, sys\n"
+        "def ask(prompt):\n"
+        "    print('not loaded:', [m for m in ('dream_ik.decode', 'yourdfpy') if m not in sys.modules])\n"
+        "    return 'no'\n"
+        "builtins.input = ask\n"
+        "from dream import check_loop\n"
+        "check_loop.main([])\n"
+    )
+    ran = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, timeout=300, check=False)
+    assert "not loaded: []" in ran.stdout, ran.stdout + ran.stderr
+
+
 def test_check_serves_nothing_until_the_words_are_typed(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1006,7 +1133,7 @@ def test_a_camera_history_at_the_wrong_rate_is_an_inputs_problem_without_asking(
 def _rate(history_hz: float, every_s: float, still: bool = False) -> check_loop.Line:
     """camera_rate over 15 s of calls `every_s` apart, each sending the newest 9 frames of a history that keeps
     `history_hz` frames a second (one picture on every frame when `still`)."""
-    stand_in = check_loop.StandIn(clock=Clock())
+    stand_in = check_loop.StandIn(rate=ROW_HZ, clock=Clock())
     for t in np.arange(0, 15, every_s):
         kept = int(t * history_hz) + 1
         window = tuple(0 if still else n for n in range(max(0, kept - 9), kept))
@@ -1108,6 +1235,293 @@ def test_a_recording_the_check_cannot_read_is_said_before_the_arms_move_and_skip
     assert line == f"{check.UNREAD} episode_000000.mp4: no such video"
 
 
+## A first call from a YAM pair standing at #POSE, naming its checkpoint.
+YAM_CALL = {
+    "session_id": None,
+    "checkpoint": "dream-1-ft:0a0b-mine",
+    "observation": {
+        f"state.{side}_{part}": POSE[cols].tolist()
+        for side in ("right", "left")
+        for part, cols in (("arm", slice(0, 6)), ("gripper", slice(6, 7)))
+    },
+}
+
+
+def test_the_stand_in_answers_the_first_call_once_its_hook_has_run_and_the_hold_starts_then() -> None:
+    """The hook the check reads the recording in runs once, at the first call, with the checkpoint and the arm that
+    call named, before the call is answered; the plan's clock starts after it, so a slow hook moves nothing early."""
+    clock = Clock()
+    seen: list[tuple[str | None, str | None, int]] = []
+
+    def hook(stand_in: check_loop.StandIn) -> None:
+        seen.append((stand_in.checkpoint, stand_in.arm, len(stand_in.calls)))
+        clock.t += 2.0  # a slow lookup
+
+    stand_in = check_loop.StandIn(rate=ROW_HZ, clock=clock, on_first_call=hook)
+    assert stand_in.answer(YAM_CALL, None, None, None)["actions"] is not None
+    assert seen == [("dream-1-ft:0a0b-mine", "yam", 0)]
+    assert stand_in.t0 == clock.t and stand_in.calls[0].row == 0
+    clock.t += 1.0
+    stand_in.answer(YAM_CALL, None, None, None)
+    assert len(seen) == 1 and stand_in.calls[1].row == ROW_HZ
+
+
+class Wakes(threading.Event):
+    """The stand-in's `done`, counting each time the lines' thread wakes from waiting on it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.woke = threading.Semaphore(0)
+
+    def wait(self, timeout: float | None = None) -> bool:
+        done = super().wait(timeout)
+        self.woke.release()
+        return done
+
+
+def test_no_line_of_the_motion_is_timed_before_its_clock_starts(capsys: pytest.CaptureFixture[str]) -> None:
+    """A first-call hook slower than the lines' 0.25 s wake (the check reading the recording) holds the lines until
+    the first answer goes out: the first is timed from then, never on a clock that has not started."""
+    clock = Clock()
+
+    def hook(stand_in: check_loop.StandIn) -> None:
+        clock.t += 2.0  # a slow lookup
+        lines.start()
+        assert wakes.woke.acquire(timeout=10)  # the lines wake meanwhile
+
+    stand_in = check_loop.StandIn(rate=ROW_HZ, clock=clock, on_first_call=hook)
+    stand_in.done = wakes = Wakes()
+    lines = threading.Thread(target=check_loop.watch, args=(stand_in,))
+    stand_in.answer(YAM_CALL, None, None, None)
+    assert wakes.woke.acquire(timeout=10)  # they wake again once they have printed the arm and the hold
+    stand_in.done.set()
+    lines.join()
+    out = capsys.readouterr().out.splitlines()
+    assert len(out) == 2 and all(line.startswith("  0.0 s  ") for line in out), out
+    assert "your loop drives yam arms" in out[0], out
+
+
+## A fine-tune whose body records each hand's pose beside the one-armed recording's joints (#test_check_model).
+EEF_FT = "dream-1-ft:0e0f1011-eef"
+
+
+def _eef_platform(joints: dict[str, Any]) -> FakePlatform:
+    """The platform, listing #EEF_FT with its body: `joints`' parts, then the hand's pose and grip after them."""
+    width = max(hi for _, hi in joints["state"].values())
+    pose = {
+        "right_eef_xyz": [width, width + 3],
+        "right_eef_rot6": [width + 3, width + 9],
+        "right_grip": [width + 9, width + 10],
+    }
+    body = {"state": {**joints["state"], **pose}, "action": {**joints["action"], **pose}, "video": joints["video"]}
+    return FakePlatform([{**OWN_RECORD, "id": EEF_FT, "embodiment_config": body}])
+
+
+def test_a_recording_that_does_not_fit_the_checkpoint_is_said_before_the_arms_move_and_skips_only_the_model(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """A recording of the joints alone, run with a loop whose checkpoint reads each hand's pose beside them, is said in
+    plain words at the loop's first call, before that call is answered: what the recording has, what the checkpoint
+    reads and what to record instead. The MODEL line is then a SKIP that repeats it, never a model PROBLEM, and a
+    recording of the body the checkpoint was trained on fits."""
+    from test_check_model import EMBODIMENT, write_session
+
+    from dream import check
+
+    session, _, _ = write_session(tmp_path, 1.0)
+    platform = _eef_platform(EMBODIMENT)
+    monkeypatch.setenv("DREAM_API_URL", platform.url)
+    monkeypatch.setenv("DREAM_API_KEY", PLATFORM_KEY)
+    monkeypatch.setattr("builtins.input", lambda prompt: check_loop.START)
+    first = (
+        "import json, os, urllib.request\n"
+        "parts = {f'state.{side}_{part}': [0.0] * width for side in ('right', 'left') for part, width in "
+        "(('arm', 6), ('gripper', 1))}\n"
+        f"call = {{'session_id': None, 'checkpoint': {EEF_FT!r}, 'observation': parts}}\n"
+        "url = os.environ['DREAM_GATEWAY_URL'] + '/v1/get_action'\n"
+        "request = urllib.request.Request(url, json.dumps(call).encode(), {'Content-Type': 'application/json'})\n"
+        "urllib.request.urlopen(request, timeout=60).read()\n"
+        "print('first call', 'answered', flush=True)\n"
+    )
+    try:
+        loop = ["--port", "0", "--view-port", "0", "--", sys.executable, "-c", first]
+        assert check.main(["--recording", str(session), *loop]) == 1
+        out = capfd.readouterr().out
+        said = (
+            f"your recording does not fit {EEF_FT}: its observation.state has 7 numbers a row, where the checkpoint "
+            "reads 17: it has no right_eef_xyz, right_eef_rot6, right_grip; its action has 7 numbers a row, where the "
+            "checkpoint reads 17: it has no right_eef_xyz, right_eef_rot6, right_grip; record with the parts of the "
+            "body it was fine-tuned on, in its order (observation.state right_arm (6), right_gripper (1), "
+            "right_eef_xyz (3), right_eef_rot6 (6), right_grip (1); action right_arm (6), right_gripper (1), "
+            "right_eef_xyz (3), right_eef_rot6 (6), right_grip (1)), as its training recordings were, or give a "
+            "recording of that body"
+        )
+        assert said in out and out.index(said) < out.index("first call answered"), out
+        assert "The model will not be asked; LOOP and INPUTS run as before." in out
+        why = said.partition(": ")[2]
+        line = check.read_first(session, 0, EEF_FT, ["overhead"], True)
+        assert line == f"{check.UNFIT} {why}", line
+        assert check.fault("LOOP:   PASS    lag", "INPUTS: PASS    ok", line) == (
+            "FAULT:  not your loop; the model was not checked"
+        )
+        platform.catalog[0]["embodiment_config"] = EMBODIMENT  # the body the recording is of
+        assert check.read_first(session, 0, EEF_FT, ["overhead"], False) is None
+    finally:
+        platform.close()
+
+
+@pytest.mark.parametrize("damage", ["cut short", "no action column", "rows of two widths"])
+def test_a_data_file_the_check_cannot_read_is_unreadable_at_the_first_call_and_in_the_model_check(
+    damage: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An episode parquet where info.json puts it, so the start passes it, that is cut short, has no action column or
+    whose action rows differ in width is #dream.check_model.Unreadable, naming the file and what is wrong with it: at
+    the loop's first call and in the model check both are an UNREAD line, never a reader's error in the thread
+    answering the loop."""
+    import pyarrow.parquet
+    from test_check_model import EMBODIMENT, write_session
+
+    from dream import check, check_model
+
+    session, _, _ = write_session(tmp_path, 1.0)
+    data = session / "data" / "chunk-000" / "episode_000000.parquet"
+    table = pyarrow.parquet.read_table(data)
+    layout = "the check reads the LeRobot v2.1 layout an upload takes"
+    if damage == "cut short":
+        data.write_bytes(data.read_bytes()[:100])
+        said = f"{data} could not be read as a parquet file ("
+    elif damage == "no action column":
+        pyarrow.parquet.write_table(table.drop_columns(["action"]), data)
+        said = f"{data} has no action column; {layout}"
+    else:
+        rows = table.column("action").to_pylist()
+        rows[5] = rows[5][:3]
+        column = table.column_names.index("action")
+        pyarrow.parquet.write_table(table.set_column(column, "action", pyarrow.array(rows)), data)
+        said = f"{data}: its action is not a list of numbers of one width a row; {layout}"
+    check_model.readable(session, 0)
+    with pytest.raises(check_model.Unreadable) as raised:
+        check_model.read_episode(session, 0, EMBODIMENT["video"])
+    assert str(raised.value).startswith(said), raised.value
+    platform = FakePlatform([{**OWN_RECORD, "id": EEF_FT, "embodiment_config": EMBODIMENT}])
+    monkeypatch.setenv("DREAM_API_URL", platform.url)
+    monkeypatch.setenv("DREAM_API_KEY", PLATFORM_KEY)
+    try:
+        assert check.read_first(session, 0, EEF_FT, ["overhead"], False) == f"{check.UNREAD} {raised.value}"
+        line = check.model_line(session, EEF_FT, ["overhead"], False, False, 0)
+        assert line == f"{check.UNREAD} {raised.value}", line
+    finally:
+        platform.close()
+
+
+def test_a_recording_found_unreadable_at_the_first_call_is_said_unreadable_not_unfit(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A recording whose tables the start reads, with no video for the camera the checkpoint's body names (found only
+    once the body is known), is said at the first call as a recording that could not be read, never one that does
+    not fit, and the MODEL line is UNREAD: no verdict on the model."""
+    from test_check_model import EMBODIMENT, write_session
+
+    from dream import check, check_model
+
+    session, _, _ = write_session(tmp_path, 1.0)
+    video = session / "videos" / "chunk-000" / "observation.images.overhead" / "episode_000000.mp4"
+    video.unlink()
+    check_model.readable(session, 0)
+    platform = FakePlatform([{**OWN_RECORD, "id": EEF_FT, "embodiment_config": EMBODIMENT}])
+    monkeypatch.setenv("DREAM_API_URL", platform.url)
+    monkeypatch.setenv("DREAM_API_KEY", PLATFORM_KEY)
+    try:
+        line = check.read_first(session, 0, EEF_FT, ["overhead"], False)
+    finally:
+        platform.close()
+    why = f"{video}: no such video (info.json's video_path and the config's embodiment.video)"
+    out = capsys.readouterr().out
+    assert f"{check.COMMAND}: could not read your recording: {why}\n" in out and "does not fit" not in out, out
+    assert line == f"{check.UNREAD} {why}", line
+    assert check.fault("LOOP:   PASS    lag", "INPUTS: PASS    ok", line) == (
+        "FAULT:  not your loop; the model was not checked"
+    )
+
+
+@pytest.mark.parametrize("damage", ["video cut short", "video of 30 frames", "episode of 40 rows"])
+def test_a_video_that_does_not_open_or_ends_early_or_an_episode_under_one_chunk_is_unread_before_the_arms_move(
+    damage: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A video that does not open, one whose own count of frames ends before the last moment asked, or an episode
+    shorter than one chunk is #dream.check_model.Unreadable, naming what and what to do: at the loop's first call,
+    before the arms move, and in the model check, which decodes the frames; both an UNREAD line, never a Python
+    error after the motion."""
+    import test_check_model
+    from test_check_model import EMBODIMENT, write_session
+
+    from dream import check
+
+    session, _, _ = write_session(tmp_path / "session", 1.0)
+    video = session / "videos" / "chunk-000" / "observation.images.overhead" / "episode_000000.mp4"
+    again = "record or export that episode again, or give another with --episode"
+    if damage == "video cut short":
+        video.write_bytes(video.read_bytes()[:1000])
+        said = f"{video} could not be read as a video ("
+    else:
+        monkeypatch.setattr(test_check_model, "ROWS", int(damage.split()[2]))
+        short, _, _ = write_session(tmp_path / "short", 1.0)
+        if damage == "video of 30 frames":
+            video.write_bytes((short / video.relative_to(session)).read_bytes())
+            said = f"{video} has 30 frames, where the check reads up to frame 132: shorter than its episode; {again}"
+        else:
+            session = short
+            said = (
+                "the episode has 40 rows, fewer than one chunk of 48 at 30 a second; give a longer one with --episode"
+            )
+    platform = FakePlatform([{**OWN_RECORD, "id": EEF_FT, "embodiment_config": EMBODIMENT}])
+    monkeypatch.setenv("DREAM_API_URL", platform.url)
+    monkeypatch.setenv("DREAM_API_KEY", PLATFORM_KEY)
+    try:
+        first = check.read_first(session, 0, EEF_FT, ["overhead"], False)
+        assert first is not None and first.startswith(f"{check.UNREAD} {said}"), first
+        assert check.model_line(session, EEF_FT, ["overhead"], False, False, 0) == first
+    finally:
+        platform.close()
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "said"),
+    [
+        ("chunks_size", "1,000", "chunks_size is '1,000', not a whole number above 0"),
+        ("chunks_size", 0, "chunks_size is 0, not a whole number above 0"),
+        ("fps", None, "fps is None, not a number above 0"),
+        ("data_path", 7, "data_path is 7, not text"),
+        ("video_path", ["videos"], "video_path is ['videos'], not text"),
+    ],
+)
+def test_an_info_json_value_the_check_cannot_read_is_named_at_the_start_and_skips_only_the_model(
+    field: str,
+    value: object,
+    said: str,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A `meta/info.json` whose chunks_size or fps is not a number above 0, or whose data_path or video_path is not
+    text, is named with its field and file before the question, and MODEL is an UNREAD line: never a TypeError or
+    ValueError from inside the reader."""
+    from test_check_model import write_session
+
+    from dream import check
+
+    session, _, _ = write_session(tmp_path, 1.0)
+    info = json.loads((session / "meta" / "info.json").read_text())
+    (session / "meta" / "info.json").write_text(json.dumps({**info, field: value}))
+    why = f"meta/info.json's {said}; the check reads the LeRobot v2.1 layout an upload takes"
+    monkeypatch.setattr(check_loop, "confirm", lambda text: False)
+    assert check.main(["--recording", str(session)]) == 2
+    err = capsys.readouterr().err
+    assert f"{check.COMMAND}: {session}: {why}\nMODEL will read SKIP; LOOP and INPUTS still run.\n" in err, err
+    monkeypatch.setattr(check, "ask_model", lambda *args: pytest.fail("asked the model about an unread recording"))
+    assert check.model_line(session, EEF_FT, ["overhead"], False, False, 0) == f"{check.UNREAD} {why}"
+
+
 def test_a_request_the_model_refuses_is_the_loops_inputs_not_the_model(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1131,8 +1545,8 @@ def test_the_model_check_sends_hand_poses_only_when_the_loop_did() -> None:
     parts = (("arm", 6), ("gripper", 1))
     joints = {f"state.{side}_{part}": np.zeros(width) for side in ("right", "left") for part, width in parts}
     for poses, observation in ((False, joints), (True, {**joints, "state.right_eef_xyz": np.zeros(3)})):
-        stand_in = check_loop.StandIn(clock=Clock())
-        stand_in.answer({"session_id": None, "observation": observation}, None, None)
+        stand_in = check_loop.StandIn(rate=ROW_HZ, clock=Clock())
+        stand_in.answer({"session_id": None, "observation": observation}, None, None, None)
         assert stand_in.poses is poses
 
 

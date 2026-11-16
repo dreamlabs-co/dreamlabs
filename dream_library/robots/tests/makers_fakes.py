@@ -1,10 +1,11 @@
 """Hardware fakes for the Makers Arm: a CAN adapter with seven simulated RobStride motors, and a clock.
 
-A port of the fake bus the source Makers driver's own tests and bring-up run on, so the two drivers are tested
-against the same motors: a commanded position is reached within one frame, a rigid obstacle stops the gripper and
-pushes back with `kp x error` of torque, every frame is answered unless drops are injected. Two changes: the clock is
-injected (#FakeClock, so a test steps time instead of sleeping, and the parity test steps it exactly as the source's
-run does), and the bus takes python-can's place directly (send, recv, shutdown) instead of subclassing it, with recv
+A port of our stations' Makers driver's fake bus, the fake its own Maker tests and its fake bring-up run on,
+so the two drivers are tested against the
+same motors: a commanded position is reached within one frame, a rigid obstacle stops the gripper and pushes back
+with `kp x error` of torque, every frame is answered unless drops are injected. Two changes: the clock is injected
+(#FakeClock, so a test steps time instead of sleeping, and the parity test steps it exactly as the source's run
+does), and the bus takes python-can's place directly (send, recv, shutdown) instead of subclassing it, with recv
 written the way python-can's `BusABC.recv` waits, so the clock advances by the same steps.
 """
 

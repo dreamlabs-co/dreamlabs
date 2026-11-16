@@ -234,8 +234,8 @@ def test_a_leading_tilde_in_a_log_path_is_the_home_directory(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
     """A station config that writes `~/robots-trace.csv` means the home directory: nothing between the file and
-    `open()` is a shell, and unexpanded the path would name a `~` directory that does not exist, so every Start
-    would fail on FileNotFoundError. Absolute and relative paths pass unchanged."""
+    `open()` is a shell, and unexpanded the path named a `~` directory that did not exist, so every Start failed on
+    FileNotFoundError. Absolute and relative paths pass unchanged."""
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
     assert getattr(load_variant(tmp_path, **{key: "~/robots.log"}), key) == str(tmp_path / "home" / "robots.log")
@@ -332,8 +332,8 @@ def test_unknown_camera_key_raises_naming_entry(tmp_path: pathlib.Path) -> None:
 def test_the_keys_that_held_the_account_fail_by_name_with_where_each_went(
     tmp_path: pathlib.Path, key: str, value: Any, fragment: str
 ) -> None:
-    """A file still carrying `policy` or `api_key`, which belong in the credentials file, is refused naming the key
-    and where its value lives, never as an unknown key."""
+    """A file from before the credentials file, still carrying `policy` or `api_key`, is refused naming the key and
+    where its value now lives, never as an unknown key."""
     document = copy.deepcopy(FULL_CONFIG)
     document[key] = value
 
@@ -680,8 +680,9 @@ def test_live_section_keys_are_read(tmp_path: pathlib.Path) -> None:
 def test_an_older_files_encoding_and_record_keys_are_ignored_with_one_warning(
     tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A station file with encoder settings or `record` in its `live` section still loads: they set nothing (the
-    encoding is the platform's, every run's dream client records it), and one warning says so and names them."""
+    """A station file from before the station ran `dream.LiveViewClient` still loads: its encoder settings and
+    `record` set nothing now (the encoding is the platform's, every run's dream client records it), and one warning
+    says so and names them."""
     section = {
         "robot_id": "rbt_3",
         "width_px": 320,

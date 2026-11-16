@@ -8,8 +8,8 @@ loop asks (`Pacer.refill_due`) instead of sizing anything itself.
 Three numbers, each a config key of `DreamClient.policy()` with the default below:
 
 - `execution_horizon` (30): in async, rows of each chunk the arms execute before the next chunk takes over. A
-  checkpoint returns more (its action horizon, 48 for the Dream-1 base model); the rows past this are runway, played
-  only when the next chunk is late. Sync does not use it: there the whole chunk runs.
+  checkpoint returns more (its action horizon, 48 for our base model); the rows past this are runway, played only when
+  the next chunk is late. Sync does not use it: there the whole chunk runs.
 - `action_hz` (20): the loop's row rate, rows per second; it turns a round trip into rows.
 - `sync_above_ms` (700): the round trip past which the client paces synchronously.
 
@@ -22,11 +22,11 @@ smoothing included), so one reply that waited behind another robot's inference o
   rows; at 700 ms and 20 Hz that is 14 + 30 = 44 of 48, and past it a prefetched reply would arrive with no runway
   left.
 - sync (median round trip above `sync_above_ms`): the arms run the whole chunk, every row the serve returned (the
-  action horizon, 48 for the Dream-1 base model), and the next request goes out only once they have; the arms hold
-  through the inference, so there is nothing to gain by dropping rows of the plan and paying for another round trip
-  sooner. A sync request is sent while the arms hold, so its reply installs whole. The one exception is the first
-  sync chunk after a switch: its request went out in async while the arms were moving, so the loop installs it past
-  the rows they ran during the round trip (about 15 at 750 ms and 20 Hz), and the arms run the remaining 33 or so.
+  action horizon, 48 for our base model), and the next request goes out only once they have; the arms hold through the
+  inference, so there is nothing to gain by dropping rows of the plan and paying for another round trip sooner. A
+  sync request is sent while the arms hold, so its reply installs whole. The one exception is the first sync chunk
+  after a switch: its request went out in async while the arms were moving, so the loop installs it past the rows
+  they ran during the round trip (about 15 at 750 ms and 20 Hz), and the arms run the remaining 33 or so.
 
 The switch is checked on every reply, so a link that slows down is paced synchronously once most recent replies are
 slow (the third slow one of five) and one that recovers is back to async as soon as most are fast again.

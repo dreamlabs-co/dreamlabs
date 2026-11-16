@@ -17,9 +17,9 @@ turns the gripper into a hybrid controller at the loop's level, as the YAM follo
   measured from the raw target and lags; without the floor a closed target on a wide or rigid object pins the PD
   near its maximum torque, and the slow offset then swings the jaw between squeeze and release;
 - in contact, a ceiling too: the command never opens past the measured jaw. There the squeeze is already zero,
-  so opening further only lets go. Without it the effort filter's lag (3 Hz at the 20 Hz tick) keeps the offset
-  growing after the floor has already eased the squeeze, the jaw lifts off the object, contact is lost, and the
-  slow release closes it again onto the object: a squeeze-and-release cycle about twice a second;
+  so opening further only lets go. Without it the effort filter's lag (3 Hz at the 20 Hz tick) kept the offset
+  growing after the floor had already eased the squeeze, the jaw lifted off the object, contact was lost, and the
+  slow release closed it again onto the object: a squeeze-and-release cycle about twice a second;
 - contact means a high effort on a near-stalled jaw. A fast free close draws high effort just accelerating the
   jaw; read as contact, the floor would throttle every close to the release rate.
 
@@ -44,9 +44,9 @@ import math
 ## than any task needs, and at 1.5 they crush cups.
 DEFAULT_CAP: float = 0.65
 
-## Low-pass corner of #EffortFilter, Hz. An 8 Hz corner suits a 250 Hz command thread; the cap runs on the tick
-## here, at `control_hz` (20 Hz on the station), where 8 Hz sits above half the sample rate and would filter
-## nothing. 3 Hz still settles inside about 50 ms and actually rejects the ripple.
+## Low-pass corner of #EffortFilter, Hz. An 8 Hz corner suits a 250 Hz command thread; the cap runs
+## on the tick here, at `control_hz` (20 Hz on the station), where 8 Hz sits above half the sample rate and would
+## filter nothing. 3 Hz still settles inside about 50 ms and actually rejects the ripple.
 DEFAULT_CUTOFF_HZ: float = 3.0
 
 ## Largest step `update()` integrates for, seconds: a tick that arrives late (a hold, a stall, a long refill wait)

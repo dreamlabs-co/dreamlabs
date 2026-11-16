@@ -36,7 +36,7 @@ def test_every_link_sits_where_dreams_model_of_the_arm_puts_it_at_the_arm_files_
     urdf = (specs.ASSETS / "metal.urdf").read_text()
     tree = setup_urdf.read(urdf)
     assert (tree["links"][tree["base"]], tree["links"][tree["flange"]]) == ("base_link", "link6")
-    _, _, limits, _ = arm_file._chain(urdf.encode(), "base_link", "link6", (), tmp_path / "arm.json")
+    _, _, limits, _ = arm_file._chain(urdf.encode(), "base_link", "link6", tmp_path / "arm.json")
     rest = [min(max(0.0, lo), hi) for lo, hi in limits]
     (tmp_path / "arm.urdf").write_text(urdf)
     arm = {"urdf": "arm.urdf", "base": "base_link", "flange": "link6", "tcp": [0.1, 0, 0], "approach": [1, 0, 0]}
@@ -104,7 +104,7 @@ def test_a_cad_exported_arm_is_drawn_through_its_joints_not_its_fixed_links(tmp_
     the fixed links by, so a straight arm is drawn straight."""
     pytest.importorskip("dream_ik", reason="dream's IK needs Python 3.11 or newer")
     urdf = _onshape_urdf()
-    arm_file._chain(urdf.encode(), "base_link", "link6", (), tmp_path / "arm.json")
+    arm_file._chain(urdf.encode(), "base_link", "link6", tmp_path / "arm.json")
     (tmp_path / "arm.urdf").write_text(urdf)
     arm = {"urdf": "arm.urdf", "base": "base_link", "flange": "link6", "tcp": [0, 0, 0.05], "approach": [0, 0, 1]}
     (tmp_path / "arm.json").write_text(json.dumps({**arm, "jaw": [0, 1, 0], "rest": [0.0] * 6}))

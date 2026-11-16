@@ -66,8 +66,8 @@ def test_the_real_yam_model_places_the_grasp_site_and_ignores_the_fingers() -> N
 
 def test_an_anvil_gripper_builds_the_arm_on_the_linear_4310_model_that_drives_it() -> None:
     """`anvil_gripper` is not an i2rt name: the model is built with the i2rt type `config.GRIPPER_DRIVERS` maps it
-    to, as `FollowerArm.from_config` opens the driver, so a station set to it starts instead of failing with
-    `'anvil_gripper' is not a valid GripperType`."""
+    to, as `FollowerArm.from_config` opens the driver, so a station set to it starts. A first cut of the mapping
+    missed this call site and the station crashed at start with `'anvil_gripper' is not a valid GripperType`."""
     pytest.importorskip("mujoco")
     pytest.importorskip("i2rt")
     anvil = kinematics.ArmKinematics.from_config(config.ArmConfig(can_channel="can_left", gripper="anvil_gripper"))

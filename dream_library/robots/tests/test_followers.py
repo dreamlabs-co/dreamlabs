@@ -192,8 +192,8 @@ def test_arm_error_message_names_the_arm(fake_robot: conftest.FakeRobot) -> None
 
 @pytest.mark.parametrize("gripper", [0.0, 0.05, 0.19, 0.2, 0.5, 1.0])
 def test_write_sends_the_gripper_target_untouched(fake_robot: conftest.FakeRobot, gripper: float) -> None:
-    """What the loop hands down is what reaches the wire, a near-closed target included: there is no snap to
-    closed, because grip force is regulated on the measured effort (`robots.gripper_force`)."""
+    """The close-snap is gone: what the loop hands down is what reaches the wire, a near-closed target
+    included, because grip force is regulated on the measured effort now (`robots.gripper_force`)."""
     arm = _arm(fake_robot)
 
     arm.write(types.ArmCommand(positions_rad=TARGET_RAD, gripper=gripper))
@@ -451,8 +451,8 @@ def test_from_config_opens_an_anvil_gripper_as_the_linear_4310_that_drives_it(mo
 
 
 def test_from_config_applies_the_station_driver_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    """ee_mass reaches get_yam_robot; temp export, gravity comp factor and the SDK limiter are set on the
-    driver."""
+    """The station driver: ee_mass reaches get_yam_robot; temp export, gravity comp factor and the SDK limiter
+    are set on the driver."""
     calls: list[dict[str, Any]] = []
     _install_fake_i2rt(monkeypatch, calls)
     cfg = config.ArmConfig(can_channel="can_left", ee_mass_kg=0.5, gravity_comp_factor=0.9)
@@ -490,7 +490,7 @@ def test_from_config_leaves_driver_settings_alone_when_the_config_says_so(monkey
 def test_from_config_warns_when_the_driver_has_no_sdk_limiter(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A driver without `_limit_gripper_force` is reported, never a silent no-op."""
+    """The station driver: a driver without `_limit_gripper_force` is reported, never a silent no-op."""
     calls: list[dict[str, Any]] = []
     _install_fake_i2rt(monkeypatch, calls)
     original = sys.modules["i2rt.robots.get_robot"].get_yam_robot  # type: ignore[attr-defined]
@@ -589,7 +589,7 @@ def _install_fake_dm_driver(
 def test_torque_off_closes_the_driver_then_disables_every_motor_on_its_chain(
     monkeypatch: pytest.MonkeyPatch, fake_robot: conftest.FakeRobot
 ) -> None:
-    """close() sends nothing and the motors hold, so after it the DM disable
+    """The station driver: close() sends nothing and the motors hold, so after it the DM disable
     command goes to each motor id of the chain, in chain order, over an interface on the arm's channel."""
     events: list[Any] = []
     _install_fake_dm_driver(monkeypatch, events)
@@ -661,7 +661,7 @@ def test_torque_off_raises_when_the_channel_cannot_be_opened_after_closing_the_d
 
 
 def test_arm_config_driver_settings_default_to_the_station_values(tmp_path: pathlib.Path) -> None:
-    """The defaults: ee_mass 0.62 kg, gravity comp factor 1.0, the SDK gripper force limit off, temps on."""
+    """The station launch: `--ee-mass 0.62 --gravity-comp-factor 1.0 --no-sdk-gripper-force-limit`, temps on."""
     cfg = test_config.load_variant(tmp_path, follower_r={"can_channel": "can_right"})
 
     assert cfg.follower_r == config.ArmConfig(

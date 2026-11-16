@@ -4,8 +4,8 @@ Every DreamAPI response, success included, carries one #Status. A code exists on
 differently because of it; finer diagnosis is the per-code reason enum plus a `trace_id` that points at the
 log line with full context. A non-OK response never carries actions.
 
-The `name` and `retryable` fields of the envelope are derived from `code` and `reason` (`Status.retryable` is the
-rule), so a caller constructs a #Status from `code`, `reason` and `trace_id` only and cannot contradict it.
+The `name` and `retryable` fields of the envelope are derived from `code` and `reason` by the table of codes, so a
+caller constructs a #Status from `code`, `reason` and `trace_id` only and cannot contradict the table.
 
 #CODE_HELP and #REASON_HELP are what each code and reason tells a customer of the `dream` client, and what to do about
 it; the customer docs' error-code page is generated from them. They are words only:
@@ -85,7 +85,7 @@ class BadRequestReason(enum.StrEnum):
 
 
 class ServeFaultReason(enum.StrEnum):
-    """Why the serve failed the forwarded request (`DA-5000`); retryable. `CAPACITY` is a fault on DreamAPI's side."""
+    """Why the serve failed the forwarded request (`DA-5000`); retryable. `CAPACITY` is a DreamAPI accounting bug."""
 
     TIMEOUT = "timeout"
     ERROR = "error"
@@ -151,7 +151,7 @@ class Status(pydantic.BaseModel):
     @pydantic.computed_field  # type: ignore[prop-decorator]
     @property
     def retryable(self) -> bool:
-        """Whether the caller may retry the same request."""
+        """Whether the caller may retry the same request, by the table of codes."""
         if self.code in (StatusCode.SERVE_FAULT, StatusCode.GATEWAY_FAULT):
             return True
         if self.code is StatusCode.NO_CAPACITY:
@@ -160,7 +160,7 @@ class Status(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     def check_reason_matches_code(self) -> "Status":
-        """Rejects an envelope whose reason is missing, or belongs to a different code (#REASONS_BY_CODE).
+        """Rejects an envelope whose reason is missing, or belongs to a different code, per the table of codes.
 
         @return The validated envelope, unchanged.
         @throws ValueError If `code` is `OK` with a reason, or any other code without a reason of its own enum.

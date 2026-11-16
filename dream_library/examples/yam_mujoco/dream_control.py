@@ -250,7 +250,7 @@ def validate_chunk(env, actions, action_limit=48, *, verbose=True, adjustments=N
         bounded = np.clip(rows, limits[:, 0], limits[:, 1])
         overshoot = np.abs(rows - bounded)
         # Joint policy predictions are unbounded; project finite targets onto
-        # actual URDF limits. Gripper
+        # actual URDF limits, just as the browser simulator does. Gripper
         # normalization is still checked to catch a wrong response contract.
         bad = np.argwhere(overshoot[:, 6] > 0.05)
         if len(bad):

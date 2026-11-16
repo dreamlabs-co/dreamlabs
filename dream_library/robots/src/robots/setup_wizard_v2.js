@@ -347,7 +347,7 @@ function renderEmbodimentCameras() {
 // answers "Is this the end of your arm?" on the drawing, clicking the right link if not, then puts the tool marker
 // where the fingertips close, beside a YAM whose marker shows where it goes. The marker is six numbers in the end
 // link's frame, each with its minus and plus buttons and its field. POST /api/arm_file gets the links and the marker.
-const U = { tree: null, base: 0, end: 0, picking: "end", ok: false, tcp: null, rpy: null, move: 10, turn: 15, view: null, yam: null, held: {} };
+const U = { tree: null, base: 0, end: 0, picking: "end", ok: false, tcp: null, rpy: null, move: 10, turn: 15, view: null, yam: null };
 // The steps of the plus and minus buttons: millimetres, and degrees.
 const MOVE_STEPS = [[1, "1 mm"], [5, "5 mm"], [10, "1 cm"], [50, "5 cm"]];
 const TURN_STEPS = [1, 5, 15, 90].map((d) => [d, `${d}°`]);
@@ -478,7 +478,7 @@ async function loadUrdf(name, text, files, path) {
   await guard("pickErr", async () => {
     const tree = await api("POST", "/api/urdf", { urdf: text });
     S.urdf = { name, text };
-    Object.assign(U, { tree, base: tree.base, end: tree.flange, picking: "end", ok: false, held: {}, ...firstMarker(tree, tree.flange) });
+    Object.assign(U, { tree, base: tree.base, end: tree.flange, picking: "end", ok: false, ...firstMarker(tree, tree.flange) });
     if (!U.view) {
       U.view = new UrdfView($("urdfView"), pickLink, dragMarker);
       cadNavigation(U.view, MARKER_ROOM);
@@ -515,29 +515,6 @@ function chain() {
     links.unshift(link);
   }
   return links;
-}
-
-// The chain's moving joints a person decides on (U.held): in `dreamcli tcp`, those the station's embodiment does not
-// drive (the server's `joint_map`, TcpServer.joint_map()), or every one when it has no joints to read; none in the
-// wizard (`joint_map` null), whose arm drives its whole chain. Never the page: a passive mount may be fixed, or may
-// turn (a humanoid's hand mount roll, continuous in its URDF, say).
-function spare(links) {
-  const map = U.tree.joint_map;
-  if (!map) return [];
-  return links.filter((link) => U.tree.moving[link] && (map.joints === null || !map.joints.includes(U.tree.joints[link]))).map((link) => U.tree.joints[link]);
-}
-
-// One line per spare() joint with its Moves and Held still buttons, neither pressed until the operator presses one,
-// under why the account could not be asked when it could not (`joint_map.error`).
-function renderSpare(extra) {
-  const error = U.tree.joint_map && U.tree.joint_map.error;
-  $("urdfSpare").classList.toggle("hidden", U.ok || (!extra.length && !error));
-  $("urdfSpare").replaceChildren(...(error ? [el("div", { class: "err" }, error)] : []), ...extra.map((joint) => el("div", { class: "pad" },
-    el("code", {}, joint), ": does your robot move this joint? ",
-    [[false, "Moves"], [true, "Held still"]].map(([held, text]) => el("button", {
-      [held ? "data-held" : "data-moves"]: joint, class: U.held[joint] === held ? "on" : "", "aria-pressed": String(U.held[joint] === held),
-      onclick: () => { U.held[joint] = held; renderUrdf(); },
-    }, text)))));
 }
 
 async function confirmEnd() {
@@ -606,7 +583,6 @@ function renderUrdf() {
   const name = (link) => U.tree.links[link];
   const links = chain();
   const joints = links && links.filter((link) => U.tree.moving[link]).length;
-  const extra = links ? spare(links) : [];
   $("urdfAsk").textContent = U.ok ? "Place the marker where your gripper's fingertips meet, turned like the YAM's." : "Is this the end of your arm?";
   $("urdfLinks").classList.toggle("hidden", U.ok);
   $("urdfLinks").textContent = U.picking === "base" ? "Click the link your arm is mounted on."
@@ -614,10 +590,8 @@ function renderUrdf() {
     : joints > U.tree.most_joints ? `${name(U.end)} is ${joints} joints from ${name(U.base)}, but your arm has at most ${U.tree.most_joints}. Click the link your gripper is mounted on.`
     // A chain with no joint that moves is not an arm: building it fails only after the tool point is set (two links joined only by fixed joints, say).
     : !joints ? `No joint moves between ${name(U.base)} and ${name(U.end)}. Click the link your gripper is mounted on, or "It's mounted on another link" if your arm isn't mounted on ${name(U.base)}.`
-    : `Your arm is mounted on ${name(U.base)} (blue) and ends at ${name(U.end)} (green), ${joints} joints out. If that isn't the end, click the right link in the drawing.`
-      + (!extra.length ? "" : U.tree.joint_map.joints ? ` Your embodiment ${U.tree.joint_map.embodiment} doesn't drive ${extra.length} of them. Answer for each below.` : " Answer for each joint below.");
-  $("urdfYes").disabled = !links || !joints || joints > U.tree.most_joints || extra.some((joint) => !(joint in U.held));
-  renderSpare(extra);
+    : `Your arm is mounted on ${name(U.base)} (blue) and ends at ${name(U.end)} (green), ${joints} joints out. If that isn't the end, click the right link in the drawing.`;
+  $("urdfYes").disabled = !links || !joints || joints > U.tree.most_joints;
   $("urdfEndActions").classList.toggle("hidden", U.ok);
   $("urdfTool").classList.toggle("hidden", !U.ok);
   $("yamView").classList.toggle("hidden", !U.ok);
@@ -635,7 +609,6 @@ function renderUrdf() {
 
 // calibration: "calibrated" (Set tool center point) or "skipped" (Skip calibration, confirmed), which the arm file records.
 async function addUrdf(calibration) {
-  const held = spare(chain()).filter((joint) => U.held[joint]);
   await guard("pickErr", async () => {
     $("urdfNote").textContent = "Building the arm model...";
     let reply;
@@ -643,7 +616,7 @@ async function addUrdf(calibration) {
       await busy([$("urdfAdd"), $("urdfSkip")], async () => {
         reply = await api("POST", "/api/arm_file", {
           filename: S.urdf.name, urdf: S.urdf.text, base: U.tree.links[U.base], flange: U.tree.links[U.end], ...markerTool(),
-          tcp_calibration: calibration, fixed: held,
+          tcp_calibration: calibration,
         });
       });
     } finally {
@@ -651,8 +624,7 @@ async function addUrdf(calibration) {
     }
     S.urdfIk = reply.ik;
     const skipped = calibration === "skipped" ? " Tool point skipped, so every start shows a warning." : "";
-    const still = held.length ? ` Held still: ${held.join(", ")}.` : "";
-    $("urdfNote").textContent = `Added ${S.urdf.name}: ${reply.joints.length} joints (${reply.joints.join(", ")}).${still}${skipped}`;
+    $("urdfNote").textContent = `Added ${S.urdf.name}: ${reply.joints.length} joints (${reply.joints.join(", ")}).${skipped}`;
     if (S.state.tool !== "tcp") renderRobots();
     $("tcpIk").textContent = reply.ik;
     $("tcpSaved").classList.toggle("hidden", S.state.tool !== "tcp");

@@ -39,17 +39,17 @@ an EEF rotation part (#GRIPPER_FRAME_ROT_PARTS) trains only with `use_eef`: the 
 gripper frame under any tag, and dream's joints-only transform at the FaaS pin normalizes them, which its loader
 refuses at init, so check_joints() refuses such a job at submit instead; it also refuses an action EEF position
 (#GRIPPER_FRAME_XYZ_PARTS), which the recipe trains in the gripper frame too, when the state lacks the position and
-rotation that frame is read from. Registration allows any `action` up to #MAX_DIMS: a body wider than the base's
-action head would train at #MAX_DIMS with the values past the base's as their own weights (the base's width read from
-its checkpoint), but the training service's dream version carries no such extension, so check_action_width() holds
-the action to #PIN_ACTION_DIM at submit. The state has no such extension:
+rotation that frame is read from. Whatever the switch, any `action` registration allows (#MAX_DIMS) trains: a body
+wider than the base's action head trains at #MAX_DIMS with the values past the base's as their own weights
+(the base's width read from its checkpoint), once the training service's dream pin carries that extension; until
+then check_action_width() holds the action to #PIN_ACTION_DIM at submit. The state has no such extension:
 a body registers a state that trains up to #MAX_DIMS values, but a job trains only one the base reads
 (#BASE_STATE_DIM), which check_state_width() holds at submit. Both caps count only what trains (trains()): a part
 marked `not_trained` stays in the data, so either vector may be wider.
 
-Two keys a config may still carry, `state_space` and `action_space` (#RETIRED_KEYS), are retired: training never
-reads them. check_registration() refuses them on a config being registered, with a line saying so; parse() ignores
-them on a stored body, so such a body still lists and takes datasets.
+Two keys older configs carried, `state_space` and `action_space` (#RETIRED_KEYS), are retired: training never read
+them. check_registration() refuses them on a config being registered, with a line saying so; parse() ignores them on
+a body stored before, so such a body still lists and takes datasets.
 
 parse() is the one place the shape is enforced; the dream client runs it before checking a dataset against a config
 (`validation`) and the data service when it reads a stored body, and both run check_registration() on a config being
@@ -87,8 +87,9 @@ MAX_DIMS: int = 128
 ## no extension; check_state_width().
 BASE_STATE_DIM: int = 64
 
-## The widest action a job trains: the base's action head. The training service's dream version has no action
-## extension, so a wider job fails at the shape preflight on the GPU node; check_action_width().
+## The widest action a job trains until the training service's dream pin carries the action extension: the base's
+## action head. The current pin has none, so a wider job fails at the shape preflight on the GPU node;
+## check_action_width(). The pin bump that carries the extension removes both.
 PIN_ACTION_DIM: int = 34
 
 ## The three keys a config must have.
@@ -98,8 +99,8 @@ CONFIG_KEYS: tuple[str, ...] = ("state", "action", "video")
 ## targets (#ACTIONS) and the arm's URDF (#Urdf).
 OPTIONAL_KEYS: tuple[str, ...] = ("head_camera", "parts", "actions", "urdf")
 
-## Keys a config may carry that nothing reads: parse() ignores them on a stored body, and check_registration()
-## refuses them on a config being registered (#RETIRED_KEY_RULE).
+## Keys older configs carried that nothing reads any more: parse() ignores them on a stored body, and
+## check_registration() refuses them on a config being registered (#RETIRED_KEY_RULE).
 RETIRED_KEYS: tuple[str, ...] = ("state_space", "action_space")
 
 ## How check_registration() refuses a retired key; the key is named first.
@@ -122,7 +123,7 @@ MAX_CAMERAS: int = 3
 
 ## The six parts a `use_eef` fine-tune reads, in BOTH `state` and `action`, by these names at these widths: each
 ## gripper's position (3), its orientation as a 6D rotation (6) and its opening (1), right then left. Two arms only;
-## a single-arm EEF body is not supported. The base's EEF head was trained on one convention: xyz is the tool
+## a single-arm EEF body is not supported yet. The base's EEF head was trained on one convention: xyz is the tool
 ## centre point (on YAM 0.1347 m along link_6's +z from the flange) in metres, rot6 is link_6's orientation as the
 ## first two columns of the rotation matrix, both in each arm's own base frame (the state parts reach the model as
 ## recorded, so the frame matters), and grip is the opening, 0 closed to 1 open (the Fine-tuning Tutorial,
@@ -208,7 +209,7 @@ ROTATION_FORMATS: dict[str, int] = {
 }
 
 ## Where a position part's point is: the grasp point between the fingers, or the flange the gripper is bolted to.
-## Only the grasp point trains (#EEF_PARTS); a flange position is recorded, not trained.
+## Only the grasp point trains (#EEF_PARTS); a flange position is recorded, not trained, until a conversion is built.
 POSITION_POINTS: tuple[str, ...] = ("grasp", "flange")
 
 ## The frame a position part is in: its arm's own base, or one world frame for both arms. Only the arm's own base
@@ -451,7 +452,7 @@ def check_registration(config: object) -> Embodiment:
     cameras than a fine-tune trains (check_cameras()), and a `urdf` whose joints are not each driven by one value
     (_joints_once()). The data service's `POST /v1/embodiments`
     and the client's `add_embodiment` run this; a body already stored is read with parse() alone, so a stored
-    `state_space` or `action_space`, or a stored URDF mapping that names a joint twice, costs nothing.
+    `state_space` or `action_space`, or a URDF mapping made before the joint rule, costs nothing.
 
     @param config The config as JSON gave it.
     @return The #Embodiment.
@@ -489,8 +490,8 @@ def check_registration(config: object) -> Embodiment:
 def check_cameras(body: Embodiment) -> None:
     """Refuses a body whose `video` names more cameras than a fine-tune trains (#MAX_CAMERAS).
 
-    check_registration() runs it on a config being registered, the data service on every job (a body stored with
-    more) and `validation` before a dataset is checked; parse() does not, so such a body still lists and reads.
+    check_registration() runs it on a config being registered, the data service on every job (a body stored before the
+    cap) and `validation` before a dataset is checked; parse() does not, so such a body still lists and reads.
 
     @param body The parsed body.
     @throws EmbodimentInvalidError Naming the roles, the cap and how to pick the cameras to train.
@@ -588,11 +589,11 @@ def check_state_width(body: Embodiment) -> None:
 
 
 def check_action_width(body: Embodiment) -> None:
-    """Refuses a body whose action trains more values than the training service can (#PIN_ACTION_DIM).
+    """Refuses a body whose action trains more values than the training service's dream pin can (#PIN_ACTION_DIM).
 
-    A wider action needs dream's action extension, which the training service's dream version lacks, so such a job
-    would fail at the shape preflight on the GPU node. Only what trains counts (trains()). The data service runs it
-    on every job.
+    A wider action trains with dream's action extension, which the pin lacks,
+    so such a job would fail at the shape preflight on the GPU node. Only what trains counts (trains()). The data
+    service runs it on every job.
 
     @param body The parsed body (parse()), whose widths the line names.
     @throws EmbodimentInvalidError Naming the trained count, the dataset's width and the cap.
@@ -803,8 +804,7 @@ def _answer(where: str, raw: Any, width: int, acts: bool) -> Answer:
 def _urdf(raw: Any, answers: dict[str, Answer], state: dict[str, tuple[int, int]]) -> Urdf:
     """`urdf` read against the state's answers: the file's hash, a URDF joint per value of every arm part (and of a
     gripper part the customer mapped), the values that turn their joint the other way, and a grasp point per arm.
-    That each value drives its own joint is a registration rule (_joints_once()), so a stored body parses either
-    way."""
+    That each value drives its own joint is a registration rule (_joints_once()): a body stored before it parses."""
     if not isinstance(raw, dict) or set(raw) != {"sha256", "joints", "reversed", "grasp"}:
         raise EmbodimentInvalidError("urdf must be an object with sha256, joints, reversed and grasp.")
     if not (isinstance(raw["sha256"], str) and SHA256_RE.fullmatch(raw["sha256"])):

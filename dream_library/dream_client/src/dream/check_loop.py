@@ -29,9 +29,10 @@ that reach each hand pose, and they need not be the plan's: the checks then read
 and its turn. A hand that starts with a joint at its limit may settle in the hold where the IK keeps that joint, just
 inside it. When a hand is at fault, each joint of its arm moves alone, and the lines read the hand there too.
 
-The rows are 1/30 s apart, as the model's; row 0 of every chunk is the row due when the call came, at `--rate` rows a
-second, the rate the loop plays rows at (the client's `action_hz`, 20 by default). A first call that sends no hand pose
-and names no YAM is refused, and nothing moves: the check moves only an arm it knows the shape of, or its hands.
+The rows are 1/30 s apart, as the model's; row 0 of every chunk is the row due when the call came, at the rows a second
+the loop plays: `--rate`, else the client's `action_hz`, which each call names (20 when the loop's client names none).
+A first call that sends no hand pose and names no YAM is refused, and nothing moves: the check moves only an arm it
+knows the shape of, or its hands.
 
 Each call carries the robot's state back, and at the end the command prints a PASS or PROBLEM line per check (#judge):
 
@@ -39,12 +40,16 @@ Each call carries the robot's state back, and at the end the command prints a PA
 - right part moved: each joint's command moved that joint and no other (parts in another order, swapped arms);
 - direction and size: each part moved the way and as far as told (signs, degrees for radians, an inverted gripper);
 - lag and tracking: how far behind its targets each part follows (a loop that delays, queues or drops commands, or
-  joints that follow their commands slowly);
-- play rate: rows played a second against `--rate` (a loop that plays the plan slower or faster than it means to);
+  joints that follow their commands slowly), and how far it misses them after that (#_track);
+- play rate: rows played a second against the rate it means (`--rate`, else the client's `action_hz`): a loop that
+  plays the plan slower or faster than it means to;
 - circle: each hand's tool point, read at the calls and fit with an ellipse, went at least 6 cm across its 8 cm circle
   both ways (#CIRCLE_PASS), and at least 0.7 as wide as long (#CIRCLE_ROUND), so a run whose hands hardly moved, or
   traced a flat band, never passes;
 - camera rate: the frames new to each call's camera windows a second against the 5 the model reads (#camera_rate).
+
+A PROBLEM on a line that reads the hands (circle; on an arm the client's IK drives, direction and size and lag and
+tracking too) names the joints behind it, each read against its own command over the run (#_by_joint).
 
 The loop only reports the state when it calls, so every check is a fit over all the calls of the run, not a trace.
 
@@ -87,7 +92,7 @@ PLAN_HZ = 30
 HORIZON = 48
 ## The port the stand-in serves on by default.
 DEFAULT_PORT = 8642
-## Rows a second the loop plays, by default: the client's `action_hz` default and our own loop's.
+## Rows a second the loop plays when neither `--rate` nor the loop's client names it: the client's `action_hz` default.
 DEFAULT_RATE = 20.0
 ## The swing of each joint alone, radians (a tool point axis's, metres), and its rows: one cycle of 3 s, then 0.5 s at
 ## rest.
@@ -695,22 +700,30 @@ class StandIn:
     - poses: Whether the first call sent each hand's pose (`state.<side>_eef_xyz`, which the client adds with the
       `ik` config key), so the model check sends them too (#dream.check).
     - inputs: The first call's inputs, as #dream.input_check.inputs_id() names them; None before it.
+    - rate, rate_from: The rows a second the loop plays, and where that came from: `--rate`, `client` (the rate the
+      first call named, #dream.client_ik.RATE_HEADER) or `default` (#DEFAULT_RATE: the call named none).
     """
 
     def __init__(
         self,
         *,
-        rate: float = DEFAULT_RATE,
+        rate: float | None,
         clock: Callable[[], float] = time.monotonic,
         view: DebugView | None = None,
+        on_first_call: Callable[[StandIn], None] | None = None,
     ) -> None:
         """Nothing is served until serve().
 
-        @param rate Rows a second the loop plays.
+        @param rate Rows a second the loop plays (`--rate`); None for the rate the loop's client names at its first
+            call.
         @param clock The clock calls are timed on.
         @param view The page of what the model sees (#dream.DebugView), shown every call answered; or None.
+        @param on_first_call Called once the first call has made the plan, with the stand-in (its checkpoint, cameras
+            and arm read from that call), before that call is answered, so what it says comes before anything moves;
+            the plan's clock starts once it returns (#dream.check reads the recording there). Or None.
         """
-        self.rate, self.clock, self.view = rate, clock, view
+        self.rate, self.rate_from = (DEFAULT_RATE, "default") if rate is None else (rate, "--rate")
+        self.clock, self.view, self.on_first_call = clock, view, on_first_call
         self.calls: list[Call] = []
         self.t0 = 0.0
         self.plan: Plan | None = None
@@ -726,12 +739,15 @@ class StandIn:
         self._lock = threading.Lock()
         self._server: http.server.ThreadingHTTPServer | None = None
 
-    def answer(self, body: Mapping[str, Any], arm: str | None, head: str | None) -> dict[str, Any]:
+    def answer(
+        self, body: Mapping[str, Any], arm: str | None, head: str | None, paced: float | None
+    ) -> dict[str, Any]:
         """The reply to one `/v1/get_action` body: the chunk due now, or a refusal once stopped or finished.
 
         @param body The request: `session_id` and `observation`.
         @param arm The arm the call names (`dream.client_ik.ARM_HEADER`, unquoted), or None.
         @param head The `ik` head the call names (`dream.client_ik.HEAD_HEADER`), or None.
+        @param paced The rows a second the call's client paces at (`dream.client_ik.RATE_HEADER`), or None.
         @return The reply: `session_id`, the status envelope and `actions`.
         """
         with self._lock:
@@ -742,6 +758,8 @@ class StandIn:
             state = _state(observation if isinstance(observation, dict) else {})
             if self.stopped is None and not self.finished:
                 if self.plan is None:
+                    if paced is not None and self.rate_from != "--rate":
+                        self.rate, self.rate_from = paced, "client"
                     # The model the loop names and the cameras it sends, for the model check (#dream.check).
                     named = body.get("checkpoint")
                     self.checkpoint = named if isinstance(named, str) and named else None
@@ -760,6 +778,9 @@ class StandIn:
                         self.plan = Plan(state, arms=arms, hands=hands)
                     except ValueError as error:
                         self.stopped = f"stopped: {error}"
+                    if self.plan is not None and self.on_first_call is not None:
+                        self.on_first_call(self)
+                        now = self.clock()  # the hold starts as this answer goes out
                     self.t0 = now
                 else:
                     self.stopped = self._moved_while_holding(state, now)
@@ -770,10 +791,12 @@ class StandIn:
             row = int(round((now - self.t0) * self.rate))
             self.calls.append(Call(now, state, row, _frames(observation if isinstance(observation, dict) else {})))
             if row >= self.plan.rows and self.first is None:
-                # The together-motion has played: judge it, then move alone each part it found at fault.
+                # The together-motion has played: judge it, then move alone each part it found at fault, from the row
+                # due once judging ends: the loop holds the together-motion's end until this answer lands, then
+                # starts its chunk at that row (the clock row).
                 self.first, self.alone = _judge(self)
                 if self.alone:
-                    self.plan.extend(self.alone, row)
+                    self.plan.extend(self.alone, int(round((self.clock() - self.t0) * self.rate)))
             if row >= self.plan.rows:
                 self.finished = True
                 self.done.set()
@@ -827,11 +850,13 @@ class StandIn:
                 except ValueError:
                     body = {}
                 named = self.headers.get(client_ik.ARM_HEADER)
+                paced = self.headers.get(client_ik.RATE_HEADER)
                 reply = (
                     stand_in.answer(
                         body,
                         None if named is None else urllib.parse.unquote(named),
                         self.headers.get(client_ik.HEAD_HEADER),
+                        None if paced is None else float(paced),
                     )
                     if self.path == "/v1/get_action"
                     else {"status": _envelope("DA-0000", None, None)}
@@ -1031,14 +1056,18 @@ def camera_rate(stand_in: StandIn) -> Line:
 def watch(stand_in: StandIn) -> None:
     """Prints each step of the motion as it starts, and what the together-motion found, until the stand-in is done.
 
+    The plan and its clock are read under the stand-in's lock, which the first call holds until it is answered (its
+    hook included), so no line is timed before the clock starts.
+
     @param stand_in The stand-in, serving.
     """
     said, told, named = None, False, False
     while not stand_in.done.wait(0.25):
-        plan = stand_in.plan
+        with stand_in._lock:
+            plan, t0 = stand_in.plan, stand_in.t0
         if plan is None:
             continue
-        t = stand_in.clock() - stand_in.t0
+        t = stand_in.clock() - t0
         if not named:
             named = True
             print(f"{t:5.1f} s  your loop drives {stand_in.read_as()}", flush=True)
@@ -1121,14 +1150,16 @@ def _judge(stand_in: StandIn) -> tuple[list[Line], list[Channel]]:
     t0 = stand_in.t0
     channels = _channels(plan)
     moving = [c for c in channels if c.kind != "grip"]
+    # Each joint of a known arm, read too where the lines read the hands, to name the joints behind a hand's PROBLEM.
+    read = [*channels, *(ch for ch in _joints(plan, set(plan.arms or ())) if ch not in channels)]
     # The state each call carried was measured while the robot played the chunk of the call before it.
     t = np.array([c.t - t0 for c in calls[1:]])
     t_prev = np.array([c.t - t0 for c in calls[:-1]])
     row_prev = np.array([c.row for c in calls[:-1]], dtype=float)
     # Per channel, `(calls,)` readings (a hand's `(calls, 3)`), its start and its targets each row likewise.
-    measured = {ch: np.array([_value(plan, c.state, ch) for c in calls[1:]]) for ch in channels}
+    measured = {ch: np.array([_value(plan, c.state, ch) for c in calls[1:]]) for ch in read}
     start = {ch: _value(plan, calls[0].state, ch) for ch in channels}
-    table = _target_table(plan, channels)
+    table = _target_table(plan, read)
 
     def commanded(ch: Channel, lag: float, rate: float) -> np.ndarray:
         return _interp(row_prev + (t - lag - t_prev) * rate, table[ch])
@@ -1153,22 +1184,37 @@ def _judge(stand_in: StandIn) -> tuple[list[Line], list[Channel]]:
     direction, bent = _direction(
         plan, channels, measured, base, match, lambda ch: commanded(ch, own[ch][0] if ch in own else lag, rate)
     )
-    late, slow = _lag(own, lag)
+    late, slow = _lag(own, lag, {ch: _track(plan, ch) for ch in own})
     share = rate / stand_in.rate - 1
     played = f"the loop played {rate:.1f} rows a second"
+    meant = {
+        "--rate": f"--rate {stand_in.rate:g}",
+        "client": f"your client's action_hz {stand_in.rate:g}",
+        "default": f"the default {stand_in.rate:g}",
+    }[stand_in.rate_from]
+    fix = f"give the client action_hz {rate:.0f}" if stand_in.rate_from == "client" else f"run with --rate {rate:.0f}"
     pace = (
-        Line("PASS", "play rate", f"{played} (--rate {stand_in.rate:g})")
+        Line("PASS", "play rate", f"{played} ({meant})")
         if abs(share) <= RATE_SHARE
         else Line(
             "PROBLEM",
             "play rate",
-            f"{played}, {abs(share):.0%} {'slower' if share < 0 else 'faster'} than --rate "
-            f"{stand_in.rate:g}: a loop that overruns its tick or sleeps the wrong time (if it means to play "
-            f"{rate:.0f}, run with --rate {rate:.0f})",
+            f"{played}, {abs(share):.0%} {'slower' if share < 0 else 'faster'} than {meant}: a loop that overruns "
+            f"its tick or sleeps the wrong time (if it means to play {rate:.0f}, {fix})",
         )
     )
     at_fault = held | crossed | bent | slow
     lines = [hold, order, direction, late, pace, _circle_line(plan, calls, rate)]
+    # A line that reads the hands names the joints behind its PROBLEM (with joints read, only the circle reads hands).
+    by_hand = ("direction and size", "lag and tracking", "circle") if plan.hands else ("circle",)
+    if any(line.status == "PROBLEM" and line.check in by_hand for line in lines):
+        said = _by_joint(plan, measured, lambda ch, lag_: commanded(ch, lag_, rate))
+        lines = [
+            dataclasses.replace(line, detail=f"{line.detail}; {said}")
+            if said and line.status == "PROBLEM" and line.check in by_hand
+            else line
+            for line in lines
+        ]
     return lines, [] if pace.status == "PROBLEM" else _alone(plan, channels, at_fault)
 
 
@@ -1201,7 +1247,7 @@ def _circle_line(plan: Plan, calls: Sequence[Call], rate: float) -> Line:
         read = [
             (p, a) for p, a in zip((_tool(plan, side, c.state) for c in during), turn, strict=True) if p is not None
         ]
-        planned = _wave(np.array([_planned_tool(plan, side, c.row - together.start) for c in during]), turn)
+        planned = _wave(_planned_tool(plan, side, np.array([c.row - together.start for c in during], dtype=int)), turn)
         if len(read) < CIRCLE_CALLS or _sizes(planned)[1] < CIRCLE_PASS:
             return Line("SKIP", "circle", f"the loop called {len(during)} times in the circle, too rarely to see it")
         wave = _wave(np.array([p for p, _ in read]), np.array([a for _, a in read]))
@@ -1210,7 +1256,7 @@ def _circle_line(plan: Plan, calls: Sequence[Call], rate: float) -> Line:
             for a, b in zip(calls[:-1], calls[1:], strict=True)
             if together.start <= b.row <= together.end and (p := _tool(plan, side, b.state)) is not None
         ]
-        path = np.array([_planned_tool(plan, side, r) for r in range(TOGETHER_ROWS + 1)])  # (rows, 3 xyz)
+        path = _planned_tool(plan, side, np.arange(TOGETHER_ROWS + 1))  # (rows, 3 xyz)
         traced[side], misses[side] = (
             _sizes(wave),
             _misses(
@@ -1268,14 +1314,14 @@ def _tool(plan: Plan, side: str, state: Mapping[str, np.ndarray]) -> np.ndarray 
     return arm.hand(np.asarray(state[part], dtype=float)[None])[0, :3]
 
 
-def _planned_tool(plan: Plan, side: str, row: int) -> np.ndarray:
-    """A side's tool point `(3 xyz,)` in the plan's circle at one of its rows (clamped to the circle's)."""
+def _planned_tool(plan: Plan, side: str, rows: np.ndarray) -> np.ndarray:
+    """A side's tool point in the plan's circle at its rows `(n,)` (each clamped to the circle's): `(n, 3 xyz)`."""
     for part, move in plan.circle.items():
         if _side(part) != side or _kind(part) not in ("joint", "xyz"):
             continue
-        at = move[int(np.clip(row, 0, len(move) - 1))]
+        at = move[np.clip(rows, 0, len(move) - 1)]  # (n, width)
         arm = plan.arms.get(side) if plan.arms and _kind(part) == "joint" else None
-        return plan.start[part][:3] + at if arm is None else arm.hand((plan.start[part] + at)[None])[0, :3]
+        return plan.start[part][:3] + at if arm is None else arm.hand(plan.start[part] + at)[:, :3]
     raise KeyError(side)
 
 
@@ -1307,14 +1353,58 @@ def _alone(plan: Plan, channels: Sequence[Channel], at_fault: set[Channel]) -> l
     if not plan.hands:
         return [ch for ch in channels if ch in at_fault]
     sides = {_side(ch.part) for ch in at_fault if ch.kind != "grip"}
-    joints = [
+    return _joints(plan, sides) + [ch for ch in channels if ch.kind == "grip" and ch in at_fault]
+
+
+def _joints(plan: Plan, sides: set[str]) -> list[Channel]:
+    """Every joint that moves (its limits apart) of each known arm on `sides`, in the plan's order of sides."""
+    return [
         Channel(f"{side}_arm", col, "joint")
         for side in plan.sides()
-        if side in sides
+        if side in sides and f"{side}_arm" in plan.limits
         for col, (lower, upper) in enumerate(plan.limits[f"{side}_arm"])
         if upper > lower
     ]
-    return joints + [ch for ch in channels if ch.kind == "grip" and ch in at_fault]
+
+
+def _by_joint(
+    plan: Plan, measured: Mapping[Channel, np.ndarray], commanded: Callable[[Channel, float], np.ndarray]
+) -> str:
+    """The joints that explain a hand's PROBLEM, in words: each joint of a known arm fit against its own targets over
+    the run with a lag and gain of its own (#_lag_fit); a joint whose gain is outside #GAIN_RANGE, or whose lag is
+    #MAX_LAG_S more than the joints' median, is named, the worst first (at most 4), beside the range of the rest.
+
+    @param plan The plan the run played.
+    @param measured Per channel, its readings at the calls (each joint of a known arm among them).
+    @param commanded Per channel and lag, its targets at those calls.
+    @return The words; empty on an arm the check does not know, or one whose joints the calls do not carry.
+    """
+    fits = {}
+    for ch in _joints(plan, set(plan.arms or ())):
+        if not np.all(np.isfinite(measured[ch])) or float(np.ptp(commanded(ch, 0.0))) < _least(ch):
+            continue
+        lag, _, gain = _lag_fit(measured[ch], functools.partial(commanded, ch))
+        fits[ch] = (gain, lag)
+    if not fits:
+        return ""
+    usual = float(np.median([lag for _, lag in fits.values()]))
+    badness = {
+        ch: max(abs(gain - 1) / (GAIN_RANGE[1] - 1), (lag - usual) / MAX_LAG_S) for ch, (gain, lag) in fits.items()
+    }
+    off = sorted((ch for ch in fits if badness[ch] > 1), key=lambda ch: -badness[ch])
+    rest = [gain for ch, (gain, _) in fits.items() if ch not in off]
+    if not off:
+        return (
+            f"by joint, each followed x{min(rest):.2f} to x{max(rest):.2f} of its command, at most "
+            f"{max(lag for _, lag in fits.values()):.2f} s late: no one joint explains it"
+        )
+    named = ", ".join(
+        f"{ch.name} went the other way (x{gain:.2f}), {lag:.2f} s late"
+        if gain < 0
+        else f"{ch.name} followed x{gain:.2f} of its command, {lag:.2f} s late"
+        for ch, (gain, lag) in ((ch, fits[ch]) for ch in off[:4])
+    )
+    return f"by joint, {named}" + (f" (the other joints x{min(rest):.2f} to x{max(rest):.2f})" if rest else "")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1415,12 +1505,19 @@ def _value(plan: Plan, state: Mapping[str, np.ndarray], ch: Channel) -> np.ndarr
 
 
 def _target_table(plan: Plan, channels: Sequence[Channel]) -> dict[Channel, np.ndarray]:
-    """Per channel, its target at every row of the plan and a chunk past it: `(rows,)`, or a hand's `(rows, 3)`."""
+    """Per channel, its target at every row of the plan and a chunk past it: `(rows,)`, or a hand's `(rows, 3)`.
+
+    A joint of an arm the client's IK drives (`Plan.hands`) is held inside the limits the IK keeps it in
+    (#dream.check_arm.Arm.ik_limits), where the IK takes it at most.
+    """
     table = plan.table()
     out = {}
     for ch in channels:
         if ch.kind == "turn":
             out[ch] = check_arm.turned(table[ch.part], plan.start[ch.part])
+        elif ch.kind == "joint" and plan.hands and plan.arms:
+            lower, upper = plan.arms[_side(ch.part)].ik_limits[ch.col]
+            out[ch] = np.clip(table[ch.part][:, ch.col], lower, upper)
         else:
             out[ch] = table[ch.part] if ch.kind == "hand" else table[ch.part][:, ch.col]
     return out
@@ -1716,16 +1813,43 @@ def _lag_fit(y: np.ndarray, commanded: Callable[[float], np.ndarray]) -> tuple[f
     return lag, rms, gain
 
 
-def _lag(own: Mapping[Channel, tuple[float, float]], lag: float) -> tuple[Line, set[Channel]]:
+def _track(plan: Plan, ch: Channel) -> float:
+    """The most a part may miss its targets after its own lag (#_own_lags): a joint #MAX_TRACK_JOINT, a tool point axis
+    #MAX_TRACK_TOOL.
+
+    On an arm the client's IK drives, a hand misses by what its joints miss together, so its limit is what joints
+    that each miss by #MAX_TRACK_JOINT give it: each turns the hand by its miss about its own axis, so its turn
+    sqrt(joints) times that; and each moves the tool point by its column of the arm's Jacobian where the arm stood, so
+    the tool point the Jacobian's norm times that (never under #MAX_TRACK_TOOL).
+
+    @return The limit, in the channel's unit.
+    """
+    if ch.kind not in ("hand", "turn"):
+        return MAX_TRACK_TOOL if ch.kind == "xyz" else MAX_TRACK_JOINT
+    side = _side(ch.part)
+    assert plan.arms is not None
+    limits = plan.limits[f"{side}_arm"]  # (joints, 2 lower upper)
+    moves = limits[:, 1] > limits[:, 0]  # (joints,)
+    if ch.kind == "turn":
+        return MAX_TRACK_JOINT * math.sqrt(int(moves.sum()))
+    jac = plan.arms[side].jacobian(plan.start[f"{side}_arm"])[:, moves]  # (3 xyz, joints that move)
+    return max(MAX_TRACK_TOOL, MAX_TRACK_JOINT * float(np.linalg.norm(jac)))
+
+
+def _lag(
+    own: Mapping[Channel, tuple[float, float]], lag: float, track: Mapping[Channel, float]
+) -> tuple[Line, set[Channel]]:
     """The slowest part's lag behind its targets, and the largest error left after each part's lag (#_own_lags).
 
+    @param own Per part, its lag and the error left after it (#_own_lags).
+    @param lag The whole robot's lag.
+    @param track Per part, the most it may miss after its lag (#_track).
     @return The line, and the parts over either limit.
     """
     if not own:
         return Line("PASS", "lag and tracking", "no call came during a move; nothing to judge"), set()
     slow = max(own, key=lambda ch: own[ch][0])
-    worst = max(own, key=lambda ch: own[ch][1] / _unit(ch))
-    track = {ch: MAX_TRACK_TOOL if ch.kind in ("xyz", "hand") else MAX_TRACK_JOINT for ch in own}
+    worst = max(own, key=lambda ch: own[ch][1] / track[ch])
     limit = track[worst]
     over = {ch for ch, (late, miss) in own.items() if late > MAX_LAG_S or miss > track[ch]}
     if own[slow][0] > MAX_LAG_S:
@@ -1770,6 +1894,18 @@ def _unique(items: Sequence[str]) -> list[str]:
 START = "the workspace is clear"  # what the person at the robot types before anything moves, with an agent or not
 
 
+def motion_time(rate: float | None) -> str:
+    """How long the hold and the together-motion take, in words.
+
+    @param rate `--rate`, or None for the client's `action_hz`, which the check learns only at the first call.
+    @return As `about 15 s at 20 rows a second`.
+    """
+    rows = HORIZON + TOGETHER_ROWS + REST_ROWS
+    if rate is None:
+        return f"about {rows / DEFAULT_RATE:.0f} s at {DEFAULT_RATE:g} rows a second, less at a faster action_hz"
+    return f"about {rows / rate:.0f} s at {rate:g} rows a second"
+
+
 def confirm(moving: str) -> bool:
     """Says what will move and asks the person at the robot to type START; nothing is served before it.
 
@@ -1802,8 +1938,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--rate",
         type=float,
-        default=DEFAULT_RATE,
-        help=f"rows a second your loop plays (the client's action_hz; {DEFAULT_RATE:g})",
+        help=f"rows a second your loop plays (the client's action_hz, which it names; else {DEFAULT_RATE:g})",
     )
     parser.add_argument(
         "--trace",
@@ -1818,8 +1953,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     moving = (
         f"Your loop moves the arms: each hand circles twice, {200 * CIRCLE_R:.0f} cm across, while every joint "
-        f"turns, about {(HORIZON + TOGETHER_ROWS + REST_ROWS) / args.rate:.0f} s at {args.rate:g} rows a second, "
-        "more if a part is at fault."
+        f"turns, {motion_time(args.rate)}, more if a part is at fault."
     )
     if not confirm(moving):
         return 2

@@ -1,6 +1,6 @@
 """Contract tests C-1..C-17 and C-27..C-38: wire shape, config split, sessions, validation.
 
-Every test is named by its requirement id and runs against the in-process `FakeDreamAPI` from
+Every test is named by its design-doc id and runs against the in-process `FakeDreamAPI` from
 `conftest.py`, which speaks DreamAPI's `/v1/get_action` contract independently of the library.
 Bytes on the wire are compared as the fake recorded them.
 """

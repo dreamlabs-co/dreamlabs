@@ -1,9 +1,9 @@
-// Runs the setup page's own script (src/robots/setup_wizard.js, or the redesigned page's setup_wizard_v2.js) under
-// node on a stub page, for tests/test_setup_wizard.py.
+// Runs the setup page's own script (src/robots/setup_wizard.js) under node on a stub page, for
+// tests/test_setup_wizard.py.
 //
 //   node tests/setup_page.mjs scenario.json
 //
-// The scenario names the script (optional "script", setup_wizard.js when left out) and gives the routes' replies by "METHOD /path" (the path without its query), or "base", the address of a
+// The scenario gives the routes' replies by "METHOD /path" (the path without its query), or "base", the address of a
 // running wizard that answers every request with no scripted reply (each step then waits for its answers); state to set on the page and field values by id
 // (optional "values") before the call, the page function to call (optional; "args" to pass it), the buttons the page
 // drew to press after it (optional "press", each [id, selector, n]: the n-th match of the selector inside that
@@ -76,7 +76,6 @@ class FakeElement extends FakeNode {
   replaceChildren(...kids) { this.kids = []; this.append(...kids); }
   remove() {}
   scrollIntoView() {}
-  focus() {}
   showModal() { this.open = true; }
   close() { this.open = false; }
   // The page's static markup is not here: a selector answers an empty element of its own, the same one each time.
@@ -97,17 +96,6 @@ function matcher(selector) {
     && (!attr || (attr in node.attrs && (value === undefined || node.attrs[attr] === value)));
 }
 
-// On the document also `#id`, `#id <selector>` and lists of them joined by commas: v2 marks its pressed buttons over
-// such a list (PICK_GROUPS).
-function select(selector) {
-  return selector.split(",").map((part) => part.trim()).flatMap((part) => {
-    const m = /^#([\w-]+)(?: (.+))?$/.exec(part);
-    if (!m) return root.querySelectorAll(part);
-    const found = globalThis.document.getElementById(m[1]);
-    return m[2] ? descendants(found).filter(matcher(m[2])) : [found];
-  });
-}
-
 const byId = {};
 const root = new FakeElement("html");
 globalThis.Node = FakeNode;
@@ -118,7 +106,7 @@ globalThis.document = {
   },
   createElement: (tag) => new FakeElement(tag),
   querySelector: (selector) => root.querySelector(selector),
-  querySelectorAll: (selector) => select(selector),
+  querySelectorAll: (selector) => root.querySelectorAll(selector),
   addEventListener() {},
 };
 // The page's timers are kept, never fired on their own: a "wait" step runs those set for its delay. Only the page sees
@@ -129,8 +117,6 @@ globalThis.pageTimers = {
   clearTimeout: (id) => { if (timers[id - 1]) timers[id - 1].fn = null; },
 };
 globalThis.requestAnimationFrame = (fn) => fn();
-// Nothing is laid out or restyled, so no change is observed (v2 mirrors its pressed buttons' aria-pressed this way).
-globalThis.MutationObserver = class { observe() {} };
 
 const requests = [];
 // The running wizard's answers, read whole before the page sees them, and those still on their way.
@@ -156,19 +142,14 @@ globalThis.fetch = async (where, init = { method: "GET" }) => {
 };
 
 const here = path.dirname(url.fileURLToPath(import.meta.url));
-const script = scenario.script ?? "setup_wizard.js";
-const source = fs.readFileSync(path.join(here, "..", "src", "robots", script), "utf8");
-const viewer = {
-  "setup_wizard.js": 'import { ArmView, MARKER_ROOM, UrdfView, folderFiles, unzip } from "/setup_viewer.js";',
-  "setup_wizard_v2.js": 'import { ArmView, MARKER_ROOM, UrdfView, cadNavigation, folderFiles, unzip } from "/setup_viewer.js";',
-}[script];
-if (!source.includes(viewer)) throw new Error(`${script} no longer imports the 3D view as this stub expects`);
+const source = fs.readFileSync(path.join(here, "..", "src", "robots", "setup_wizard.js"), "utf8");
+const viewer = 'import { ArmView, MARKER_ROOM, UrdfView, folderFiles, unzip } from "/setup_viewer.js";';
+if (!source.includes(viewer)) throw new Error("setup_wizard.js no longer imports the 3D view as this stub expects");
 const after = (scenario.after ?? []).map((step) => (Array.isArray(step) || typeof step === "object" ? step : [step]));
 const called = [scenario.call, ...after.filter(Array.isArray).map(([name]) => name)].filter(Boolean);
 // The 3D views draw nothing here: each takes the calls the page makes and does nothing.
 const view = "const { setTimeout, clearTimeout } = globalThis.pageTimers;\nconst MARKER_ROOM = null;\nclass ArmView { async load() {} aim() {} label() {} live() {} highlight() {} mark() {} }\n"
   + "class UrdfView extends ArmView { async tree() { return { shown: [], plain: [], missing: [] }; } paint() {} setMarker() {} }\n"
-  + "const cadNavigation = () => {};\n"
   + "const unzip = () => new Map(Object.entries(globalThis.zipped).map(([p, t]) => [p, async () => new TextEncoder().encode(t)]));\n"
   + "const folderFiles = async () => unzip();";
 globalThis.zipped = scenario.zip ?? {};

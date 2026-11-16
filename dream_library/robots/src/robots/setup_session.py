@@ -118,7 +118,7 @@ class Robot:
     embodiment_id: str | None = None
 
 
-## The platform's embodiment each built-in body registers as (`POST /v1/robots`) and its fine-tunes are trained on.
+## The platform's embodiment each of our bodies registers as (`POST /v1/robots`) and its fine-tunes are trained on.
 EMBODIMENTS: dict[str, str] = {"yam": "yam", "makers": "makermods_maker_arm", "metal": "makermods_metal"}
 
 MAKERMODS_ROLES: tuple[str, ...] = ("scene", "wrist_l", "wrist_r")

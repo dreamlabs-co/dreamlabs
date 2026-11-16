@@ -588,9 +588,10 @@ class PolicyClient:
 
     def __del__(self) -> None:
         """Best-effort GC fallback; never rely on it."""
-        # A GC fallback so a dropped client does not leak its connection. close() already swallows
-        # everything, so this cannot raise during interpreter shutdown. A session still held is left
-        # to the gateway's idle eviction: a finalizer sends nothing on the wire.
+        # The one exception to the rule against __del__: a GC fallback, so a dropped client does
+        # not leak its connection. close() already swallows everything, so this cannot raise
+        # during interpreter shutdown. A session still
+        # held is left to the gateway's idle eviction: a finalizer sends nothing on the wire.
         if getattr(self, "_closed", True):
             return
         self._session_id = None
@@ -604,19 +605,21 @@ class PolicyClient:
         """Lists only the public surface plus the context-manager pair.
 
         Discovery is how private methods become de-facto public: someone finds a helper in a
-        REPL, ships it, and then it can never change.
+        REPL, ships it, and it can never be renamed.
         """
         return list(self._PUBLIC) + ["__enter__", "__exit__"]
 
     def _headers(self) -> dict[str, str]:
-        """The request headers: the key as a bearer token, when there is one; with `ik`, on calls to the loop check on
-        this computer (`client_ik.CHECK_HOST`) only, the arm and the head (`client_ik.ARM_HEADER`,
-        `client_ik.HEAD_HEADER`).
+        """The request headers: the key as a bearer token, when there is one; on calls to the loop check on this
+        computer (`client_ik.CHECK_HOST`) only, the rows a second the client paces at (`client_ik.RATE_HEADER`) and,
+        with `ik`, the arm and the head (`client_ik.ARM_HEADER`, `client_ik.HEAD_HEADER`).
 
         @return The headers.
         @throws DreamConfigError The key holds a character an HTTP header cannot carry.
         """
         headers = credentials._authorization(self.api_token) if self.api_token else {}
+        if self.host == client_ik.CHECK_HOST:
+            headers[client_ik.RATE_HEADER] = f"{self._pacer.action_hz:g}"
         if self._ik is not None and self.host == client_ik.CHECK_HOST:
             headers[client_ik.ARM_HEADER] = urllib.parse.quote(self._ik.arm)
             headers[client_ik.HEAD_HEADER] = self._ik.head
@@ -790,7 +793,7 @@ def _compile_checks(embodiment: Any) -> _Checks | None:
     """The checks strict mode runs, from either form of the `embodiment` block; read once, at construction.
 
     A block #_is_embodiment_config accepts is parsed as the embodiment config it is (#_config_checks); any other block
-    is a shape spec and is validated as one.
+    is a shape spec and is validated as one, exactly as before the config form existed.
 
     @param embodiment The value of `config["embodiment"]`.
     @return The #_Checks, or None for an empty spec (`{}`), which declares nothing and so checks nothing.
@@ -815,7 +818,8 @@ def _is_embodiment_config(block: Any) -> bool:
     The two forms are disjoint: every group and every entry of a spec is a dict, while a config maps its parts to
     `[start, end]` spans and its roles to video keys (and may name a `head_camera` string). A block that names
     `state`, `action` and `video` and holds anything that is not a dict one or two levels down is a config; every
-    other block is a spec, so a valid spec never changes meaning, and a config is never read as a spec.
+    other block is a spec, so a valid spec never changes meaning, and a block that was refused before is now read as
+    the config it was meant to be.
 
     @param block The value of `config["embodiment"]`.
     @return True when the block is to be parsed as an embodiment config.

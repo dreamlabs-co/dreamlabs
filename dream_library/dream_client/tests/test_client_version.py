@@ -19,7 +19,7 @@ from dream.transport import CLIENT_VERSION_HEADER, Transport
 
 API_KEY = "sk-live-SECRET-TOKEN-0123456789"
 
-## A refusal's detail, in the words of a gateway that compares builds; the client repeats whatever detail
+## A refusal's detail, in the words of an earlier gateway that compared builds; the client repeats whatever detail
 ## the gateway sends.
 DETAIL = "this dream library (version 3.0.0+gfedcba987654) is not the one this server runs (commit 0123456789ab)"
 

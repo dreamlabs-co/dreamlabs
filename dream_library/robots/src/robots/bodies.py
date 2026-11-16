@@ -7,8 +7,8 @@ camera roles, the serve observation and the embodiment block, #robots.adapter.Wi
 names another, the dream client's IK (`dream.client_ik`), the driver that opens one arm, and the forward kinematics
 the end-effector speed cap reads.
 
-- #YAM: the i2rt YAM, the default. It speaks its model's own wire
-  (#robots.adapter.YAM_VIDEO_WIRE), the `state` and `video` keys the model reads; the station wire
+- #YAM: the i2rt YAM, the default and the body every station before this one ran. It speaks its model's own wire
+  (#robots.adapter.YAM_VIDEO_WIRE), the `state` and `video` keys the model reads; the station wire it spoke before
   (`state.arm_r.joint_pos`, `image_window.top` and the rest) is deprecated and no body speaks it.
 - #MAKERS: the MakerMods Makers Arm (#robots.makers), on a FaaS fine-tune that answers with tool poses: the client
   solves them to joints with dream's IK.
@@ -56,9 +56,10 @@ from robots import (
 )
 
 ## The model a YAM station runs unless a run names another (`robots.station.StationController.start`): a catalog slug,
-## which the gateway resolves to its checkpoint, the base model with an EEF head, the YAM's default head
-## (`robots.run.policy_config`). A checkpoint id the key is not entitled to is refused (`DA-1000 not_entitled`), so
-## the slug is named, never an id. The model is dream's to choose, so the config file does not carry it.
+## which each environment's gateway resolves to its own checkpoint, here our base model with an EEF head, the YAM's
+## default head (`robots.run.policy_config`). An internal checkpoint id is refused for a customer key (`DA-1000
+## not_entitled`), so no such id belongs anywhere in this package. The model is ours to choose, so the config file does
+## not carry it.
 YAM_CHECKPOINT = "dreamlabs/dream-1-beta"
 
 

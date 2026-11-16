@@ -1,9 +1,9 @@
 """The live-view wire: the video header, both links' messages, the close codes, the viewer token and the constants
 both ends read.
 
-Two consumers: the `live` relay node and the robot's client (`dream.LiveViewClient`, which the robots station
-runs) speak the robot link to each other, and the relay speaks the viewer link to the browser, so every field name,
-close code and limit here is read by both ends and declared nowhere else.
+Two consumers from day one: the `live` relay node and the robot's client (`dream.LiveViewClient`, which the robots
+station runs) speak the robot link to each other, and the relay speaks the viewer link to the browser, so every
+field name, close code and limit here is read by both ends and declared nowhere else.
 The platform mints the viewer token with sign_viewer_token() and the node checks it with verify_viewer_token(), the
 one secret between them; the contract's golden-vector tests pin the format.
 
@@ -11,7 +11,8 @@ Four layers, top to bottom:
 
 - The binary video message: a 16-byte big-endian header (#VideoHeader, pack_video_header(), unpack_video_header())
   in front of one encoded video frame: a VP8 frame from a station's agent (`hello.codec` `vp8`), an H.264 Annex-B
-  access unit from an older agent (`avc1.42E01E`). The relay reads the header and forwards the bytes unchanged.
+  access unit from an agent older than 2026-10-16 (`avc1.42E01E`). The relay reads the header and forwards the bytes
+  unchanged.
 - The text messages: JSON objects with a `type` field, one pydantic model per type, read by parse_message() against
   the table of the link they arrived on (#ROBOT_LINK_TYPES, #VIEWER_LINK_TYPES). An unknown type or a malformed
   body raises `ValueError`, which the link answers with #CLOSE_PROTOCOL.
@@ -100,7 +101,7 @@ LINK_REPORT_S: int = 5
 ## A `live_links` row older than this is not fresh: three missed reports before the api calls a link gone.
 LINK_STALE_S: int = 15
 
-## Longest prompt text, the bound the public robots page and the station already enforce.
+## Longest prompt text, the bound the fish tank and the station already enforce.
 PROMPT_MAX_CHARS: int = 200
 
 ## Most joints per arm in a `tick` or `pose`: each arm sends its own count (a YAM six, a 7-joint arm seven), within
@@ -118,7 +119,7 @@ HELLO_MAX_FIELD_CHARS: int = 64
 ## before it sends and a longer one is refused.
 STATUS_ERROR_MAX_CHARS: int = 500
 
-## Longest checkpoint slug a `start` may name or a `status` may carry; the platform's own slug length limit.
+## Longest checkpoint slug a `start` may name or a `status` may carry; the platform registry's `SLUG_MAX_CHARS`.
 CHECKPOINT_MAX_CHARS: int = 128
 
 ## Most steps a `start` may ask a run to take: a step is one commanded control tick, so this is about an hour at the
@@ -143,12 +144,12 @@ PROMPT_MIN_INTERVAL_S: int = 2
 ## A prompt not acknowledged by the robot within this long is answered `ok: false, error: "timeout"`.
 PROMPT_ACK_S: int = 10
 
-## Viewer links per private robot: a team's tabs on one account. At the
+## Viewer links per private robot: a team's tabs on one account, since there are no organisations yet. At the
 ## cap a further link of a user already holding one replaces that user's oldest (`4006`) instead of being
 ## refused, so a reconnect that outruns the idle reap never locks its own owner out.
 LIVE_MAX_VIEWERS_PER_ROBOT_PRIVATE: int = 20
 
-## Viewer links per public robot: the public robots page's bound.
+## Viewer links per public robot: the fish tank's bound before HLS.
 LIVE_MAX_VIEWERS_PER_ROBOT_PUBLIC: int = 200
 
 ## The robot link's path on the live origin; robots dial `wss://<site>/live/robot`.
@@ -295,7 +296,7 @@ class Hello(pydantic.BaseModel):
     - width_px: Encoded width, normally #LIVE_WIDTH_PX.
     - fps: Encoded frame rate, normally #LIVE_FPS.
     - codec: The WebCodecs codec string of the stream, which the page configures its decoder with: `vp8` from a
-      station's agent, `avc1.42E01E` (H.264 Constrained Baseline) from an older agent; at most
+      station's agent, `avc1.42E01E` (H.264 Constrained Baseline) from one older than 2026-10-16; at most
       #HELLO_MAX_FIELD_CHARS.
     - face_blur: Whether every encoded frame is blurred; a public robot must declare it.
     - agent_version: The `dream-robots` version, for the relay's logs; at most #HELLO_MAX_FIELD_CHARS.
@@ -309,8 +310,8 @@ class Hello(pydantic.BaseModel):
       `rec_` + 32 hex, whose units are JPEGs (`codec` `jpeg`, `width_px` 0 since each frame carries its size) and
       whose text is #ObservationState only. The relay stores what it sends and never shows it: no viewer, report or
       prompt reaches it, and it may not offer `pose` (`4002`). A relay with `LIVE_RECORD_ONLY` off closes it
-      #CLOSE_RECORD_OFF. Left out of the JSON while false, so an ordinary `hello` carries no such key and a relay
-      older than the field, which forbids the key, still admits it.
+      #CLOSE_RECORD_OFF. Left out of the JSON while false, so an ordinary `hello` is byte for byte what it was and a
+      relay older than the field, which forbids the key, still admits it.
     """
 
     model_config = pydantic.ConfigDict(extra="forbid")
@@ -463,19 +464,20 @@ class RobotStatus(pydantic.BaseModel):
       from the driver's motor chain; an arm that died reads `false` until a `reset` reopens it. Empty from an
       agent older than the field.
     - timing: The run's `get_action` round trips (#LiveTiming), while a run is on and a chunk has come back. A
-      relay older than the field forbids the key and closes the link `4002`. The agent sends a `status` for it at
-      most every #TIMING_STATUS_S, not on every refill.
+      relay older than the field forbids the key and closes the link `4002`, so the relay is deployed before a
+      station library that sends it. The agent sends a `status` for it at most every #TIMING_STATUS_S, not on
+      every refill.
     - action_space: What the station executes at the next start (#ActionSpace): its config's, or the one the last
       `start` named. Left out by a station without the dream client's IK (a YAM, which runs its model's joints)
       and by an agent older than the field, which takes no `prompt.action_space`. A relay older than the field
-      closes the link `4002` on it.
+      closes the link `4002` on it, so the relay is deployed first.
     - steps: How many steps the next run takes, or the running one: the one the last `start` named, or 0 when none
       has and a run goes on until it is stopped. Left out by an agent older than the field, which takes no
-      `prompt.steps`. A relay older than the field closes the link `4002` on it.
+      `prompt.steps`. A relay older than the field closes the link `4002` on it, so the relay is deployed first.
     - model_fixed: Whether the robot's own code sets the model and the actions, so a `start`'s `checkpoint` and
       `action_space` from the page are not applied: `dream.LiveViewClient` sends it true, and the page then offers no
-      model or action choice. Left out of the JSON while false, so the station's `status` carries no such key and
-      a relay older than the field, which forbids the key, still admits it.
+      model or action choice. Left out of the JSON while false, so the station's `status` is byte for byte what it
+      was and a relay older than the field, which forbids the key, still admits it.
     """
 
     model_config = pydantic.ConfigDict(extra="forbid")
@@ -556,8 +558,8 @@ class TickTarget(pydantic.BaseModel):
 
 class Pose(pydantic.BaseModel):
     """`pose`, robot to relay and relay to viewer: where the arms are right now, for a page that draws the body.
-    Sent at #POSE_HZ while any viewer holds the #POSE_STREAM subscription, running or idle; the relay hands it to
-    those viewers as it is.
+    Sent at #POSE_HZ while any viewer holds the #POSE_STREAM subscription, running or idle; the relay hands
+    it to those viewers as it is.
 
     Attributes:
     - t_us: Robot wall clock, microseconds, the video header's clock.
@@ -891,7 +893,7 @@ class AuthorizeRequest(pydantic.BaseModel):
     """The authorize call, node to api: may this key link this robot.
 
     Attributes:
-    - key_hash: sha256 hex of the api key on the upgrade.
+    - key_hash: sha256 hex of the api key on the upgrade, the platform's `hash_token`.
     - robot_id: The robot the `hello` claims; None for a record-only link, whose robot id is the client's own and
       names no registered robot, so only the key and its owner's spend cap are checked.
     """
@@ -1098,7 +1100,7 @@ class ViewerTokenPayload(pydantic.BaseModel):
     """What a viewer token signs: who may watch which robot on which node, until when, once.
 
     Attributes:
-    - user_id: The owner's id, or `""` for a public token minted for the public robots page.
+    - user_id: The owner's id, or `""` for a public token minted by the fish-tank route.
     - robot_id: The one robot the link may carry frames of.
     - node_id: The node the token was minted for; the relay refuses a token naming another node.
     - exp: Unix time, seconds, after which the token is refused; minted #VIEWER_TOKEN_TTL_S out.

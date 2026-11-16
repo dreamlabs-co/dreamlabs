@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import dataclasses
 import json
 import math
@@ -33,7 +34,7 @@ import pathlib
 import re
 import sys
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -60,6 +61,8 @@ SIZE_RANGE = (1 / 3, 3.0)
 RETRY_S = 300.0
 ## Fields a LeRobot path template may name, each `{name}` or `{name:0Nd}`.
 PATH_FIELD_RE = re.compile(r"\{(episode_chunk|episode_index|video_key)(?::0(\d+)d)?\}")
+## What to do about an episode file the check cannot read, as its #Unreadable line ends.
+AGAIN = "record or export that episode again, or give another with --episode"
 
 
 @dataclasses.dataclass
@@ -81,7 +84,9 @@ class Episode:
 
 
 class Unreadable(ValueError):
-    """A session the check cannot read (#readable, #read_episode); `str(error)` is one line naming what is missing."""
+    """A session the check cannot read (#readable, #read_episode, #reach, #moments); `str(error)` is one line naming
+    what is missing.
+    """
 
 
 def readable(folder: pathlib.Path, episode: int) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -93,11 +98,11 @@ def readable(folder: pathlib.Path, episode: int) -> tuple[dict[str, Any], dict[s
     @param folder The session folder.
     @param episode Its `episode_index`.
     @return `(info, the episode's line)`.
-    @throws Unreadable What is missing, and the layout read (LeRobot v2.1, as an upload takes it).
+    @throws Unreadable What is missing or not of its kind, and the layout read (LeRobot v2.1, as an upload takes it).
     """
     from shared.datasets import validation
 
-    layout = f"the check reads the LeRobot {validation.CODEBASE_VERSION} layout an upload takes"
+    layout = _layout()
     try:
         info = json.loads((folder / validation.INFO_FILE).read_text())
     except (OSError, ValueError) as error:
@@ -107,6 +112,16 @@ def readable(folder: pathlib.Path, episode: int) -> tuple[dict[str, Any], dict[s
         missing += [f"features.{name}" for name in validation.REQUIRED_FEATURES if name not in info["features"]]
     if missing:
         raise Unreadable(f"{validation.INFO_FILE} has no {', '.join(missing)}; {layout}")
+    for field in ("data_path", "video_path"):
+        if not isinstance(info[field], str):
+            raise Unreadable(f"{validation.INFO_FILE}'s {field} is {info[field]!r}, not text; {layout}")
+    for field, kind, words in (("chunks_size", int, "a whole number"), ("fps", float, "a number")):
+        try:
+            value = kind(info[field])
+        except (TypeError, ValueError, OverflowError):
+            value = 0
+        if not 0 < value < math.inf:
+            raise Unreadable(f"{validation.INFO_FILE}'s {field} is {info[field]!r}, not {words} above 0; {layout}")
     try:
         lines = (folder / validation.EPISODES_FILE).read_text().splitlines()
         rows = [json.loads(line) for line in lines if line.strip()]
@@ -135,26 +150,55 @@ def read_episode(folder: pathlib.Path, episode: int, video: Mapping[str, str]) -
     @param episode Its `episode_index`.
     @param video Per camera role, the dataset's video key (the config's `embodiment.video`).
     @return The episode.
-    @throws Unreadable The folder is not one #readable reads, or a video is not where `info.json` says.
+    @throws Unreadable The folder is not one #readable reads, its parquet not one #_vectors reads, or a video is not
+        where `info.json` says.
     """
-    import pyarrow.parquet  # type: ignore[import-untyped]  # the `datasets` extra
-
     info, meta = readable(folder, episode)
     fields = _fields(info, episode)
-    table = pyarrow.parquet.read_table(
-        folder / _fill(info["data_path"], fields), columns=["observation.state", "action"]
-    )
+    state, action = _vectors(folder / _fill(info["data_path"], fields))
     videos = {role: folder / _fill(info["video_path"], {**fields, "video_key": key}) for role, key in video.items()}
     for path in videos.values():
         if not path.is_file():
             raise Unreadable(f"{path}: no such video (info.json's video_path and the config's embodiment.video)")
-    return Episode(
-        fps=float(info["fps"]),
-        task=str(meta["tasks"][0]),
-        state=np.array(table.column("observation.state").to_pylist(), dtype=float),
-        action=np.array(table.column("action").to_pylist(), dtype=float),
-        videos=videos,
-    )
+    return Episode(fps=float(info["fps"]), task=str(meta["tasks"][0]), state=state, action=action, videos=videos)
+
+
+def _vectors(path: pathlib.Path) -> list[np.ndarray]:
+    """An episode parquet's `observation.state` and `action`, each `[rows, width]`.
+
+    @param path The parquet.
+    @return The two, in that order.
+    @throws Unreadable The file is not a parquet pyarrow reads, lacks one of the two, or one is not a list of numbers
+        of one width a row; said with what to give instead.
+    """
+    import pyarrow.parquet  # type: ignore[import-untyped]  # the `datasets` extra
+
+    names = ["observation.state", "action"]
+    try:  # a damaged footer or page comes out of pyarrow as a plain OSError, not an ArrowException
+        present = [name for name in names if name in pyarrow.parquet.read_schema(path).names]
+        table = pyarrow.parquet.read_table(path, columns=present)
+    except (pyarrow.ArrowException, OSError) as error:
+        raise Unreadable(f"{path} could not be read as a parquet file ({error}); {AGAIN}") from None
+    out = []
+    for name in names:
+        if name not in present:
+            raise Unreadable(f"{path} has no {name} column; {_layout()}")
+        rows: np.ndarray | None
+        try:
+            rows = np.array(table.column(name).to_pylist(), dtype=float)
+        except (TypeError, ValueError):  # rows of more than one width, or not numbers
+            rows = None
+        if rows is None or rows.ndim != 2:
+            raise Unreadable(f"{path}: its {name} is not a list of numbers of one width a row; {_layout()}")
+        out.append(rows)
+    return out
+
+
+def _layout() -> str:
+    """The layout the check reads, as an #Unreadable line ends."""
+    from shared.datasets import validation
+
+    return f"the check reads the LeRobot {validation.CODEBASE_VERSION} layout an upload takes"
 
 
 def _fill(template: str, fields: Mapping[str, Any]) -> str:
@@ -163,13 +207,16 @@ def _fill(template: str, fields: Mapping[str, Any]) -> str:
 
 
 def _frames(path: pathlib.Path, indices: set[int]) -> dict[int, str]:
-    """The frames at `indices` of one video, each as the check sends it: 640x320 JPEG, base64."""
-    import av
+    """The frames at `indices` of one video, each as the check sends it: 640x320 JPEG, base64.
+
+    @throws Unreadable The video does not open or decode (#_video), or ends before the last of `indices`.
+    """
     import cv2
 
-    out, last = {}, max(indices)
-    with av.open(str(path)) as container:
+    out, last, count = {}, max(indices), 0
+    with _video(path) as container:
         for index, frame in enumerate(container.decode(video=0)):
+            count = index + 1
             if index in indices:
                 small = cv2.resize(frame.to_ndarray(format="bgr24"), FRAME_SIZE, interpolation=cv2.INTER_AREA)
                 ok, jpeg = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
@@ -178,10 +225,45 @@ def _frames(path: pathlib.Path, indices: set[int]) -> dict[int, str]:
                 out[index] = base64.b64encode(jpeg.tobytes()).decode("ascii")
             if index >= last:
                 break
-    missing = indices - set(out)
-    if missing:
-        raise ValueError(f"{path}: {len(out)} frames, none at {min(missing)}; the video is shorter than its episode")
+    if count <= last:
+        raise _short(path, count, last)
     return out
+
+
+def reach(episode: Episode, last: int) -> None:
+    """Whether each video of the episode opens and, by the count of frames its file gives, holds frame `last`.
+
+    Nothing is decoded, so the loop's first call can ask it before anything moves.
+
+    @param episode The episode.
+    @param last The last frame the check reads.
+    @throws Unreadable A video that does not open (#_video), or whose count ends before `last`; a video whose file
+        gives no count is left to #_frames.
+    """
+    for path in episode.videos.values():
+        with _video(path) as container:
+            count = container.streams.video[0].frames
+        if 0 < count <= last:
+            raise _short(path, count, last)
+
+
+@contextlib.contextmanager
+def _video(path: pathlib.Path) -> Iterator[Any]:
+    """One video, opened with PyAV; an FFmpeg error opening or decoding it is an #Unreadable naming it."""
+    import av
+
+    try:
+        with av.open(str(path)) as container:
+            yield container
+    except av.FFmpegError as error:
+        raise Unreadable(f"{path} could not be read as a video ({error}); {AGAIN}") from None
+
+
+def _short(path: pathlib.Path, count: int, last: int) -> Unreadable:
+    """The #Unreadable of a video of `count` frames, where the check reads up to frame `last`."""
+    return Unreadable(
+        f"{path} has {count} frames, where the check reads up to frame {last}: shorter than its episode; {AGAIN}"
+    )
 
 
 def moments(rows: int, fps: float, count: int) -> list[int]:
@@ -191,11 +273,14 @@ def moments(rows: int, fps: float, count: int) -> list[int]:
     @param fps Its rows a second.
     @param count How many moments to ask at; fewer when the episode is short.
     @return The rows, in order.
-    @throws ValueError The episode is shorter than one chunk.
+    @throws Unreadable The episode is shorter than one chunk.
     """
     last = rows - 1 - math.ceil((HORIZON - 1) * fps / PLAN_HZ)
     if last < 0:
-        raise ValueError(f"the episode has {rows} rows, fewer than one chunk of {HORIZON} at {fps:g} a second")
+        raise Unreadable(
+            f"the episode has {rows} rows, fewer than one chunk of {HORIZON} at {fps:g} a second; give a longer one "
+            "with --episode"
+        )
     return sorted({round(x) for x in np.linspace(min(last, round(0.1 * rows)), last, count)})
 
 

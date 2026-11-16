@@ -1,8 +1,9 @@
 """The seam between the loop's types and the serve's dicts; the only module that knows the wire's key names.
 
-Two wires live here. The station wire, first, which is deprecated (below): `dream` forwards the observation
-verbatim to a dreamzero serve and returns the serve's
-action dict unchanged, so the names here are the serve wire's: a `prompt`, `state.arm_r.joint_pos` style state
+Two wires live here. The station wire, first, which every YAM spoke before it spoke its model's own and which is
+deprecated (below): `dream` forwards the observation verbatim to a dreamzero serve and returns the serve's
+action dict unchanged, so the names here are the serve wire's (`robots_wire.build_obs()` and
+`action_chunks()` in Dream Labs' station code): a `prompt`, `state.arm_r.joint_pos` style state
 keys, `image_window.<role>` JPEG windows, and `q_r_chunk` / `q_l_chunk` action chunks of
 `[H, 7]` (six joints then the gripper). to_dream() turns an #robots.types.Observation into
 what the loop hands `dream.DreamClient.set_observation()` on a tick: one encoded frame per window key, and
@@ -37,7 +38,7 @@ own wire, an #EefWire on #YAM_EMBODIMENT (#YAM_VIDEO_WIRE): the same values unde
 `state.right_gripper` and so on, and each camera under `video.<role>` for its station name (#YAM_VIDEO_ROLES); the
 serve packs the model's joint answer into the same `q_r_chunk` / `q_l_chunk` on either wire, so from_dream() and
 commanded_joints() read its replies too. The station wire (to_dream(), embodiment_spec(), #YAM_WIRE) is what no
-body speaks: its `state.arm_r.*` and `image_window.<role>` keys are deprecated, and it goes when the API
+body speaks any more: its `state.arm_r.*` and `image_window.<role>` keys are deprecated, and it goes when the API
 drops them.
 
 @see to_dream(), from_dream(), commanded_joints(), embodiment_spec(), Wire, EefWire

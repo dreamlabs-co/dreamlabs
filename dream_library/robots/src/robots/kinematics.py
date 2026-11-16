@@ -3,7 +3,7 @@
 The rate clamp on the arms is a cap on the end effector's speed (`max_ee_speed_m_s`, 0.6 m/s on
 the station), not on joint angular steps: a per-joint cap says nothing about how fast the hand
 moves, since 0.02 rad of base yaw swings an outstretched arm a centimetre while 0.02 rad of wrist
-roll moves the grasp point almost nothing, and such a cap throttles the policy on a third
+roll moves the grasp point almost nothing, and on the station it throttled the policy on a third
 of its ticks. Speed in metres needs the arm's geometry, so #ArmKinematics runs
 MuJoCo's forward kinematics on the same model the IK uses: `i2rt` composes the
 YAM arm's XML with the configured gripper's (`combine_arm_and_gripper_xml`) and the end effector
@@ -42,7 +42,7 @@ EE_SITE: str = "grasp_site"
 ## `at` when, UTC, ISO 8601, plus `digest` on a `calibrated` one (`dream.arm_file.tool_digest()` of the file as the
 ## operator confirmed it). dream warns once at `policy()` when the tool point is not one a person confirmed
 ## (`dream.arm_file.tool_point_problem()`).
-TCP_CALIBRATION = arm_file.TCP_CALIBRATION
+(TCP_CALIBRATION,) = arm_file.OPTIONAL_KEYS
 
 ## `calibrated`: the operator put the marker where the fingertips close and pressed Set tool center point.
 ## `skipped`: they chose "Skip calibration (not advised)" and confirmed, so the tool point is wherever the marker was.
@@ -154,8 +154,8 @@ class DreamKinematics:
 
     The end effector is the tool centre point (`dream_ik.specs.SERVE.tool`), where the arm's datasets' tool poses
     are. both_arms() builds the model once for both arms; each instance reads its own side, since the sides may be
-    different arms (the SO-101's two URDFs). A call costs about 0.13 ms on the Makers Arm (on a
-    CPU); the model is built and its forward kinematics compiled once, which takes a few seconds. Not
+    different arms (the SO-101's two URDFs). A call costs about 0.13 ms on the Makers Arm (measured on a
+    CPU box); the model is built and its forward kinematics compiled once, which takes a few seconds. Not
     thread-safe; the loop calls it from its tick alone.
 
     @see both_arms(), ee_position()

@@ -1,7 +1,7 @@
-"""The Makers driver against the driver it is ported from: the same CAN frames, byte for byte, and the same joints.
+"""The Makers driver against our stations' driver: the same CAN frames, byte for byte, and the same joints.
 
-`data/makers_parity.json` is a snapshot of the source Makers driver run through one scenario on its own fake bus
-with a fake clock:
+`data/makers_parity.json` is a snapshot of our stations' Makers driver, taken with an internal script: the driver
+run through one scenario on its own fake bus with a fake clock:
 an arm with a joint a whole turn off, the startup ramp, tracking, the soft-limit clamp, the gripper closing on an
 object and letting go, missed replies, a stream that stops, the return to rest and torque off. This test replays the
 scenario through the shared thread (#robots.motor_arm) on the Makers table (#robots.makers) over the ported fake

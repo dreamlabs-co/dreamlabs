@@ -3,7 +3,7 @@
 A checkpoint fine-tuned on a body is called with the keys of that body's config: `state.<part>` arrays as wide as each
 part's span, `video.<role>` frame windows, `prompt`; its action comes back as `per_key` rows, one `action.<part>` per
 action part. Passing the config as `embodiment` makes the client check exactly that, locally. Every shape spec keeps
-its meaning, so the YAM station keys the shipped control loop sends are checked as a spec.
+its meaning, so the YAM station keys the shipped control loop sends are checked as before.
 """
 
 from __future__ import annotations
@@ -715,7 +715,7 @@ def test_c07u_a_listed_config_this_library_cannot_read_raises_and_sends_nothing(
     server: FakeDreamAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """C-7u: a model whose listed config the parser refuses (a key a later platform lists) raises at policy() with
-    `strict` on, since its calls could be neither checked nor converted."""
+    `strict` on, since its calls could be neither checked nor converted; it opened unchecked before."""
     _account(monkeypatch, owner="mine", config={**ARM_CONFIG, "parts": {"arm": {"kind": "arm"}}})
     serve_actions(server, lambda: parts_reply(ARM_CONFIG))
     client = dream.DreamClient("dl_live_x")

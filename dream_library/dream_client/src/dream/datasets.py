@@ -130,8 +130,8 @@ _NAME_RE = re.compile(r"[a-z0-9-]{1,64}")
 _NAME_RULE = "a dataset name uses a-z, 0-9 and '-' only, 1 to 64 characters, e.g. 'towels-v1'"
 
 ## How every environment, production included, gets the library: `dreamlabs` from PyPI, which brings this client
-## (`dreamlabs-client`) with pyarrow, boto3 and dream's IK (_install_hint()). Dream Labs holds that name on PyPI,
-## so the line installs no one else's code; a site that serves its own build installs it the same way
+## (`dreamlabs-client`) with pyarrow, boto3 and dream's IK (_install_hint()). A name Dream Labs holds there since its
+## first release, so the line installs no one else's code; a site that serves its own build installs it the same way
 ## through its Setup API page.
 _INSTALL = "pip install --upgrade dreamlabs"
 
@@ -171,7 +171,7 @@ class Report:
     - action_dim: The width of `action`, the end of the embodiment's last `action` span.
     - fps: The recording rate `meta/info.json` records, frames per second.
     - video_keys: The video streams of every directory, sorted.
-    - notes: What processing will change, and why, one line per directory; nothing to fix. Namely timestamps that
+    - notes: What processing will change, and why, one line per directory; nothing to fix. Today: timestamps that
       drift from the videos, which processing re-times as `frame_index / fps` so each frame is paired with its own
       image.
     """

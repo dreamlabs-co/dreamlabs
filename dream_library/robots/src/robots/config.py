@@ -237,13 +237,13 @@ _RAW_USB_PREFIX = "gs_usb:"
 ## Keys of one `cameras[i]` mapping; exactly one of `device` and `serial` is set.
 _CAMERA_KEYS = frozenset({"name", "device", "serial", "source", "width", "height", "fps", "rotate"})
 LIVE_KEYS = frozenset({"robot_id", "cameras", *("width_px", "fps", "bitrate_kbps", "encoder", "record")})
-## `live` keys a station file may still carry that set nothing: the encoding is the platform's
+## `live` keys an older station file may carry that no longer set anything: the encoding is the platform's
 ## (`dream.LiveViewClient`), and recording is every run's own dream client's. Read and ignored, with one log line.
 LIVE_IGNORED_KEYS = frozenset({"width_px", "fps", "bitrate_kbps", "encoder", "record"})
 ## The rotations `CameraReader` applies; anything else would change the frame shape non-trivially.
 _ROTATIONS = (0, 90, 180, 270)
-## A retired per-joint step cap (the end-effector speed cap is the replacement): a config still carrying it fails
-## by name, with the replacement, rather than as "unknown key".
+## The 0.3.0 per-joint step cap the end-effector speed cap replaced: a config still carrying it fails by name,
+## with the replacement, rather than as "unknown key".
 _RETIRED_STEP_KEY = "max_joint_step_rad"
 ## The prefetch threshold the loop now sizes itself (`robots.control`): a config still
 ## carrying it fails by name, with the reason, rather than as "unknown key".
@@ -334,7 +334,7 @@ class ArmConfig:
     On a robot of your own (`body: custom`) `can_channel` is the device your driver opens, whatever it is (a CAN
     link, a serial port), and `home` is required: one angle per joint your driver reads, exactly as many as dream's
     model of the arm (`custom.ik`) has; a run refuses another count before an arm opens (`robots.adapter.Wire`), so
-    a home padded with 0s up to six angles must drop the padding. `gripper_open_deg` and `gripper_closed_deg` are
+    a home written before 10/16 with 0s up to six angles drops them. `gripper_open_deg` and `gripper_closed_deg` are
     optional, both or neither, NaN without: the setup wizard measures them when your driver reports its gripper
     motor's angle (`robots.followers.Driver.gripper_deg()`), and your driver maps its gripper with them. The other
     fields keep their defaults, which nothing reads.
@@ -606,9 +606,9 @@ class AppConfig:
     ## 640x360: the serve resizes to the model's input anyway, and 720p would
     ## cost 3-4x the upload for nothing.
     policy_image_size: tuple[int, int] = (640, 360)
-    ## Nine frames: the base model checkpoint's `video_context_frames`.
+    ## Nine frames: our base model checkpoint's `video_context_frames`.
     obs_window: int = 9
-    ## 5 fps: the base model checkpoint's training video rate (30 fps dataset, video_stride 6).
+    ## 5 fps: our base model checkpoint's training video rate (30 fps dataset, video_stride 6).
     obs_fps: float = 5.0
     ## Faces are scrubbed at capture before any frame is sent to the API; off sends raw frames (debugging only).
     face_blur: bool = True
@@ -643,7 +643,8 @@ class AppConfig:
 
 @dataclasses.dataclass(frozen=True)
 class ExposureConfig:
-    """Managed colour exposure for the RealSense cameras: the exposure controller a YAM station runs.
+    """Managed colour exposure for the RealSense cameras: our YAM stations' exposure controller, carried here for a
+    customer station.
 
     The firmware's auto-exposure is switched off and the capture thread steers exposure itself, holding each
     frame's median grey level at `target_median`: the median is the scene (the bench and what is on it), so a

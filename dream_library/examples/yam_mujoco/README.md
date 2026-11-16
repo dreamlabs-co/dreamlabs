@@ -10,7 +10,7 @@ The dream library's wheel carries this example (as `dream_examples/yam_mujoco/`,
 dreamcli example yam-mujoco          # --show-side-panel, --verbose; --self-test checks the install headless
 ```
 
-From a source checkout, to change the example, use Python 3.11 or later in a virtual environment and run from this directory. The example needs the dream library it ships in (its client, and the YAM kinematics the base models read), so install that from the checkout first:
+From a source checkout, to change the example, use Python 3.11 or later in a virtual environment and run from this directory. The example needs the dream library it ships in (its client, and the YAM kinematics our base models read), so install that from the checkout first:
 
 ```bash
 python -m pip install ../..

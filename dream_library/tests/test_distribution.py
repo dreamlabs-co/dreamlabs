@@ -3,8 +3,8 @@
 The wheel copies the robots package, the parts of `shared` it imports, the vendored i2rt and the vendored IK (dream_ik
 with pyroki and jaxls), and depends on `dreamlabs-client` for the `dream` package, so its dependency list has to carry
 every external requirement those packages declare, at a floor no lower than the source's own; a floor that drifts here
-would install a version a package does not support. The same for the extras (empty names, and the robots package's
-`so101`), for the paths the build reads, and for the vendored copies being the commits their VENDOR.md
+would install a version a package does not support. The same for the extras (`hardware` is i2rt's runtime list minus
+ruckig, plus mujoco), for the paths the build reads, and for the vendored copies being the commits their VENDOR.md
 names.
 """
 
@@ -178,9 +178,9 @@ def test_the_vendored_ik_is_the_commits_dream_ik_pins() -> None:
 
 
 def test_the_old_extras_still_resolve_and_add_nothing() -> None:
-    """`pip install "dream[hardware,ui]"` must keep working, and it installs exactly what the base list already
-    carries (`ui` is an empty name: there is no station page to install). The client's `record` extra is an empty
-    name here too, its websockets being in the base list.
+    """Every instruction written so far says `pip install "dream[hardware,ui]"`; that must keep working, and it
+    installs exactly what the base list already carries (`ui` named the station page, which is gone, and stays
+    as an empty name). The client's `record` extra is an empty name here too, its websockets being in the base list.
     The one extra that adds something is the robots package's `so101`, the same list."""
     extras = umbrella()["optional-dependencies"]
     robots_extras = load(HERE / "robots" / "pyproject.toml")["project"]["optional-dependencies"]

@@ -1,8 +1,8 @@
 [project]
 name = "dreamlabs"
-version = "1.0.39"
+version = "1.0.42"
 description = "The dream library: the robots package with its dreamcli station command, and the DreamAPI policy client (import dream, from dreamlabs-client), as one pip install."
-readme = "README.pypi.md"
+readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE", "THIRD-PARTY-LICENSES.md"]
 # Python 3.11 to 3.13. Below 3.11 the shared contracts the robots package imports do not load (`enum.StrEnum`), so
@@ -52,7 +52,7 @@ dependencies = [
     "click<8.2.0",
     "dm-env==1.6",
     # The client, with what its dataset checks and its live view need; the same major as the gateway accepts.
-    "dreamlabs-client[datasets,live]>=1.1.5,<2",
+    "dreamlabs-client[datasets,live]>=1.1.7,<2",
     "einops>=0.7 ; python_version >= '3.11'",
     "jax==0.7.1 ; python_version >= '3.11'",
     "jax-dataclasses==1.6.3 ; python_version >= '3.11'",
@@ -86,10 +86,11 @@ dependencies = [
     "yourdfpy==0.0.60 ; python_version >= '3.11'",
 ]
 
-# `hardware`, `ui` and `live` are empty names, kept so that `pip install "dream[hardware,ui]"` still resolves: the
-# base list carries the driver and the live view, and there is no station page for `ui` to install. `record` is
-# likewise empty, so that `pip install "dream[record]"` still resolves: websockets, which `dream.experimental` records
-# with on every policy, is in the base list. `so101` is the robots
+# `hardware`, `ui` and `live` are kept so that `pip install "dream[hardware,ui]"`, which every earlier instruction
+# says, still resolves: the base list carries the driver and the live view, and the station page `ui` once named is
+# gone, so each is empty rather than gone. `record` is likewise kept empty so that `pip install "dream[record]"`, the
+# line earlier client releases printed, still resolves: websockets, which `dream.experimental` records with on every
+# policy, is in the base list. `so101` is the robots
 # package's own: the SO-101's servo bus is LeRobot's, which needs Python 3.12 and brings torch, so only an SO-101
 # station installs it.
 [project.optional-dependencies]

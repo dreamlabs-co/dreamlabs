@@ -26,7 +26,7 @@ Each folder holds the driver, `<robot>.py`, and its config, `<robot>.yaml`. Each
 1. Fetch these files with your key: the Setup robots page of the platform and the docs page "Your own robot" give the command, which saves them in `~/my_robot/examples`.
 2. Copy the closest example's two files to `~/my_robot/my_robot.py` and `~/my_robot/my_robot.yaml`, and replace its SDK calls with your robot's. Keep a `ReadOnlyArm`.
 3. In the config, set `custom.driver` to `my_robot.py:ReadOnlyArm`, `custom.ik`, `custom.embodiment`, each arm's `can_channel` (the device your driver opens) and your cameras. Set each `home` to one 0 per joint of the arm for now: a dry run never moves an arm, so it never goes there.
-4. With the arms powered, dry run: `dreamcli robot run --config ~/my_robot/my_robot.yaml --checkpoint <your fine-tune> --task "..." --dry-run`. The model is called for real and nothing is written to the arms; the log shows what each arm reads once a second. Copy each arm's reading at rest into its `home`.
+4. With the arms powered, dry run: `dreamcli robot run --config ~/my_robot/my_robot.yaml --checkpoint <your fine-tune> --task "..." --dry-run --view`. The model is called for real and nothing is written to the arms; the log shows what each arm reads once a second, and the page `--view` prints shows what the model sees: check every camera, the state and the prompt there. Copy each arm's reading at rest into its `home`.
 5. Then set `custom.driver` to `my_robot.py:Arm` and run without `--dry-run`, with a hand on the emergency stop. A run starts by moving both arms to `home`.
 
 ## The prompt for Claude Code
@@ -39,11 +39,12 @@ My robot: <maker and model; how many arms and joints; its motors and how they co
 
 First read ~/my_robot/examples/README.md, the example closest to my robot (its .py and .yaml), the driver template that comes with the dream library (python -c "import robots.driver_template as t; print(t.__file__)"), and, if the dreamlabs-docs MCP server is connected, its page "Your own robot".
 Then write ~/my_robot/my_robot.py, with an Arm and a ReadOnlyArm as the example has, and ~/my_robot/my_robot.yaml from the example's config, with custom.driver my_robot.py:ReadOnlyArm and each home one 0 per joint of the arm for now.
-Then show me ReadOnlyArm and the dry-run command, and run the dry run only when I say so: dreamcli robot run --config ~/my_robot/my_robot.yaml --checkpoint <my fine-tune> --task "..." --dry-run
+Then show me ReadOnlyArm and the dry-run command, and run the dry run only when I say so: dreamcli robot run --config ~/my_robot/my_robot.yaml --checkpoint <my fine-tune> --task "..." --dry-run --view
 
 Rules:
 - Nothing moves without me. Never run Arm, a run without --dry-run, the setup wizard, or anything else that switches a motor on or sends a target: those are mine to run, with a hand on the emergency stop.
 - The dry run comes first, on ReadOnlyArm: it opens the arm, switches no motor on and refuses write().
+- During the dry run, open the page --view prints with me and check what the model sees before anything moves: each camera on its own key, upright, natural colours, changing as things move; the state in radians with grippers 0 closed to 1 open; the prompt. Never run python -m dream.input_check: it records that I checked the page.
 - The tool center point is mine to measure. If my arm needs an arm file for custom.ik, write the rest with its tcp, approach and jaw left empty, then ask me to measure and confirm the tool center point with dreamcli tcp (or by hand), and continue only once I have confirmed it. Never fill in tcp, approach or jaw, or pick or estimate the point yourself: a link in my URDF and the YAM's numbers are not my tool center point.
 - close() and every disconnect path never move the arm.
 - Before calling a vendor plugin's connect() or disconnect(), read them in its source: some home, rezero, close the gripper or move the whole arm. If either can move anything, open the plugin's lower-level bus instead, as the reBot example does.

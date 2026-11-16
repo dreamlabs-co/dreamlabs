@@ -442,8 +442,9 @@ def test_an_embodiment_with_no_settings_is_listed_with_no_cameras_not_a_crash(
 def test_once_both_arms_are_found_another_port_listed_says_it_is_not_an_arm(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
-    """Find your arms lists a third USB port beside the two arms'; once both are found, the wizard closes every
-    other port, and its row says it is not an arm rather than "Not opened." as though it might be one."""
+    """Find your arms listed a third USB port beside the two arms' and, once both were found, still showed it as
+    though it might be one ("Not opened."). The wizard closes every other port then, and its row says it is not an
+    arm."""
     ports = [
         {"id": f"serial-{name}", "kind": "serial", "bus": "serial", "open": f"/dev/{name}", "serial": None,
          "usb": None, "label": f"USB serial adapter {name}", "detail": f"/dev/{name}", "state": None, "via": None}
@@ -1155,8 +1156,7 @@ PAGE = pathlib.Path(__file__).with_name("setup_page.mjs")
 
 
 def run_page(tmp_path: pathlib.Path, scenario: dict[str, Any]) -> dict[str, Any]:
-    """Runs setup_wizard.js (or the scenario's `script`) on node with the scenario (tests/setup_page.mjs) and returns
-    what the page shows."""
+    """Runs setup_wizard.js on node with the scenario (tests/setup_page.mjs) and returns what the page shows."""
     file = tmp_path / "scenario.json"
     file.write_text(json.dumps(scenario), encoding="utf-8")
     done = subprocess.run(["node", str(PAGE), str(file)], capture_output=True, text=True, timeout=60, check=False)
@@ -1173,9 +1173,9 @@ def picked_page(picked: dict[str, Any]) -> dict[str, Any]:
 def test_rotate_turns_a_live_view_a_quarter_turn_and_opens_the_views_again(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
-    """Rotation is not only a text box among the capture settings. Each live
+    """Rotation was only a text box among the capture settings. Each live
     view's picture has a Rotate button: it turns that camera's `rotate`, the key the saved file keeps, a quarter turn
-    clockwise and opens the views again. Its chip says the current turn."""
+    clockwise and opens the views again. Its chip says the turn now."""
     with Station(tmp_path / "station.yaml", platform.account) as st:
         state = st.call("GET", "/api/state")[1]
         picked = st.call("POST", "/api/robot", {"body": "yam"})[1]
@@ -1201,8 +1201,8 @@ def test_rotate_turns_a_live_view_a_quarter_turn_and_opens_the_views_again(
 def test_rotate_on_a_camera_picture_in_the_role_step_turns_it_and_its_roles_rotate(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
-    """A camera mounted upside down or sideways needs turning at the role step too, not only on the live views.
-    Each picture of the role step has a Rotate button:
+    """A camera mounted upside down or sideways needs turning at the role step too, but Rotate was drawn only on the
+    live views. Each picture of the role step has one:
     a quarter turn clockwise of the picture, kept as the `rotate` of the role holding that camera, the value the live
     views open with and the saved file keeps. A picture of a role whose `rotate` is already set shows it turned."""
     with Station(tmp_path / "station.yaml", platform.account) as st:
@@ -1235,9 +1235,10 @@ def test_rotate_on_a_camera_picture_in_the_role_step_turns_it_and_its_roles_rota
 def test_show_live_views_draws_every_camera_from_the_routes_own_reply(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
-    """POST /api/cameras/open answers each role under "opened", and the page reads the roles from there, not off
-    the reply itself. The page's script runs here on the replies the routes send, the head camera a 4:3 one, whose
-    shape note shows under its row as a caption, not a warning: any shape is fine for setup."""
+    """*Show live views* failed with "Cannot read properties of undefined (reading 'warning')": POST /api/cameras/open
+    answers each role under "opened", and the page read the roles off the reply itself. The page's script runs here
+    on the replies the routes send, the head camera a 4:3 one, whose shape note shows under its row as a caption, not
+    a warning: any shape is fine for setup."""
     with Station(tmp_path / "station.yaml", platform.account) as st:
         st.cams.pictures[CAMERAS[0]["value"]] = sample_rgb("head")[:, :480]  # (360, 480, 3): 4:3
         state = st.call("GET", "/api/state")[1]
@@ -1267,8 +1268,9 @@ def test_show_live_views_draws_every_camera_from_the_routes_own_reply(
 def test_the_live_views_say_the_size_each_camera_delivers_and_warn_when_it_is_not_the_one_typed(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
-    """A camera that cannot give the mode asked keeps one of its own, so changing its width or height in the
-    setup wizard can seem to do nothing. Each live view says the size its camera delivers, from the
+    """Changing a camera's width or height in the setup wizard seemed to do nothing to the camera. The size was sent
+    to the camera, but the page never said what the camera gave, and a camera that
+    cannot give the mode asked keeps one of its own. Each live view now says the size its camera delivers, from the
     open's answer, turned back to the camera's own width and height when `rotate` is a quarter turn; a size other
     than the one typed is a warning. Here the head camera gives 480x360 for the 1280x720 typed, and the right one,
     turned 90, gives its typed 640x360."""
@@ -1336,9 +1338,9 @@ def test_a_typed_camera_size_opens_the_live_views_again_once_typing_stops(
 def test_dreams_model_of_your_own_arm_starts_unpicked_and_a_rerun_brings_back_the_files(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
-    """The custom card starts with no model of the arm picked (a wrong one draws and solves another arm): neither
-    way to give it is on, and Continue stays off until one is. The driver's file picker opens in the station file's
-    folder. A file saved
+    """The custom card showed the first of dream's arm models, ai_worker_faas, as
+    if picked; a wrong model of the arm draws and solves another arm. None is picked now: neither way to give it is
+    on, and Continue stays off until one is. The driver's file picker opens in the station file's folder. A file saved
     for a robot of one's own brings back its driver, open in the picker at its file and class, its arm model (listed
     by its name though the tiles above offer it), its embodiment, and Continue. The dry-run line is Save's, with the
     model a robot of your own's run must name."""
@@ -1568,7 +1570,6 @@ def test_an_arm_of_your_own_from_its_urdf_is_written_beside_the_file(
         "approach": [1, 0, 0],
         "jaw": [0, 1, 0],
         "tcp_calibration": "calibrated",
-        "fixed": [],
     }
     server.start()
     try:
@@ -1607,10 +1608,6 @@ def test_an_arm_of_your_own_from_its_urdf_is_written_beside_the_file(
             400,
             {"error": "'tcp_calibration' is required"},
         )
-        assert call({key: v for key, v in upload.items() if key != "fixed"}) == (
-            400,
-            {"error": "'fixed' must be a list of the chain's joints your robot holds still"},
-        )
         status, refused = call({**upload, "flange": "link9"})
         assert status == 400 and "flange 'link9' is not a link of the URDF" in refused["error"]
         assert call({**upload, "tcp": [0.1, 0]}) == (400, {"error": "'tcp' must be three numbers [x, y, z]"})
@@ -1636,7 +1633,6 @@ def test_dreamcli_tcp_answers_the_tool_point_page_alone_and_writes_the_wizards_a
         "approach": [1, 0, 0],
         "jaw": [0, 1, 0],
         "tcp_calibration": "calibrated",
-        "fixed": [],
     }
     written: dict[str, tuple[str, bytes]] = {}
     for kind in (setup_wizard.SetupServer, setup_wizard.TcpServer):
@@ -1861,197 +1857,6 @@ def test_dreamcli_tcp_opens_the_page_on_the_urdf_step_alone_and_set_it_up_myself
     assert "`dreamcli tcp`" in templates["custom"]["yaml"]
 
 
-## Shaped as a made-up humanoid with dexterous hands, base to left hand: a three-joint torso, the arm's seven
-## joints on it, and the hand on a mount that turns without end (`continuous`, no limits), as its URDF writes it.
-HUMANOID_LEFT = (
-    '<robot name="humanoid"><link name="base"/>'
-    + "".join(
-        f'<link name="{child}"/>'
-        f'<joint name="{joint}" type="{"continuous" if joint == "L_hand_roll" else "revolute"}">'
-        f'<parent link="{parent}"/><child link="{child}"/><origin xyz="0 0 0.1"/><axis xyz="0 {i % 2} {1 - i % 2}"/>'
-        + ("" if joint == "L_hand_roll" else '<limit lower="-1.5" upper="1.5" velocity="2"/>')
-        + "</joint>"
-        for i, (joint, parent, child) in enumerate(
-            [("torso_j1", "base", "torso_1"), ("torso_j2", "torso_1", "torso_2"), ("torso_j3", "torso_2", "torso_3")]
-            + [(f"L_arm_j{n}", "torso_3" if n == 1 else f"L_arm_{n - 1}", f"L_arm_{n}") for n in range(1, 8)]
-            + [("L_hand_roll", "L_arm_7", "L_hand")]
-        )
-    )
-    + "</robot>"
-)
-
-
-## Each page script's words on the URDF end step for HUMANOID_LEFT: the chain it shows, what the map does not drive,
-## and the start of the line once the arm is built. Both pages ask the same per joint.
-PAGE_WORDS = {
-    "setup_wizard.js": {
-        "ends": "Your arm stands on base (blue) and ends at L_hand (green), 11 joints out. Not the end? Click the "
-        "right link on the drawing.",
-        "undriven": "tester/humanoid does not drive 4 of them; answer for each below.",
-        "built": "Using",
-    },
-    "setup_wizard_v2.js": {
-        "ends": "Your arm is mounted on base (blue) and ends at L_hand (green), 11 joints out. If that isn't the end, "
-        "click the right link in the drawing.",
-        "undriven": "Your embodiment tester/humanoid doesn't drive 4 of them. Answer for each below.",
-        "built": "Added",
-    },
-}
-
-
-@pytest.mark.parametrize("script", sorted(PAGE_WORDS))
-def test_dreamcli_tcp_names_each_chain_joint_the_stations_embodiment_does_not_drive_and_a_person_decides_it(
-    tmp_path: pathlib.Path, platform: FakePlatform, script: str
-) -> None:
-    """`dreamcli tcp` on a humanoid's arm refused its hand mount, a continuous joint its embodiment does not drive
-    (2026-10-18). The page now names each moving joint between base and end that the station file's embodiment
-    (`custom.embodiment`, its `urdf.joints`) does not drive, and holds Yes until a person presses Moves or Held still
-    on each: never the page (the TCP rule). The arm file records the held ones as `fixed`, and the arm is built
-    without them. The wizard asks about none (its arm drives its whole chain); with no joint map, or none to read,
-    `dreamcli tcp` asks about every one
-    (test_dreamcli_tcp_asks_about_every_chain_joint_when_it_has_no_joint_map_and_says_why_a_read_failed)."""
-    pytest.importorskip("dream_ik.specs", reason="dream's IK needs Python 3.11 or newer")
-    station = tmp_path / "station.yaml"
-    station.write_text("body: custom\ncustom:\n  embodiment: tester/humanoid\n", encoding="utf-8")
-    arm = [f"L_arm_j{n}" for n in range(1, 8)]
-    right = [f"R_arm_j{n}" for n in range(1, 8)]
-    humanoid = setup_fakes.account_embodiment(
-        "tester/humanoid", {**setup_fakes.EMBODIMENT, "urdf": {"joints": {"left_arm": arm, "right_arm": right}}}
-    )
-    kwargs = {"host": "127.0.0.1", "port": 0, "ask_embodiments": lambda: [humanoid, *setup_fakes.EMBODIMENTS]}
-    keyless = dataclasses.replace(platform.account, api_key=None)
-    assert setup_wizard.SetupServer(station, platform.account, **kwargs).joint_map() is None
-    assert setup_wizard.TcpServer(station, keyless, **kwargs).joint_map() == {
-        "embodiment": "tester/humanoid",
-        "joints": None,
-        "error": "could not read tester/humanoid's joints: your credentials hold no API key",
-    }
-    unnamed = setup_wizard.TcpServer(tmp_path / "none.yaml", platform.account, **kwargs).joint_map()
-    assert unnamed == {"embodiment": None, "joints": None, "error": None}
-    server = setup_wizard.TcpServer(station, platform.account, **kwargs)
-    server.start()
-    try:
-        base = f"http://127.0.0.1:{server.port}"
-        tree = json.loads(request(base, "POST", "/api/urdf", {"urdf": HUMANOID_LEFT})[2])
-        assert tree["joint_map"] == {"embodiment": "tester/humanoid", "joints": sorted(arm + right), "error": None}
-        show = ["urdfLinks", "urdfYes", "urdfSpare", "urdfNote"]
-
-        def page(after: list[Any]) -> dict[str, Any]:
-            scenario = {
-                "script": script,
-                "replies": {},
-                "base": base,
-                "show": show,
-                "call": "loadUrdf",
-                "args": ["Humanoid Left.urdf", HUMANOID_LEFT],
-            }
-            shown = run_page(tmp_path, {**scenario, "after": after})
-            assert shown["errors"] == [], shown
-            ids: dict[str, Any] = shown["ids"]
-            return ids
-
-        def pick(joint: str, held: bool) -> dict[str, list[Any]]:
-            return {"press": ["urdfSpare", f'button[data-{"held" if held else "moves"}="{joint}"]', 0]}
-
-        spare = ["torso_j1", "torso_j2", "torso_j3", "L_hand_roll"]
-        asked = page([])
-        words = PAGE_WORDS[script]
-        assert asked["urdfLinks"]["text"] == f"{words['ends']} {words['undriven']}"
-        assert asked["urdfYes"]["disabled"] and not asked["urdfSpare"]["hidden"]
-        assert asked["urdfSpare"]["children"] == 4
-        assert asked["urdfSpare"]["text"].startswith("torso_j1: does your robot move this joint? MovesHeld still")
-        assert page([pick(joint, True) for joint in spare[:3]])["urdfYes"]["disabled"], "the mount is still undecided"
-        written = tmp_path / setup_wizard.ARMS_DIR / "humanoid-left.json"
-        for mount_held, joints in ((True, arm), (False, [*arm, "L_hand_roll"])):
-            picks = [pick(joint, True) for joint in spare[:3]] + [pick("L_hand_roll", mount_held)]
-            assert not page(picks)["urdfYes"]["disabled"], "every joint is decided"
-            decided = page([*picks, "confirmEnd", ["addUrdf", "calibrated"]])
-            still = spare if mount_held else spare[:3]
-            assert decided["urdfNote"]["text"] == (
-                f"{words['built']} Humanoid Left.urdf: {len(joints)} joints ({', '.join(joints)}). Held still: "
-                f"{', '.join(still)}."
-            )
-            assert json.loads(written.read_text())["fixed"] == still
-            assert kinematics.arm_layout(str(written)).width == len(joints)
-    finally:
-        server.stop()
-
-
-def _refuse_embodiments() -> list[Any]:
-    raise dream.DreamError("401 Unauthorized: the key was revoked")
-
-
-## A station file naming the humanoid's embodiment.
-NAMES_HUMANOID = "body: custom\ncustom:\n  embodiment: tester/humanoid\n"
-
-
-@pytest.mark.parametrize(
-    ("station_text", "ask", "error"),
-    [
-        (NAMES_HUMANOID, lambda: [setup_fakes.account_embodiment("tester/humanoid")], None),
-        ("body: custom\n", lambda: setup_fakes.EMBODIMENTS, None),
-        (
-            NAMES_HUMANOID,
-            _refuse_embodiments,
-            "could not list your account's embodiments: 401 Unauthorized: the key was revoked",
-        ),
-        (
-            NAMES_HUMANOID,
-            lambda: setup_fakes.EMBODIMENTS,
-            "your account has no embodiment 'tester/humanoid'; it has: tester/so101-pick, tester/so101, "
-            "tester/my-arm, tester/mine, tester/my-metal, tester/cams",
-        ),
-    ],
-    ids=["no_urdf_joints", "no_embodiment", "read_failed", "no_such_embodiment"],
-)
-@pytest.mark.parametrize("script", sorted(PAGE_WORDS))
-def test_dreamcli_tcp_asks_about_every_chain_joint_when_it_has_no_joint_map_and_says_why_a_read_failed(
-    tmp_path: pathlib.Path, platform: FakePlatform, station_text: str, ask: Any, error: str | None, script: str
-) -> None:
-    """2026-10-18: with no joint map to hold the chain to (no embodiment, or one without `urdf.joints`), the
-    page asks about every moving joint between base and end; when the account could not be asked, it says why in one
-    line first, never falling back silently. Nothing is pressed for the person, and held ones go in `fixed`."""
-    pytest.importorskip("dream_ik.specs", reason="dream's IK needs Python 3.11 or newer")
-    station = tmp_path / "station.yaml"
-    station.write_text(station_text, encoding="utf-8")
-    server = setup_wizard.TcpServer(station, platform.account, host="127.0.0.1", port=0, ask_embodiments=ask)
-    server.start()
-    try:
-        base = f"http://127.0.0.1:{server.port}"
-        tree = json.loads(request(base, "POST", "/api/urdf", {"urdf": HUMANOID_LEFT})[2])
-        error = None if error is None else f"could not read tester/humanoid's joints: {error}"
-        assert (tree["joint_map"]["joints"], tree["joint_map"]["error"]) == (None, error)
-        chain = ["torso_j1", "torso_j2", "torso_j3", *[f"L_arm_j{n}" for n in range(1, 8)], "L_hand_roll"]
-        held = [*chain[:3], chain[10]]
-        scenario = {
-            "script": script,
-            "replies": {},
-            "base": base,
-            "call": "loadUrdf",
-            "args": ["Humanoid Left.urdf", HUMANOID_LEFT],
-        }
-        show = ["urdfLinks", "urdfYes", "urdfSpare", "urdfNote"]
-        asked = run_page(tmp_path, {**scenario, "show": show, "after": []})
-        assert asked["errors"] == [], asked
-        spare = asked["ids"]["urdfSpare"]
-        assert asked["ids"]["urdfLinks"]["text"] == f"{PAGE_WORDS[script]['ends']} Answer for each joint below."
-        assert spare["children"] == len(chain) + (error is not None) and not spare["hidden"]
-        assert spare["text"].startswith((error or "") + "torso_j1: does your robot move this joint? MovesHeld still")
-        assert asked["ids"]["urdfYes"]["disabled"]
-        picks = [
-            {"press": ["urdfSpare", f'button[data-{"held" if joint in held else "moves"}="{joint}"]', 0]}
-            for joint in chain
-        ]
-        decided = run_page(
-            tmp_path, {**scenario, "show": show, "after": [*picks, "confirmEnd", ["addUrdf", "calibrated"]]}
-        )
-        assert decided["errors"] == [], decided
-        assert not decided["ids"]["urdfYes"]["disabled"], "every joint is decided"
-        assert json.loads((tmp_path / setup_wizard.ARMS_DIR / "humanoid-left.json").read_text())["fixed"] == held
-    finally:
-        server.stop()
-
-
 ## A gripper of two fingers on dream's Metal URDF's link6, so the end of its longest chain is a finger.
 FINGERS = """  <link name="finger_l"/><link name="finger_r"/>
   <joint name="finger_l_joint" type="prismatic"><parent link="link6"/><child link="finger_l"/>
@@ -2238,7 +2043,8 @@ def test_continue_waits_until_the_tool_point_is_marked_or_its_skip_confirmed_and
 def test_a_gray_continue_names_what_it_still_needs_and_set_tool_center_point_turns_it_on(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
-    """With no driver picked, Set tool center point leaves Continue blocked and the line beside it names the
+    """Continue stayed grayed out after the tool center point was set: no driver had been picked, and the page did
+    not say so. With no driver, Set tool center point leaves Continue blocked and the line beside it names the
     driver; before the tool point it names that; with the driver and the embodiment given, Set tool center point
     unblocks Continue and the line is empty. A click on the blocked Continue sends nothing and lines the driver's
     block in red, and picking the driver takes the line away."""
@@ -2389,14 +2195,7 @@ def test_a_new_embodiment_is_registered_at_the_pick_from_the_arm_with_the_camera
         status, made = st.call(
             "POST",
             "/api/arm_file",
-            {
-                **upload,
-                "tcp": [0.1, 0, 0],
-                "approach": [1, 0, 0],
-                "jaw": [0, 1, 0],
-                "tcp_calibration": "calibrated",
-                "fixed": [],
-            },
+            {**upload, "tcp": [0.1, 0, 0], "approach": [1, 0, 0], "jaw": [0, 1, 0], "tcp_calibration": "calibrated"},
         )
         assert status == 200
         status, picked = pick(made["ik"])
@@ -2549,7 +2348,7 @@ def test_a_robot_of_ones_own_records_its_grippers_range_over_the_route_and_the_p
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
     """The gripper step of a robot of one's own: POST /api/gripper takes the angles its driver
-    reports, and the page shows them without the bus arms' line about stopping short of the open stop."""
+    reports, and the page shows them without our arms' line about stopping short of the open stop."""
     with Station(tmp_path / "station.yaml", platform.account) as st:
         robot = find_own_arms(st, (15.0, -326.7))
         for end, opening in (("open", 1.0), ("closed", 0.0)):
@@ -2585,8 +2384,9 @@ def test_a_robot_of_ones_own_whose_driver_reports_no_gripper_angle_is_told_why_t
 def test_every_step_runs_on_the_routes_own_replies_for_cameras_the_embodiment_names(
     tmp_path: pathlib.Path, platform: FakePlatform
 ) -> None:
-    """An embodiment's own camera names (LeRobot's cam_high, cam_left_wrist, cam_right_wrist) are in neither the
-    page's nor the server's tables of names, so the server labels every role itself
+    """The camera step failed with "Cannot read properties of undefined (reading 'replace')": the page and the server
+    labelled cameras from their own tables of names, and an embodiment's own
+    names (LeRobot's cam_high, cam_left_wrist, cam_right_wrist) were in neither. The server labels every role now
     (setup_cameras.camera_roles()): such a camera has no reference picture until the operator's dataset names its key.
     The page's script runs each step on the routes' own replies for such a robot, loaded afresh at each step as a
     reload would be, the operator's hands between; no step may log or show an error."""
@@ -3179,11 +2979,11 @@ def test_the_gripper_switch_lets_go_of_the_arms_then_switches_only_that_adapters
         server.switch_gripper({"device": "can9"})
 
 
-def test_the_redesigned_page_and_its_connection_route_follow_the_flag(
+def test_the_redesigned_page_and_its_connection_route_are_off_until_the_flag_is_on(
     served: tuple[setup_wizard.SetupServer, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """With `DREAM_SETUP_WIZARD_V2` off, `/` is the current page and there is no connection route; on, `/` is the
-    redesigned page and `/api/connection` answers. Each page runs its own script."""
+    """Unset, `DREAM_SETUP_WIZARD_V2` leaves the current page and no connection route; on, `/` is the redesigned page
+    and `/api/connection` answers. Each page runs its own script."""
     _, base = served
     monkeypatch.setattr(setup_wizard.station, "SETUP_WIZARD_V2", False)
     status, _, body = request(base, "GET", "/")
@@ -3272,9 +3072,9 @@ def test_both_pages_define_every_colour_the_drawing_reads() -> None:
 def test_dreamcli_tcp_serves_the_stylesheet_the_redesigned_page_links(
     tmp_path: pathlib.Path, platform: FakePlatform, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """With `DREAM_SETUP_WIZARD_V2` on, `dreamcli tcp` serves the redesigned page and the stylesheet it links, so
-    the tool point page is styled: TcpServer answers `/setup_wizard.css` as text/css, with the redesigned page on or
-    off."""
+    """With `DREAM_SETUP_WIZARD_V2` on, `dreamcli tcp` served the redesigned page but refused
+    the stylesheet it links, so the tool point page drew unstyled. TcpServer answers `/setup_wizard.css` as text/css,
+    with the redesigned page on or off."""
     css = setup_wizard._package_text(setup_wizard.STYLESHEET).encode("utf-8")
     for v2 in (True, False):
         monkeypatch.setattr(setup_wizard.station, "SETUP_WIZARD_V2", v2)
@@ -3291,8 +3091,8 @@ def test_dreamcli_tcp_serves_the_stylesheet_the_redesigned_page_links(
 
 
 def test_the_redesigned_tool_point_page_opens_on_its_urdf_step_with_no_step_count() -> None:
-    """The redesigned page under `dreamcli tcp` opens on the URDF step, not on Choose setup method, and shows no
-    "Step 1 of 8" over it: the step list skips the choice and the count on the tool point page alone
+    """Styled, the redesigned page under `dreamcli tcp` opened on Choose setup method and said
+    "Step 1 of 8" over the URDF step. The step list skips the choice and the count on the tool point page alone
     (main.tcp-only)."""
     steps = setup_wizard._package_text("setup_page.js")
     assert 'if (choosing && ((rerun && later()) || main.classList.contains("tcp-only")))' in steps

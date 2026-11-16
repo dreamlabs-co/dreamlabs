@@ -1,1 +1,1 @@
-"""Cross-product code: import-only, and every module here has more than one product reading it."""
+"""Cross-product code: import-only, and nothing enters without two real consumers (README, two-consumer rule)."""

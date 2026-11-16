@@ -20,5 +20,6 @@ The Dream Labs client: fine-tune Dream-1 on a robot's data and run the result. I
 **Start here**
 
 - [Package list](namespaces.html), [Class list](annotated.html), [File list](files.html).
-- Pages: the README and the changelog, rendered from the Markdown that ships with the package.
+- Pages: the README, the changelog, and the design corrections log (rendered from the Markdown that ships with the package).
+- Pages also include the design doc; its mermaid diagrams render only on the documentation site, here they appear as fenced code.
 - The user-facing API reference (`DreamClient`'s documented surface, held equal to its public members; internals cannot appear) is `make docs`; this site is the maintainer's view and includes every internal.

@@ -18,7 +18,7 @@ VIEWER_LOOKAT = (0.0, 0.0, 0.9)
 VIEWER_DISTANCE, VIEWER_AZIMUTH, VIEWER_ELEVATION = 1.5, 90.0, -25.0
 ## The center (top) policy camera's offset from the station calibration: this much lower, and pitched this much up
 ## about its own horizontal axis (the calibration points it 60 degrees down from 0.94 m above the table). The scene's
-## view, not the station's: images from it do not match the calibrated station exactly.
+## view, not the station's: images from it no longer match the calibrated station exactly.
 TOP_CAMERA_LOWER_M = 0.15
 TOP_CAMERA_TILT_UP_DEG = 5.0
 
@@ -192,7 +192,7 @@ def add_bowl(asset, world):
 
 
 def build_xml():
-    """Use the URDF's joint transforms, not I2RT's MJCF joint frames.
+    """Use the browser's URDF transforms, not the older I2RT MJCF joint frames.
     @return The scene as an MJCF document string.
     """
     root = ET.Element("mujoco", model="Dream YAM Sim")

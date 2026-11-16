@@ -12,20 +12,17 @@ object with every one of these keys:
 - `jaw`: `[x, y, z]` in the flange's frame: the way the fingers close (only its part across `approach` counts).
 - `rest`: `[...]`, the arm's joints in a working pose, radians: the pose the solve leans toward, on both sides.
 
-It may also carry `fixed`: `[...]`, names of joints on the chain the robot holds still though the URDF lets them move
-(a passive mount), which the setup tools write once a person said so; and `tcp_calibration`, the setup tools' record
-of whether the operator marked the tool point or skipped it, and when (`robots.kinematics.tcp_calibration`):
-`{"status": "calibrated" | "skipped", "at": <time>}`, plus `digest`, tool_digest() of the file as the operator
-confirmed it, once they pressed Set tool center point. register() never refuses a file over it, but warns once when
-the tool point is not one a person confirmed (tool_point_problem()).
+It may also carry `tcp_calibration`, the setup tools' record of whether the operator marked the tool point or skipped
+it, and when (`robots.kinematics.tcp_calibration`): `{"status": "calibrated" | "skipped", "at": <time>}`, plus
+`digest`, tool_digest() of the file as the operator confirmed it, once they pressed Set tool center point. register()
+never refuses a file over it, but warns once when the tool point is not one a person confirmed (tool_point_problem()).
 
 The URDF is cut to the chain from `base` to `flange`, so a gripper's own joints and every other link drop out; each
-joint on the chain is fixed, revolute or prismatic with limits, or continuous, which the solve takes as revolute
-within [-pi, pi]; a joint in `fixed` is cut as a fixed joint at its URDF zero. The arm's joints, in `state.<side>_arm`
-and in the chunks, are the chain's other moving joints in order from `base`, in radians (metres for a prismatic one).
-The solve keeps each joint 2 degrees inside its limits (dream's margin) and under its URDF velocity, at most YAM's
-3 rad/s (a velocity of 0, as a URDF writes no limit, takes 3). The model is registered with dream's IK under a name
-from the arm file's and the URDF's bytes, so an edited file is a new arm and the same file is built once per process.
+joint on the chain is fixed, or revolute or prismatic with limits. The arm's joints, in `state.<side>_arm` and in the
+chunks, are the chain's moving joints in order from `base`, in radians (metres for a prismatic one). The solve keeps
+each joint 2 degrees inside its limits (dream's margin) and under its URDF velocity, at most YAM's 3 rad/s (a velocity
+of 0, as a URDF writes no limit, takes 3). The model is registered with dream's IK under a name from the arm file's
+and the URDF's bytes, so an edited file is a new arm and the same file is built once per process.
 """
 
 import hashlib
@@ -48,13 +45,8 @@ from dream.errors import DreamConfigError
 KEYS = ("urdf", "base", "flange", "tcp", "approach", "jaw", "rest")
 
 ## The key an arm file may add: the setup tools' record of the tool point.
-TCP_CALIBRATION = "tcp_calibration"
-
-## The key an arm file may add naming the chain's joints the robot holds still, each cut as a fixed joint.
-FIXED_KEY = "fixed"
-
-## The keys an arm file may add.
-OPTIONAL_KEYS = (TCP_CALIBRATION, FIXED_KEY)
+OPTIONAL_KEYS = ("tcp_calibration",)
+(TCP_CALIBRATION,) = OPTIONAL_KEYS
 
 ## The keys that place the tool, which tool_digest() hashes with the URDF.
 TOOL_KEYS = ("base", "flange", "tcp", "approach", "jaw")
@@ -97,7 +89,7 @@ def register(path: str) -> str:
     name = "file:" + hashlib.sha256(file.read_bytes() + b"\0" + urdf).hexdigest()[:12]
     if name in EMBODIMENTS:
         return name
-    chain, joints, limits, speeds = _chain(urdf, arm["base"], arm["flange"], tuple(arm.get(FIXED_KEY, ())), file)
+    chain, joints, limits, speeds = _chain(urdf, arm["base"], arm["flange"], file)
     rest = arm["rest"]
     if len(rest) != len(joints):
         raise DreamConfigError(
@@ -230,9 +222,6 @@ def _read(file: pathlib.Path) -> dict[str, Any]:
             raise DreamConfigError(f"arm file {file}: {key} must be 3 numbers [x, y, z], got {arm[key]!r}")
     if not _numbers(arm["rest"]) or not arm["rest"]:
         raise DreamConfigError(f"arm file {file}: rest must be the arm's joints in radians, got {arm['rest']!r}")
-    fixed = arm.get(FIXED_KEY, [])
-    if not isinstance(fixed, list) or not all(isinstance(name, str) for name in fixed):
-        raise DreamConfigError(f"arm file {file}: fixed must be a list of joint names, got {fixed!r}")
     return arm
 
 
@@ -244,22 +233,18 @@ def _numbers(value: Any) -> bool:
 
 
 def _chain(
-    urdf: bytes, base: str, flange: str, fixed: tuple[str, ...], file: pathlib.Path
+    urdf: bytes, base: str, flange: str, file: pathlib.Path
 ) -> tuple[str, tuple[str, ...], tuple[tuple[float, float], ...], tuple[float, ...]]:
     """The URDF cut to the chain from `base` to `flange`.
-
-    A continuous joint is cut as a revolute one with limits [-pi, pi], which pyroki needs, and a joint `fixed` names as
-    a fixed one at its URDF zero.
 
     @param urdf The arm's URDF.
     @param base The chain's first link.
     @param flange Its last.
-    @param fixed The chain's joints the robot holds still (#FIXED_KEY).
     @param file The arm file, for messages.
     @return The chain's URDF (bare links: no meshes, which the solve does not read), its moving joints from `base`
         out, each one's `(lower, upper)` limits, and each one's speed cap.
-    @throws DreamConfigError The URDF does not parse, lacks either link, has no chain between them, has a joint on it
-        the solve cannot take, or `fixed` names a joint that is not a moving joint on it.
+    @throws DreamConfigError The URDF does not parse, lacks either link, has no chain between them, or has a joint on
+        it the solve cannot take.
     """
     try:
         root = ET.fromstring(urdf)
@@ -284,33 +269,17 @@ def _chain(
     joints: list[str] = []
     limits: list[tuple[float, float]] = []
     speeds: list[float] = []
-    held: list[str] = []
     for joint in chain:
         out.append(joint)
         kind, name = joint.get("type"), _attr(joint, "name", file)
         if kind == "fixed":
             continue
-        if name in fixed:
-            # Held still: only its origin is read, so the link sits where the URDF's zero puts it.
-            joint.set("type", "fixed")
-            for tag in ("axis", "limit", "mimic", "dynamics"):
-                for child in joint.findall(tag):
-                    joint.remove(child)
-            held.append(name)
-            continue
         limit = joint.find("limit")
-        if kind == "continuous" and joint.find("mimic") is None:
-            # A full turn each way at most; the limits go in the cut URDF too, which pyroki refuses without them.
-            limit = limit if limit is not None else ET.SubElement(joint, "limit", effort="0", velocity="0")
-            limit.set("lower", repr(-math.pi))
-            limit.set("upper", repr(math.pi))
-            joint.set("type", "revolute")
-            kind = "revolute"
         if kind not in ("revolute", "prismatic") or joint.find("mimic") is not None:
             raise DreamConfigError(
                 f"arm file {file}: joint {name!r} between {base!r} and {flange!r} is {kind}"
-                f"{' with a mimic' if joint.find('mimic') is not None else ''}; the chain takes fixed joints, "
-                "revolute and prismatic joints with limits, and continuous joints, none with a mimic"
+                f"{' with a mimic' if joint.find('mimic') is not None else ''}; the chain takes fixed joints, and "
+                "revolute and prismatic joints with limits"
             )
         lower, upper = (None, None) if limit is None else (limit.get("lower"), limit.get("upper"))
         if limit is None or lower is None or upper is None:
@@ -322,12 +291,6 @@ def _chain(
         joints.append(name)
         limits.append((lo, hi))
         speeds.append(MAX_SPEED if velocity <= 0 else min(velocity, MAX_SPEED))
-    unknown = [name for name in fixed if name not in held]
-    if unknown:
-        raise DreamConfigError(
-            f"arm file {file}: fixed names {unknown[0]!r}, which is not a moving joint on the chain from {base!r} to "
-            f"{flange!r}: {joints + held}"
-        )
     if not joints:
         raise DreamConfigError(f"arm file {file}: the chain from {base!r} to {flange!r} has no moving joint")
     return ET.tostring(out, encoding="unicode"), tuple(joints), tuple(limits), tuple(speeds)

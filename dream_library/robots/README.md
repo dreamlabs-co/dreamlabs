@@ -241,7 +241,7 @@ beyond the ones listed.
 | `face_blur` | `bool` | `true` | Blur faces out of every sampled frame at capture (`shared.faceblur`) and out of every frame the live agent encodes; off sends raw frames |
 | `home_before_motors_off` | `bool` | `false` | `dreamcli setup` only: after the powered checks, *Switch off the motors* drives the held arms home at the checks' own pace, then switches them off; if that move fails or takes past 15 s the motors go off anyway, where the arms stopped, and the page says so. Off, the arms go limp where they hold, as before. The wizard reads it from the file when it starts and Save keeps it; the station agent ignores it |
 | `home_on_key_refused` | `bool` | `true` | The station agent only: a run DreamAPI ends by refusing the key as `disabled` (the account is out of credit or over its spending limit, or the key was revoked) is followed by the Home move, and the run ends in `error` with `error_code` `key_refused` (*Station agent*). `false`, the arms hold where the run left them, as for any other fault. Save in `dreamcli setup` keeps it |
-| `exposure` | mapping | managed | Managed colour exposure for RealSense cameras, a YAM station's default: `managed` (`true`), `target_median` (`90`, the grey level the frame median is held at), `limit_us` (null, a ceiling under 85% of the frame period: an exposure of the whole period leaves the sensor no time to read the image out and it delivers half its rate), `seed_us` (null, half the ceiling), `smooth_idle` (`true`; settle at full speed once after the camera opens, then follow drift between runs only after 3 s off target and at most 5% a step, so an idle station's live view does not flicker; `false` brings back full-speed steps between runs). The firmware's auto-exposure is off and the capture thread steers exposure, then gain, between runs; the station holds both for the length of a run. Highlights come before the median: a frame with more than 1% of its pixels clipped is darkened whatever its median, and one clipping over 0.5% is never brightened, so a wrist camera metered with a dark backdrop in view keeps the table's detail. `managed: false` is the firmware's own auto-exposure. Ignored by OpenCV devices |
+| `exposure` | mapping | managed | Managed colour exposure for RealSense cameras, our YAM stations' default: `managed` (`true`), `target_median` (`90`, the grey level the frame median is held at), `limit_us` (null, a ceiling under 85% of the frame period: an exposure of the whole period leaves the sensor no time to read the image out and it delivers half its rate), `seed_us` (null, half the ceiling), `smooth_idle` (`true`; settle at full speed once after the camera opens, then follow drift between runs only after 3 s off target and at most 5% a step, so an idle station's live view does not flicker; `false` brings back full-speed steps between runs). The firmware's auto-exposure is off and the capture thread steers exposure, then gain, between runs; the station holds both for the length of a run. Highlights come before the median: a frame with more than 1% of its pixels clipped is darkened whatever its median, and one clipping over 0.5% is never brightened, so a wrist camera metered with a dark backdrop in view keeps the table's detail. `managed: false` is the firmware's own auto-exposure. Ignored by OpenCV devices |
 | `rollouts` | `RolloutsConfig` | off | Saves every run as a LeRobot v2.1 episode on this disk too (below, *Your rollouts*): `enabled` (`false`), `dir` (`~/.dreamlabs/rollouts`), `robot_name` (this machine's hostname) |
 | `live` | `LiveConfig` or absent | absent | Live View (below): absent, the station shows nothing on the platform's Live View page |
 
@@ -658,7 +658,7 @@ The tick does not write the arms. It submits the ramped and clamped command to a
 writes both arms at `command_hz`: each period it moves linearly
 from where the previous run got to toward the newest command over the row cadence (clamped to
 `[1 / command_hz, command_interp_max_s]`) and writes it. i2rt applies each `command_joint_pos` straight to the
-motor PD, so a row re-sent as-is at the row rate would be a position staircase; the interpolation is rate conversion
+motor PD, so a row re-sent as-is at the row rate was a position staircase; the interpolation is rate conversion
 for the PD, not smoothing. There is no filter on this path: the rows arrive smoothed from the dream client. A run always starts from
 where the last one got to, never from the target. `ControlLoop(command_thread=False)` writes synchronously for
 tests; the trace's last column, `commands_written`, counts the periods written.
@@ -1000,8 +1000,8 @@ description, `robots.bodies.MAKERS`; the loop itself has no Maker Arm branch.
 
 The arm itself is a table, `robots.makers.ARM`: its six joints (CAN id, motor model, gains, soft limits), the
 gripper's linear stroke, 60 Hz, where it parks and dream's IK name. The driver is the thread every CAN bus arm shares
-(`robots.motor_arm.MotorArm`) over a RobStride chain (`robots.robstride.RobstrideChain`); together they are a
-port of Dream Labs' Maker Arm driver, with what a
+(`robots.motor_arm.MotorArm`) over a RobStride chain (`robots.robstride.RobstrideChain`); together they are our
+own Maker Arm driver, ported with what a
 policy run needs and every safety check it has, and held to that driver's CAN frames byte for byte by
 `tests/test_makers_parity.py`. Each arm has its own thread at 60 Hz that steps toward the loop's newest target: from the measured pose at 30 deg/s until it has caught up, then at most
 120 deg/s (the gripper 40 and 120 mm/s), every target clamped to the soft limits first. A joint a whole turn off
@@ -1103,7 +1103,7 @@ install both in one command: `pip install "dreamlabs[so101]" "lerobot[dataset]"`
 
 The arm is a table, `robots.so101.ARM`, run by the same shared thread as the Maker and Metal Arms
 (`robots.motor_arm`) over a chain on LeRobot's own bus (`robots.feetech.FeetechChain` on `FeetechMotorsBus`). The
-chain does what Dream Labs' SO-101 follower and policy bridge do: the port
+chain does what our own SO-101 follower and policy bridge do: the port
 must be a `/dev/serial/by-id/` or `/dev/serial/by-path/` path; at open it reads the calibration the servos hold and refuses the arm, before
 writing anything, when that differs from the arm's calibration file (the other arm's file, or a recalibration since);
 it writes LeRobot's SO-101 setup with the servos off (position mode, P 16, I 0, D 32, the gripper's torque and current
@@ -1134,7 +1134,7 @@ gripper servo's torque cap does that job.
 An SO-101 has no default model: name your fine-tune of the embodiment the file names. On exit each arm
 returns to the pose it was opened in at 20 deg/s with the gripper open, then switches its servos off; an arm latched
 down cannot park, so it is left holding under power (support it, then switch its power off). The station's Home moves each arm to its `home`, which an SO-101 file must give.
-Calibration is the setup wizard's: once both arms are found, `dreamcli setup` calibrates each SO-101 arm whose servos hold none of the operator's files (`robots.so101_calibration`, `docs/SETUP_WIZARD.md`, *Calibrating an SO-101*), and writes the same file `lerobot-calibrate` would. Not ported: teleoperation, and the which-arm and home-capture scripts (the setup wizard's job).
+Calibration is the setup wizard's: once both arms are found, `dreamcli setup` calibrates each SO-101 arm whose servos hold none of the operator's files (`robots.so101_calibration`, `docs/SETUP_WIZARD.md`, *Calibrating an SO-101*), and writes the same file `lerobot-calibrate` would. Not ported: teleoperation, and our own which-arm and home-capture scripts (the setup wizard's job).
 
 ## A robot of your own
 

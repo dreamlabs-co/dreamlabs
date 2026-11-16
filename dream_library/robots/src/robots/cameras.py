@@ -652,8 +652,8 @@ def usb_link(serial: str) -> str | None:
 class RealSenseSource:
     """The colour stream of one Intel RealSense camera, in the `cv2.VideoCapture` read/release shape.
 
-    A D405 cannot be opened through its V4L2 nodes by `cv2.VideoCapture`,
-    so it is read through librealsense instead. The D405's colour stream is what the policy
+    D405 cameras cannot be opened through their V4L2 nodes by `cv2.VideoCapture`,
+    so they are read through librealsense instead. The D405's colour stream is what the policy
     was trained on, and `rs.format.bgr8` is requested so librealsense hands over the same BGR
     bytes cv2 would have: nothing is converted on the station, and #CameraReader treats this
     source exactly like a cv2 device.

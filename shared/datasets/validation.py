@@ -378,8 +378,7 @@ def check_hours(frames: int, fps: int) -> None:
     @param frames Every session's frames together.
     @param fps The rate they share.
     @throws content_checks.DatasetInvalidError Saying the hours, rounded up to a tenth so that just past the limit
-        reads past it. It never says to split the dataset: the terms of service forbid splitting data to evade a
-        limit.
+        reads past it. It never says to split the dataset: the FaaS terms forbid splitting data to evade a limit.
     """
     if frames > MAX_DATASET_HOURS * 3600 * fps:
         tenths = -(-frames * 10 // (fps * 3600))
@@ -1075,8 +1074,8 @@ def _number(value: Any) -> int | float:
 def _info_fields(info: dict[str, Any]) -> dict[str, Any]:
     """The fields the recipe reads from `meta/info.json`, typed; a missing or malformed one raises."""
     features = info["features"]
-    # Sorted: a recorder writes the features in whatever order the cameras came up, so the same cameras appear in
-    # different orders across sessions. Identity is the set.
+    # Sorted: the recorder writes the features in whatever order the cameras came up, and the same three cameras
+    # appeared in three orders across one week of Metal sessions (2026-09-15). Identity is the set.
     video_keys = sorted(key for key, feature in features.items() if feature["dtype"] == "video")
     chunks_size = int(info["chunks_size"])
     if chunks_size < 1:

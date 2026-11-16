@@ -1,7 +1,7 @@
 """Face blurring for every DreamLabs surface that reads camera data: scrub before pixels become durable or public.
 
 Camera frames from a robot are pictures of a lab (or a customer's floor) where people work; whoever walks
-through the shot must not be identifiable in anything Dream Labs stores, serves, or ships. This module is the one
+through the shot must not be identifiable in anything we store, serve, or ship. This module is the one
 implementation of that rule, in `shared/` because more than one product reads camera data and the scrub must
 behave identically wherever it runs. The deal for a consumer: call `blurrer_for(source).scrub_jpeg(bytes)` (or
 `scrub_frame(array)` on a decoded frame, no JPEG round-trip) at the point where camera pixels ENTER your
@@ -13,12 +13,12 @@ Consumers:
   frame, before it is JPEG-encoded into the observation window `dream` posts to DreamAPI. This is the one that
   keeps face data off the API entirely - a face never leaves the box, so nothing the API or a serve touches,
   and nothing a future recording stores, can contain one. `face_blur` in the station config; on by default.
-- **the platform's public robots page** (its station camera feeds): every frame re-served to the public
-  internet, scrubbed as the bytes arrive from the station.
+- **platform / fish tank** (the platform's station camera feeds): every
+  frame re-served to the public internet, scrubbed as the bytes arrive from the station.
 - **the DreamAPI gateway does NOT call this**: it forwards the observation to the serve verbatim and keeps no
   frame, and blurring the policy's INPUT server-side would be wrong twice (tens of ms on a real-time action
-  path; the model must see the scene it was trained on). Blur belongs on the robot (above) and on any recording
-  tap, never on the live forward.
+  path; the model must see the scene it was trained on). Blur belongs on the robot (above) and on any future
+  recording tap (a future telemetry agent), never on the live forward.
   The `dreamlabs-shared[faceblur]` extra keeps opencv out of the gateway image, which imports only contracts.
 
 Detector: YuNet through OpenCV's `FaceDetectorYN` (`models/face_detection_yunet_2026may.onnx`, vendored, MIT;
@@ -33,7 +33,7 @@ check stays green. So this module fails closed two ways:
    raise. A model that loads is not a model that infers: the fixed-shape YuNet export silently degrades under
    OpenCV 5.x's ONNX engine (opencv_zoo#44), exactly the kind of break that would turn this into a pass-through.
 2. Bytes that cannot be decoded cannot be cleared, so `scrub_jpeg()` raises rather than passing them along; the
-   caller decides what "no frame" means on its surface (a frame route answers the 503 an unreachable station
+   caller decides what "no frame" means on its surface (the fish tank answers the 503 an unreachable station
    gets, and its stream ends).
 
 FaceBlurError never carries pixels, so letting it propagate is always safe.
@@ -47,7 +47,7 @@ track the face and blur its PREDICTED current position, not persist old ones. De
 the detector's tabletop false positives live (a blurred shoe on a public tank tile is its own kind of bug).
 
 Face-LIKE objects are the other false positive: a toy steering wheel whose hub reads as two eyes, a nose and a
-mouth scores up to 0.84 on a station's top camera, inside the band real faces reach at hard angles, so no single
+mouth scored up to 0.84 on a robot's camera, inside the band real faces reach at hard angles, so no single
 score separates them. A detection is therefore blurred when it is a sure face (#_SURE_FACE_SCORE) or when it clears
 #_SCORE_THRESHOLD and its box is mostly skin-coloured (#_MIN_SKIN_FRACTION): people have skin in their face,
 props mostly do not. A doll with a realistic face passes both and stays blurred; that is accepted, not tuned away.
@@ -91,8 +91,8 @@ _SKIN_CR: tuple[int, int] = (133, 173)
 _SKIN_CB: tuple[int, int] = (77, 127)
 
 ## Smallest detection side, in pixels, worth blurring. Below ~20 px a face cannot identify anyone, so blurring
-## it protects nothing -- and that scale is where the detector's false-positive density concentrates (a shoe toe
-## reads as a 12x14 px face at score 0.60). A person anywhere NEAR a station is hundreds of
+## it protects nothing -- and that scale is where the detector's false-positive density concentrates (the
+## shoe-toe that started this was 12x14 px at score 0.60). A person anywhere NEAR a station is hundreds of
 ## pixels; this floor only excludes people several metres into the background, who are unidentifiable anyway.
 _MIN_FACE_SIDE_PX: int = 20
 
@@ -111,7 +111,7 @@ _PAD_FRAC: float = 0.35
 ## back. YuNet's cost grows with the input area, and on a YAM station PC (Ryzen 7 7730U) one detect took 35 to 50 ms at
 ## 1280x720 against 11 to 15 ms at 640x360, too much for three capture threads that each scrub five 720p frames a
 ## second beside a live encoder that scrubs 30 a second per camera. 640 is the live encoder's own frame width,
-## so the live path is detected at its own size, and a 720p frame is detected at half scale: a face the
+## so the live path is detected exactly as before, and a 720p frame is detected at half scale: a face the
 ## detector needs 20 px for is 40 px in the frame, smaller than any face a bench camera sees. The synthetic
 ## self-check face is detected down to about 200 px on a side; narrower is not a face the detector was trained on.
 DETECT_MAX_WIDTH: int = 640
@@ -144,8 +144,8 @@ def blurrer_for(source: str) -> "FaceBlurrer":
     """The process-wide blurrer of one camera source, created on first use.
 
     One per source, not one per process: the detector is not reentrant, so a blurrer per camera lets two
-    stations' viewers scrub in parallel instead of contending on one lock. The sources are a fixed set of
-    station ids, so the cache is bounded.
+    stations' viewers scrub in parallel instead of contending on one lock. The sources are the configured
+    station ids plus the eval runner's one, so the cache is bounded.
 
     @param source The camera source the frames come from, e.g. a station id.
     @return The source's blurrer, shared by every caller in the process.
@@ -344,7 +344,7 @@ def _blur_oval(frame: Any, box: tuple[int, int, int, int]) -> None:
     axes = (max(1, round(w * 0.5 * _OVAL_AXIS_FRAC)), max(1, round(h * 0.5 * _OVAL_AXIS_FRAC)))
     cv2.ellipse(alpha, (w // 2, h // 2), axes, 0, 0, 360, 1.0, -1)
     feather = max(1, round(min(w, h) * _OVAL_FEATHER_FRAC)) | 1  # odd kernel for GaussianBlur
-    # The feathered mask is HxWx1 float, so it broadcasts over the colour channels; the HxW stencil stays as drawn.
+    # A new name, not a rebind: the feathered mask is HxWx1 float, no longer the HxW ellipse stencil.
     mask = cv2.GaussianBlur(alpha, (feather, feather), 0)[:, :, np.newaxis]
     roi[:] = (roi * (1.0 - mask) + mosaicked * mask).astype(np.uint8)
 
@@ -366,7 +366,7 @@ def _mosaic(patch: Any) -> Any:
     return cv2.resize(small, (w, h), interpolation=cv2.INTER_LINEAR)
 
 
-## The per-source blurrers of blurrer_for(); a fixed set of station ids, so bounded.
+## The per-source blurrers of blurrer_for(); station ids plus the eval runner's, so bounded.
 _blurrers: dict[str, FaceBlurrer] = {}
 
 ## Guards #_blurrers; each FaceBlurrer then carries its own lock.

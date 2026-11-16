@@ -10,8 +10,8 @@ import os
 def flag_from_env(name: str, default: bool) -> bool:
     """The boolean in the environment variable `name`, or `default` when it is unset or empty.
 
-    Empty equals unset because a deployment that passes the variable through to a container hands it an empty
-    string, not an absence, when the key is left blank. The off tokens are the ones
+    Empty equals unset because the compose file passes the variable through as `${NAME:-}`, so a container whose
+    deployment env file leaves the key blank sees an empty string, not an absence. The off tokens are the ones
     the gateway's own flag reader reads as off, so the deployment's two boolean knobs agree on what off is; where that
     reader takes any other word as on, this one refuses it, so a typo fails the start rather than picking a path.
 

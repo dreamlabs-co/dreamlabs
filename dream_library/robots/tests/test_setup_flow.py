@@ -549,7 +549,7 @@ def test_an_arm_that_does_not_move_under_power_fails_the_nudge() -> None:
 
 
 def test_a_metal_arm_that_cannot_hold_its_weight_fails_the_shoulder_nudge_naming_its_weight() -> None:
-    """A Metal arm whose driver has no gravity torque: joint 1 follows its nudge, joint 2 moves under a fifth of
+    """A Metal arm whose driver had no gravity torque: joint 1 followed its nudge, joint 2 moved under a fifth of
     it. Here the shoulder and elbow trail what is sent by 4.4 degrees."""
     station = Station("metal")
     for arm in station.rig.arms.values():
@@ -618,8 +618,8 @@ def test_an_arm_that_sags_and_lags_under_power_passes_every_check(spec: str) -> 
 
 
 def test_a_maker_arm_shoulder_that_sinks_in_the_hold_check_is_its_weight_not_its_driver() -> None:
-    """A Maker Arm's shoulder_lift, with no gravity torque, sinks 3 degrees when sent where it is; the hold check
-    does not call that a driver mismatch. A lifting joint that lowers the tool a few degrees is `weight`."""
+    """A Maker Arm's shoulder_lift, with no gravity torque, sank 3 degrees when sent where it was: the hold check said
+    write() did not match read() and blocked saving. A lifting joint that lowers the tool a few degrees is `weight`."""
     station = Station("makers")
     for arm in station.rig.arms.values():
         arm.sag_rad = np.radians([0.0, 4.0, 0.0, 0.0, 0.0, 0.0])
@@ -1404,9 +1404,9 @@ def test_the_reach_area_paints_on_a_grid_keeps_a_new_home_and_is_cleared_by_clea
 
 
 def test_each_home_joint_out_of_range_comes_with_its_reading_and_the_models_range() -> None:
-    """The line "Outside Dream's model of the arms: left arm joints 2 ..." alone does not say which way to pose the
-    arm.
-    set_home() gives each such joint's reading and the range, so the page says which way."""
+    """An operator read "Outside Dream's model of the arms: left arm joints 2 ..." and had to ask before
+    posing the arm further out. set_home() gives each such joint's reading and the range, so the page says
+    which way."""
     station = Station("yam", {LEFT: Mistakes(read_units="degrees"), RIGHT: CLEAN})
     station.find_arms()
     found = station.set_home()
@@ -1419,8 +1419,9 @@ def test_each_home_joint_out_of_range_comes_with_its_reading_and_the_models_rang
 
 
 def test_an_arm_that_did_not_open_again_says_why_on_every_later_step() -> None:
-    """An arm that fails to open again once both are found: the home step and every step after it say why, not
-    only "the left arm is not open; find both arms first" with the reason in the terminal."""
+    """An arm that failed to open again once both were found left the home step
+    saying only "the left arm is not open; find both arms first", with the reason in the terminal. The steps after it
+    say why."""
     station = Station("yam")
     session, rig = station.session, station.rig
     assert session.open_arms(station.devices, settings_for(station.robot)) == {"can-AAA111": None, "can-BBB222": None}

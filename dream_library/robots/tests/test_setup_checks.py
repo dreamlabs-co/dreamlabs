@@ -84,8 +84,8 @@ def test_a_joint_that_moves_the_way_sent_5x_under_to_2x_over_passes() -> None:
 def test_a_joint_that_falls_short_names_one_cause_from_what_else_the_readings_say(
     metal: setup_model.ArmModel,
 ) -> None:
-    """A Metal arm whose driver has no gravity torque: joints 2 and 3 move under a fifth of their nudge, joint 1
-    having followed, and the check says why, not only that they barely moved. A
+    """A Metal arm whose driver had no gravity torque: joints 2 and 3 moved under a fifth of their nudge, joint 1
+    having followed, and the check said only that they barely moved, though the arm never lifted. A
     joint that lifts the arm (by dream's URDF) and falls short once the arm has shown it takes commands is its weight;
     nothing moving on the arm's first joint is its power; one joint that does not lift, short, is stuck."""
     lifting = metal.lifting(metal.rest, "left")
@@ -122,8 +122,9 @@ def test_a_neighbour_drifting_while_the_joint_sent_falls_short_is_not_swapped_wi
 
 
 def test_each_way_the_driver_writes_joints_wrong_has_its_own_headline_and_line_to_change() -> None:
-    """The headline "Your driver writes joints differently from how it reads them" is the title of five causes, so
-    alone it could not say which check failed. Each says what was seen; the impact stays the same."""
+    """Testers reported "Your driver writes joints differently from how it reads them" again
+    after the nudge's swap was fixed, and that headline was the title of five causes, so a report could not say which
+    check failed. Each now says what was seen; the impact stays the same."""
     order = nudge(2, 5.0, [0.0, 0.0, 0.0, 5.0, 0.0, 0.0])
     flipped = nudge(2, 5.0, [0.0, 0.0, -5.0, 0.0, 0.0, 0.0])
     size = nudge(2, 5.0, [0.0, 0.0, 286.5, 0.0, 0.0, 0.0])
@@ -184,9 +185,9 @@ def test_a_gripper_nudge_and_a_reach() -> None:
 
 
 def test_a_sweep_move_shrunk_below_the_tolerance_is_judged_by_where_the_hand_ended() -> None:
-    """An SO-101's left arm: from its seated home the sweep's -z is halved twice to 0.4 cm; the
-    hand goes 0.07 cm (18%) with the shoulder 0.7 degrees off, inside the servos' dead band, yet ends 0.33 cm from
-    where it was sent against a 1.5 cm tolerance, so it is not "missed". A move smaller than the tolerance is
+    """An SO-101's left arm: from its seated home the sweep's -z was halved twice to 0.4 cm; the
+    hand went 0.07 cm (18%) with the shoulder 0.7 degrees off, inside the servos' dead band, and failed as "missed",
+    though it ended 0.33 cm from where it was sent against a 1.5 cm tolerance. A move smaller than the tolerance is
     judged by where the hand ended; a large one still by its share."""
     pose = np.eye(4)
     so101 = setup_checks.tolerance_for("so101")
@@ -278,8 +279,9 @@ def test_every_cause_has_words_and_each_body_a_tolerance() -> None:
 
 
 def test_a_failed_check_says_whether_continuing_past_it_is_safe() -> None:
-    """A failed Move under power says whether continuing is safe. A robot that runs, less precisely, may go on;
-    one that would move unlike the model, or not at all, is fixed first."""
+    """Move under power failed and setup let the operator continue without saying what
+    failed or whether that was safe. A robot that runs, less precisely, may go on; one that would move unlike the
+    model, or not at all, is fixed first."""
     safe = {cause for cause, words in setup_checks.CAUSES.items() if words.safe}
     assert safe == {"weight", "slow", "missed"}
     for cause in setup_checks.CAUSES:

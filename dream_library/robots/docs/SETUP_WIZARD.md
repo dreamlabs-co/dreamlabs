@@ -172,7 +172,7 @@ robot's sweep does from its drawn home, from `Motion._reachable_path` itself:
 | turn about z 10 degrees | skipped, turn | 50%, turn | full | 25%, reach |
 
 "reach" is a move the IK cannot reach at that size, "turn" one that turns a joint more than 20 degrees. The largest
-joint turn of any move that runs is 19.5 degrees (the SO-101's shoulder on +x at 50%).
+joint turn of any move that runs is now 19.5 degrees (the SO-101's shoulder on +x at 50%).
 
 ## The eyes check
 
@@ -291,7 +291,7 @@ on a 3D drawing:
 | Step | What the page shows | What the operator does |
 | --- | --- | --- |
 | the file | nothing yet; for a `.zip` of several URDFs, one choice per URDF, by its path in the zip with its links and moving joints counted, and nothing drawn until one is picked | gives the URDF as a `.zip` of it with its meshes, or its folder (Choose .zip, Choose folder, or a drop on the redesigned page; the label reads "Your arm's URDF: a .zip of it with its meshes, or its folder" on every surface; a `.urdf` alone also works, drawn plain), and then one of its URDFs if it holds several (another pick draws that one; its meshes are found relative to it, the same way from a folder as from a zip); `POST /api/urdf` reads every link where the arm's zero puts it, with its visuals (`robots.setup_urdf.read`). The page draws each link's STL, OBJ, COLLADA or glTF (`.glb`, or `.gltf` with its buffers beside it in the zip) mesh from the zip (by its path, else the longest matching end of it, any case; a Mac's `__MACOSX` copies left out), and boxes, cylinders and spheres as they are; a link with none of those is drawn plain, and the page names it. A `.urdf` alone that names meshes is drawn plain, with a note to give the zip or folder |
-| the end | the links drawn as balls and capsules, the URDF's root in blue and the end of its longest chain (most moving joints, less a gripper's fingers that slide after the last turning joint) in green, with "Is this the end of your arm?" | "Yes, it ends there", or clicks the right link on the drawing; "It's mounted on another link", then a click, moves the blue one. Yes waits while the end is not below the base, or is more joints out than the loop drives (6). Under `dreamcli tcp`, when the station file's embodiment has a URDF joint map (`urdf.joints`), the page names each moving joint between base and end that the map does not drive, each with *Moves* and *Held still* and neither pressed, and Yes waits until each has one. A held one is cut as a fixed joint at its URDF zero |
+| the end | the links drawn as balls and capsules, the URDF's root in blue and the end of its longest chain (most moving joints, less a gripper's fingers that slide after the last turning joint) in green, with "Is this the end of your arm?" | "Yes, it ends there", or clicks the right link on the drawing; "It's mounted on another link", then a click, moves the blue one. Yes waits while the end is not below the base, or is more joints out than the loop drives (6) |
 | the tool | on top a YAM drawn from i2rt's meshes, gripper included, with the triad at its tool point (`GET /api/reference_arm`, `robots.setup_view.reference`), labelled "Reference: YAM (for comparison only)" in a muted, dashed frame; below it your arm with its own triad, labelled "Your arm: drag the marker here" in a solid frame. Each view is two thirds of the card's width (the whole width under 760 px) and at most the window's height less 120 px: "Place the marker where your gripper's fingertips meet, turned like the YAM's." A triad is an arrow and a ring per axis of dream's tool frame, a fifth of the arm's size, named once in a legend: red x "fingers close", green y "up", blue z "out of the gripper". The links are plain in this step, so the triads' red, green and blue are its only colours | moves your arm's triad: dragging an arrow moves the marker along that arrow in whole mm, dragging a ring turns it about that arrow in whole degrees, and a click on a handle opens a box there for a move (mm) or a turn (degrees), which Enter applies. The six numbers below are the marker's place, x, y and z in mm, and its turn, roll, pitch and yaw in degrees, a URDF's rpy (turns about the fixed x, then y, then z), in the end link's frame. Each has a minus and a plus button that step it by the step picked (1 mm, 5 mm, 1 cm or 5 cm; 1, 5, 15 or 90 degrees; 1 cm and 15 to start) and a field that shows it, live as the triad moves, and takes a typed value; angles wrap into (-180, 180]. *Flip up and down* turns the marker half a turn about its blue arrow, so up and down swap and out stays. *Reset to start* puts it back where it started on this end link. Dragging elsewhere turns the view, the wheel zooms |
 
 The marker starts at the end link's origin, out of the gripper along the base axis nearest the last link's direction,
@@ -304,7 +304,7 @@ with `skipped`. A new URDF, end or base afterwards turns Continue off again. The
 
 | Does | Where |
 | --- | --- |
-| writes the URDF and an arm file of it (`dream.arm_file`: the links, the tool, `rest`, the URDF's zero moved inside any joint limit that excludes it, and `tcp_calibration`, `{"status": "calibrated" or "skipped", "at": UTC time}`, plus `digest` on a calibrated one: `dream.arm_file.tool_digest()` of the arm file and URDF as written, which dream checks at `policy()`, warning once when the tool point is not one a person set; and `fixed`, the joints the operator said are held still, when there are any) | `arms/<name>.urdf` and `arms/<name>.json` beside the station file; `<name>` is the URDF file's name in lowercase letters, digits and dashes |
+| writes the URDF and an arm file of it (`dream.arm_file`: the links, the tool, `rest`, the URDF's zero moved inside any joint limit that excludes it, and `tcp_calibration`, `{"status": "calibrated" or "skipped", "at": UTC time}`, plus `digest` on a calibrated one: `dream.arm_file.tool_digest()` of the arm file and URDF as written, which dream checks at `policy()`, warning once when the tool point is not one a person set) | `arms/<name>.urdf` and `arms/<name>.json` beside the station file; `<name>` is the URDF file's name in lowercase letters, digits and dashes |
 | builds dream's model of the arm from them, which every check then draws and solves on | `robots.kinematics.dream_arm` |
 
 The pick then uses the arm file, and Save writes its path as `custom.ik`. The same name again writes the files
@@ -326,10 +326,7 @@ page and this server
 (`setup_wizard.tcp_main`, `TcpServer`): the page reads `tool: tcp` from `GET /api/state` and shows *An arm from its
 URDF* alone, and the server answers only the page, its scripts, the meshes and `GET /api/state`,
 `GET /api/reference_arm`, `POST /api/urdf` and `POST /api/arm_file` (`TCP_ROUTES`), 404ing any other route by name. So
-it opens no arm or camera. When the station file names an embodiment, it asks the account for its URDF joint map,
-and the end step asks a person about each moving joint between base and end the map does not drive
-(`TcpServer.joint_map`); with no embodiment or no map it asks about every one, and when the account cannot be asked
-(no key, network, auth) it says why in one line first (2026-10-18). Set tool center point writes `arms/<name>.json` and `.urdf` beside the station file,
+it opens no arm or camera and needs no key. Set tool center point writes `arms/<name>.json` and `.urdf` beside the station file,
 byte for byte what this step writes for the same inputs, and the page and the terminal print the path for
 `custom.ik`. It listens on 8094, beside the wizard's 8092 and the run view's 8093, takes `--host`, `--port` and
 `--no-browser`, prints the private address as `dreamcli setup` does, and ends on Ctrl-C. The customer docs name it on

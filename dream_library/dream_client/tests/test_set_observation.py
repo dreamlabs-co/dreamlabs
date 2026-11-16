@@ -918,7 +918,7 @@ def test_set_observation_never_waits_for_a_get_action_in_flight(server: FakeDrea
 def test_a_second_get_action_while_one_is_in_flight_is_refused_at_once(
     server: FakeDreamAPI, client: DreamClient
 ) -> None:
-    """Two concurrent get_action() calls: the inference client refuses the second, promptly."""
+    """Two concurrent get_action() calls: the inference client refuses the second as it does today, promptly."""
     arrived, release = _hold_requests(server)
     open_policy(client, timeout_ms=10_000)
     client.set_observation({TOP: frame(0)}, {"tick": 0}, timestamp=T0)

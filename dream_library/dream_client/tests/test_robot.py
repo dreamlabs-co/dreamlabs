@@ -5,8 +5,7 @@ path built the observation (the inference client's get_action(observation), or D
 get_action()), and refuses an observation that carries `embodiment` itself. On `"other_embodiment"` the serve answers
 the joint head as null and packs no joint chunks, and strict mode takes that reply. Left out, `robot` is sent only
 where `ik` sends a model trained on YAM arms zeros for another arm's joints (`test_client_ik.py`); everywhere else
-nothing is sent and the body is byte for byte the one without `robot`. These tests run against `FakeDreamAPI` and
-need no IK.
+nothing is sent, byte for byte as before. These tests run against `FakeDreamAPI` and need no IK.
 """
 
 from __future__ import annotations

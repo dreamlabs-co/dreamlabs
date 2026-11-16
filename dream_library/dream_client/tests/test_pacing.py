@@ -16,7 +16,7 @@ import dream
 from dream import pacing
 from dream.errors import DreamConfigError
 
-## Rows per chunk the fake serves here: the Dream-1 base model's 48.
+## Rows per chunk the fake serves here: our base model checkpoint's 48.
 ROWS = 48
 
 

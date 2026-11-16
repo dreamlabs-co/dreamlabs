@@ -2,7 +2,7 @@
 
 Everything here is about what a user can see or touch on the client: its repr, `dir()`,
 `help()`, the context manager, the wording of every error message, and how it behaves when
-dropped without `close()` or shared across threads. Every test names its requirement id.
+dropped without `close()` or shared across threads. Every test names its design id.
 """
 
 from __future__ import annotations
