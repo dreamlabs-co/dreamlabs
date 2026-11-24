@@ -294,6 +294,8 @@ A dataset directory holds one LeRobot v2.1 or v3.x session per subdirectory, or 
 ```python
 report = client.validate_dataset("~/data/towels", config)  # local, no key needed
 assert report.ok, report.error
+for line in report.warnings:  # not failures: what is usually a recording mistake
+    print("WARNING", line)
 dataset = client.upload_dataset("~/data/towels", "towels-v1", embodiment.name)
 print(dataset.id, dataset.status, dataset.episodes, dataset.size_bytes)  # keep the id; "ready_to_process"
 

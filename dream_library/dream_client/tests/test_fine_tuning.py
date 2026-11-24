@@ -464,13 +464,25 @@ def test_the_knob_ranges_and_defaults_the_docstrings_state_are_the_services(memb
     doc = member.__doc__
 
     steps = re.match(
-        r"The training steps, any multiple of `(\d+)` from `(\d+)` to `(\d+)`; None takes the service's default of "
-        r"(\d+)\.",
+        r"The training steps, any multiple of `(\d+)`: `(\d+)` to `(\d+)` for an embodiment, default `(\d+)`; "
+        r"`(\d+)` to `(\d+)` for a task, default `(\d+)`\. None takes the purpose's default\.",
         _param(doc, "steps"),
     )
     assert steps, _param(doc, "steps")
-    menu = ("FAAS_STEP_INCREMENT", "FAAS_STEP_FLOOR", "FAAS_STEP_CEILING", "FAAS_DEFAULT_STEPS")
+    menu = (
+        "FAAS_STEP_INCREMENT",
+        "FAAS_EMBODIMENT_STEP_FLOOR",
+        "FAAS_EMBODIMENT_STEP_CEILING",
+        "FAAS_EMBODIMENT_DEFAULT_STEPS",
+        "FAAS_TASK_STEP_FLOOR",
+        "FAAS_TASK_STEP_CEILING",
+        "FAAS_TASK_DEFAULT_STEPS",
+    )
     assert tuple(int(n) for n in steps.groups()) == tuple(shared[name] for name in menu)
+    purpose = _param(doc, "purpose")
+    assert f"over `{shared['FAAS_EMBODIMENT_STEP_CEILING']}`" in purpose
+    assert f"train `{shared['FAAS_EMBODIMENT_OOD_STEPS']}` steps" in purpose
+    assert f"fewer than `{shared['FAAS_TASK_DEFAULT_STEPS']}` steps will not give the best result" in purpose
 
     rate = re.fullmatch(
         r"The learning rate, (\S+) to (\S+); None takes the service's default of (\S+)\.", _param(doc, "learning_rate")

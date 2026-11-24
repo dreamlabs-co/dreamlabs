@@ -10,3 +10,18 @@ NVIDIA Corporation.
 The YAM arm model the check's page draws (dream/arms/yam.glb and yam.joints.json) is converted from the URDF and
 meshes in I2RT Robotics' i2rt repository (https://github.com/i2rt-robotics/i2rt), MIT License, Copyright (c) I2RT
 Robotics; the license text is in dream/arms/LICENSE.
+
+The reBot arm model the check's page draws (dream/arms/rebot.glb and rebot.joints.json) is converted, and modified as
+dream/arms/LICENSE describes, from Seeed Studio's reBot Arm B601-DM description
+(https://github.com/Seeed-Projects/reBot-DevArm, Rebot_Arm_description/DM), hardware design Copyright (c) 2026 Seeed
+Studio Co., Ltd., CERN Open Hardware Licence Version 2 - Weakly Reciprocal; the license text is
+dream/arms/LICENSE-CERN-OHL-W-2.0.
+
+The Metal arm model the check's page draws (dream/arms/metal.glb and metal.joints.json) is converted, and modified as
+dream/arms/LICENSE describes, from MakerMods' Metal arm description (https://github.com/makermods-robotics/metal-python-ros,
+metal_ros2/src/metal_description), meshes Copyright (c) MakerMods, redistributed with MakerMods' permission.
+
+The Maker Arm model the check's page draws (dream/arms/maker.glb and maker.joints.json) is converted, and modified as
+dream/arms/LICENSE describes, from MakerMods' Maker Arm description (https://github.com/makermods-robotics/maker-arm-sdk,
+urdf/maker_arm), Copyright (c) MakerMods, Apache License, Version 2.0; the license text is
+dream/arms/LICENSE-Apache-2.0.

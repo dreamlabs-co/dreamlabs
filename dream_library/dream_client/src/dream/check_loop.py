@@ -910,9 +910,10 @@ class StandIn:
 
         @return #trace(), with `now` (seconds since the first call, on the stand-in's clock), `done` (it has finished
             or stopped), `tcp_m` (the YAM's tool point along its last link, `dream_ik.specs.TCP_OFFSET_M`, where the
-            page puts each YAM gripper's dot) and `chains`: per side of a known arm, its joints from the base to the
-            tool point (#dream.check_arm.Arm.chain, each `origin` a 4x4 row by row, `axis`, `col` and `kind`) and its
-            `tool`, from which the page draws any arm but a YAM; None before the first call.
+            page puts each YAM gripper's dot; a model with a `tcp_m` of its own, the reBot's, the Metal's or the
+            Maker's, uses that) and `chains`: per side of a known arm, its joints from the base to the tool point
+            (#dream.check_arm.Arm.chain, each `origin` a 4x4 row by row, `axis`, `col` and `kind`) and its `tool`,
+            from which the page draws any arm but a YAM, a reBot, a Metal or a Maker arm; None before the first call.
         """
         with self._lock:
             if self.plan is None:

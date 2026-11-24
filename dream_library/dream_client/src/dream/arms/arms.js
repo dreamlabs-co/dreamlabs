@@ -1,7 +1,7 @@
 // The arms at the top of the page of what the model sees, while python -m dream.check runs (DebugView.show_arms): a
 // ghost of each arm where the check commands it, a solid arm at the pose the loop reported at its last call, each
 // hand's commanded path (dashed) and where each call's pose put the hand (dots). Live while the arms move, then
-// replayed. A YAM is drawn from its model; any other arm the check knows as a chain of its joints, from the chain the
+// replayed. A YAM, a reBot, a Metal or a Maker arm is drawn from its model; any other arm the check knows as a chain of its joints, from the chain the
 // check sends (StandIn.arms `chains`); an arm it does not know as its tool point alone. three.js comes from the page's
 // import map; the YAM's model and its joints from the view's own server.
 import * as THREE from 'three';
@@ -12,7 +12,9 @@ import {LineGeometry} from 'three/addons/lines/LineGeometry.js';
 import {LineMaterial} from 'three/addons/lines/LineMaterial.js';
 
 const SIDES = ['left', 'right'];   // arm 0 of the YAM model is the left arm
-const YAM_PARTS = {left_arm: 6, right_arm: 6, left_gripper: 1, right_gripper: 1};   // the YAM's state parts drawn
+const YAM_PARTS = {left_arm: 6, right_arm: 6, left_gripper: 1, right_gripper: 1};   // the state parts a model is drawn from
+// dream's name for an arm drawn whole -> its model, <model>.glb and <model>.joints.json from the view's server
+const MODELS = {yam: 'yam', seeed_faas: 'rebot', metal: 'metal', makers: 'maker'};
 const LINKS = ['link1', 'link2', 'link3', 'link4', 'link5', 'gripper'];
 const APART = 0.5;   // metres between the bases of two arms drawn from their chains or tool points
 const HOLD_S = 1.5;   // the replay rests this long on the last pose before it starts again
@@ -53,7 +55,7 @@ export async function start(box, warn) {
 
   // ---------- the motion: the check's targets per row and each call's state (StandIn.arms) ----------
   let m = await first();
-  const body = m.arm === 'yam' ? await yamBody() : Object.keys(m.chains).length ? chainBody() : toolBody();
+  const body = Object.hasOwn(MODELS, m.arm ?? '') ? await yamBody(MODELS[m.arm]) : Object.keys(m.chains).length ? chainBody() : toolBody();
   const sides = body.sides;
   const labels = sides.map((s) => { const l = document.createElement('span'); l.className = 'side'; l.textContent = s; stage.append(l); return l; });
   const paths = sides.map(() => line(2.5, true, 6));
@@ -183,20 +185,26 @@ export async function start(box, warn) {
   }
 
   // ---------- the bodies: place(which, arm, state) poses the solid or ghost arm; tool() is its hand afterwards ----------
-  async function yamBody() {   // the YAM pair from its model, posed by the joints
+  async function yamBody(model) {   // a pair drawn from its model (the YAM's, or one in its format), posed by the joints
     const missing = Object.entries(YAM_PARTS).filter(([p, n]) => !(p in m.targets) || m.targets[p][0].length !== n);
     if (missing.length) {
-      throw new Error('the arms are drawn for a YAM pair: state.left_arm and state.right_arm with 6 joints each, '
+      throw new Error(`the arms are drawn for a ${m.arm} pair: state.left_arm and state.right_arm with 6 joints each, `
         + `state.left_gripper and state.right_gripper with one; your loop sent ${Object.keys(m.targets).join(', ')}`);
     }
     const [gltf, jt] = await Promise.all([
-      new GLTFLoader().loadAsync('yam.glb'),
-      fetch('yam.joints.json').then((r) => { if (!r.ok) throw new Error(`yam.joints.json: ${r.status}`); return r.json(); }),
+      new GLTFLoader().loadAsync(`${model}.glb`),
+      fetch(`${model}.joints.json`).then((r) => { if (!r.ok) throw new Error(`${model}.joints.json: ${r.status}`); return r.json(); }),
     ]);
-    const jointsOf = jt.bodies[0];
+    const jointsOf = jt.bodies[0], ids = jt.bodies.map((b) => b.id);
+    const tcp = jointsOf.tcp_m ?? m.tcp_m;   // the model's own tool point along its last link, else the YAM's
     const ORIG = LINKS.map((_, i) => m4(jointsOf.joints[`joint${i + 1}`].origin));
     const SIGN = LINKS.map((_, i) => jointsOf.joints[`joint${i + 1}`].sign ?? 1);   // the table names only a reversed joint
-    const TIPS = jointsOf.groups.find((g) => g.name === 'gripper').joints.map((j) => ({o: m4(j.origin), a: j.a, b: j.b}));
+    const grip = jointsOf.groups.find((g) => g.name === 'gripper');
+    const TIPS = grip.joints.map((j) => ({o: m4(j.origin), a: j.a, b: j.b}));
+    // A gripper in its own unit (a Metal's or a Maker arm's millimetres) beside a <side>_grip, 0 closed to 1 open: the
+    // check drives the grip and plans <side>_gripper as a grip too, so the fingers follow the grip times the full stroke.
+    const FULL = grip.full ?? 1;
+    const opening = (state, side) => (`${side}_grip` in state ? state[`${side}_grip`][0] * FULL : state[`${side}_gripper`][0]);
     const solidRoot = gltf.scene, ghostRoot = gltf.scene.clone(true), solidNode = new Map(), ghostNode = new Map();
     const all = [], copies = []; solidRoot.traverse((o) => all.push(o)); ghostRoot.traverse((o) => copies.push(o));
     all.forEach((o, i) => {
@@ -207,10 +215,10 @@ export async function start(box, warn) {
       const byName = {};
       root.traverse((o) => { if (nodeOf.has(o)) byName[gltf.parser.json.nodes[nodeOf.get(o)].name] = o; });
       return [0, 1].map((a) => {
-        const links = LINKS.map((n) => byName[`yam_st_${a}/${n}`]);
-        const tips = [byName[`yam_st_${a}/tip_left`], byName[`yam_st_${a}/tip_right`]];
-        const base = byName[`yam_st_${a}/base`];
-        for (const o of [base, ...links, ...tips]) { if (!o) throw new Error(`yam.glb has no arm ${a}`); o.matrixAutoUpdate = false; }
+        const links = LINKS.map((n) => byName[`${ids[a]}/${n}`]);
+        const tips = [byName[`${ids[a]}/tip_left`], byName[`${ids[a]}/tip_right`]];
+        const base = byName[`${ids[a]}/base`];
+        for (const o of [base, ...links, ...tips]) { if (!o) throw new Error(`${model}.glb has no arm ${a}`); o.matrixAutoUpdate = false; }
         return {base, links, tips};
       });
     }
@@ -227,17 +235,17 @@ export async function start(box, warn) {
     }
     const arms = {solid: bind(solidRoot, solidNode), ghost: bind(ghostRoot, ghostNode)};
     scene.add(solidRoot, ghostRoot);
-    function pose(arm, q, g) {   // q: 6 joints, radians; g: the gripper, 0 closed to 1 open
+    function pose(arm, q, g) {   // q: 6 joints, radians; g: the gripper in the model's unit, 0 closed
       for (let i = 0; i < 6; i++) arm.links[i].matrix.copy(ORIG[i]).multiply(M.makeRotationZ(q[i] * SIGN[i]));
       for (const [k, T] of TIPS.entries()) arm.tips[k].matrix.copy(T.o).multiply(M.makeTranslation(0, 0, T.a + g * (T.b - T.a)));
     }
     const world = (o) => { o.updateWorldMatrix(true, false); return o.getWorldPosition(new THREE.Vector3()); };
     return {
       sides: SIDES,
-      place: (which, a, state) => pose(arms[which][a], state[`${SIDES[a]}_arm`], state[`${SIDES[a]}_gripper`][0]),
+      place: (which, a, state) => pose(arms[which][a], state[`${SIDES[a]}_arm`], opening(state, SIDES[a])),
       tool: (which, a) => {   // the check's tool point: tcp_m along the gripper's roll axis, between the fingertips
         const g = arms[which][a].links[5]; g.updateWorldMatrix(true, false);
-        return new THREE.Vector3(0, 0, -m.tcp_m).applyMatrix4(g.matrixWorld);
+        return new THREE.Vector3(0, 0, -tcp).applyMatrix4(g.matrixWorld);
       },
       feet: () => arms.solid.map((arm) => world(arm.base)),
       fit: () => arms.solid.flatMap((arm) => [arm.base, ...arm.links, ...arm.tips].map(world)),

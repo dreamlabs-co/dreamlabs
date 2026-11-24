@@ -11,6 +11,8 @@ check the same layouts in their own tests."""
 
 import dataclasses
 import datetime
+import importlib.resources
+import json
 
 import numpy as np
 import pytest
@@ -28,6 +30,8 @@ ROBOTS = list(beta_robots.robots().values())
 FIELDS = ("state", "action", "video", "head_camera")
 ## What `<side>_gripper` reads with a MakerMods gripper fully open; dream's spec of the other arms carries its own.
 GRIP_SCALE = {"metal": metal.GRIP_SCALE_MM, "makers": makers.GRIPPER_MAX_MM}
+## dream's name for a MakerMods arm -> the model the check page draws it from (`dream/arms/<model>.joints.json`).
+ARM_MODELS = {"metal": "metal", "makers": "maker"}
 ## Tool point tolerance against the bake's URDF: 0.01 mm and 0.001 degree.
 TOOL_MM, TOOL_DEG = 0.01, 0.001
 
@@ -84,6 +88,15 @@ def test_its_gripper_drive_spans_the_testers_ends(robot: beta_robots.BetaRobot) 
         jaw = spec.side_arm(side).jaw
         ends = (0.0, GRIP_SCALE[robot.ik]) if jaw is None else jaw
         np.testing.assert_allclose(ends, WORKING[robot.id]["jaw"][side], atol=1e-3, err_msg=side)
+
+
+@pytest.mark.parametrize(("arm", "model"), list(ARM_MODELS.items()))
+def test_the_check_pages_model_opens_its_fingers_by_the_stroke_the_station_sends(arm: str, model: str) -> None:
+    """The check page opens a MakerMods arm's fingers by the grip (0 to 1) times the `full` stroke its model's joints
+    file names (`dream/arms/arms.js`): that is what the station's `<side>_gripper` reads fully open, in millimetres."""
+    joints = importlib.resources.files("dream") / "arms" / f"{model}.joints.json"
+    group = next(g for g in json.loads(joints.read_text())["bodies"][0]["groups"] if g["name"] == "gripper")
+    assert (group["unit"], group["full"]) == ("mm", GRIP_SCALE[arm])
 
 
 @pytest.mark.parametrize("robot", ROBOTS, ids=ids)

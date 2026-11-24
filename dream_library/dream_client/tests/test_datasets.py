@@ -702,7 +702,11 @@ def test_validate_dataset_runs_offline_against_a_config_and_takes_a_session_dire
     dataset_dir: pathlib.Path,
 ) -> None:
     report = datasets.validate_dataset(dataset_dir / "s", YAM_CONFIG)
-    assert report == datasets.Report(
+    # The fixture's one episode counts up to 685 and holds one 32 x 32 clip on every camera: the report says so in
+    # `warnings`, and passes.
+    assert report.warnings[0] == "Directory 's': action reaches 685 in episode 0, above 10: check the units."
+    assert report.warnings[-1] == "The dataset holds 1 episode; fewer than 10 rarely teach a task."
+    assert dataclasses.replace(report, warnings=[]) == datasets.Report(
         ok=True,
         sessions=1,
         episodes=1,

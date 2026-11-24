@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import dataclasses
+import importlib.resources
 import json
 import math
 import pathlib
@@ -1577,3 +1578,62 @@ def test_the_loop_after_dashes_runs_on_the_address_and_ending_first_is_the_loops
     assert input_check.REMINDER not in err, "the reminder to run the check printed inside the check"
     assert "LOOP:   PROBLEM your loop exited (0) before the motion ended" in out
     assert "FAULT:  your control loop" in out
+
+
+def _rot_z(angle: float) -> np.ndarray:
+    """(4, 4) a turn about z, as three.js makeRotationZ."""
+    out = np.eye(4)
+    out[:2, :2] = [[math.cos(angle), -math.sin(angle)], [math.sin(angle), math.cos(angle)]]
+    return out
+
+
+@pytest.mark.parametrize(("name", "model"), [("seeed_faas", "rebot"), ("metal", "metal"), ("makers", "maker")])
+def test_each_arm_model_puts_each_joint_and_hand_where_dreams_chain_does(name: str, model: str) -> None:
+    """The page draws a seeed_faas arm from rebot.glb, a Metal arm from metal.glb and a Maker arm from maker.glb, posed
+    by the model's joints file as arms.js poses a model (each joint `origin @ RotZ(q * sign)` under the glb's base, the
+    hand `tcp_m` along the gripper's -z); every joint and the hand land where dream's chain for that arm puts them,
+    stood where arms.js stands the chain of an arm it has no model for (0.5 m apart, the left arm first, z up turned to
+    y up), at the zero pose and at poses across the joints' limits."""
+    arms = importlib.resources.files("dream") / "arms"
+    glb = (arms / f"{model}.glb").read_bytes()
+    nodes = json.loads(glb[20 : 20 + int.from_bytes(glb[12:16], "little")])["nodes"]
+    local = {n["name"]: np.array(n["matrix"]).reshape(4, 4).T for n in nodes}  # glTF matrices are column by column
+    body = json.loads((arms / f"{model}.joints.json").read_text())["bodies"][0]
+    joints = [body["joints"][f"joint{k + 1}"] for k in range(6)]
+    up = np.array([[1.0, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
+    rng = np.random.default_rng(0)
+    for a, side in enumerate(("left", "right")):
+        arm = check_arm.Arm(name, specs.EMBODIMENTS[name].side_arm(side))
+        stand = np.eye(4)
+        stand[2, 3] = (a - 0.5) * 0.5
+        stand = stand @ up
+        for q in [np.zeros(6)] + [rng.uniform(arm.limits[:, 0], arm.limits[:, 1]) for _ in range(50)]:
+            at = local["root"] @ local[f"{model}_{a}/base"]
+            drawn = []
+            for k, joint in enumerate(joints):
+                at = at @ np.array(joint["origin"]).reshape(4, 4) @ _rot_z(q[k] * joint.get("sign", 1))
+                drawn.append(at[:3, 3])
+            chain, expected = stand.copy(), []
+            for origin, axis, col, kind in arm.chain:  # a fixed joint (the Maker's ik_base_joint) only places
+                chain = chain @ origin
+                if col is not None:
+                    chain = chain @ check_arm._move(axis, q[col : col + 1], kind)[0]
+                    expected.append(chain[:3, 3])
+            np.testing.assert_allclose(drawn, expected, atol=1e-9)
+            hand = (at @ np.array([0.0, 0.0, -body["tcp_m"], 1.0]))[:3]
+            np.testing.assert_allclose(hand, (stand @ arm.poses(q[None])[0])[:3, 3], atol=1e-9)
+
+
+@pytest.mark.parametrize(("model", "full_mm", "gap_m"), [("metal", 100.0, 0.1), ("maker", 80.0, 0.104825)])
+def test_a_model_in_millimetres_names_its_grippers_full_stroke(model: str, full_mm: float, gap_m: float) -> None:
+    """The check drives a `<side>_grip` (0 closed to 1 open) and plans the `<side>_gripper` beside it as a grip too, so
+    arms.js poses a model's fingers in millimetres from the grip times the model's `full` stroke: the joints file names
+    the stroke the station sends at a full grip, and at that stroke the fingers stand the arm's full opening apart."""
+    arms = importlib.resources.files("dream") / "arms"
+    group = next(g for g in json.loads((arms / f"{model}.joints.json").read_text())["bodies"][0]["groups"])
+    assert (group["unit"], group["full"]) == ("mm", full_mm)
+    slides = [abs(j["a"] + full_mm * (j["b"] - j["a"])) for j in group["joints"]]
+    assert sum(slides) == pytest.approx(gap_m)
+    page = (arms / "arms.js").read_text()
+    assert "const FULL = grip.full ?? 1;" in page
+    assert "`${side}_grip` in state ? state[`${side}_grip`][0] * FULL : state[`${side}_gripper`][0]" in page

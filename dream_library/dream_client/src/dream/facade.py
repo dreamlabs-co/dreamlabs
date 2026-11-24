@@ -314,6 +314,7 @@ class DreamClient:
         dataset: str,
         suffix: str,
         *,
+        purpose: str | None = None,
         steps: int | None = None,
         learning_rate: float | None = None,
         batch_size: int | None = None,
@@ -333,9 +334,14 @@ class DreamClient:
             own and `processed`.
         @param suffix `[a-z0-9-]{1,40}`: the tail of the checkpoint id `dream-1-ft:<uid8>-<suffix>`; free among the
             account's models and active jobs.
-        @param steps The training steps, any multiple of `100` from `500` to `10000`; None takes the service's
-            default of 1000.
-            The price grows with the steps, and so does the time.
+        @param purpose `"embodiment"` (a new robot body: half of each batch is Dream Labs data by default; bimanual
+            robots with parallel grippers are the ones officially supported, and an out-of-distribution body should
+            train `10000` steps) or `"task"` (automate a task: the account's data alone by default; fewer than `10000`
+            steps will not give the best result). None takes `"embodiment"`, or `"task"` when `steps` is over
+            `10000`.
+        @param steps The training steps, any multiple of `100`: `500` to `10000` for an embodiment, default `500`;
+            `5000` to `30000` for a task, default `10000`. None takes the purpose's default. The price grows with the
+            steps, and so does the time.
         @param resume_from The id of one of the account's fine-tuned models (`dream-1-ft:...`) to keep training: the
             job picks up where its training ended, optimizer and learning-rate schedule included, for `steps` new
             steps, and is charged for those alone. The model must be the account's, trained after resuming was added
@@ -386,6 +392,7 @@ class DreamClient:
         return _fine_tuning.create(
             dataset,
             suffix,
+            purpose=purpose,
             steps=steps,
             learning_rate=learning_rate,
             batch_size=batch_size,

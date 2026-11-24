@@ -1,5 +1,8 @@
 # Changelog
 
+- `dreamlabs` 1.0.45 requires and locks `dreamlabs-client` 1.1.10, whose `python -m dream.check` draws a Maker Arm pair whole (2026-11-16). Nothing else changes.
+- `dreamlabs` 1.0.44 requires and locks `dreamlabs-client` 1.1.9, whose `python -m dream.check` draws a Metal pair whole (2026-11-16). Nothing else changes.
+- `dreamlabs` 1.0.43 requires and locks `dreamlabs-client` 1.1.8, whose `python -m dream.check` draws a reBot pair whole (2026-11-13). Nothing else changes.
 - `dreamlabs` 1.0.42 requires and locks `dreamlabs-client` 1.1.7, whose dataset checks and upload accept standard LeRobot v3.x and whose server-side processing converts it to v2.1 before training (2026-11-15). Nothing else changes.
 - `dreamlabs` 1.0.41 requires and locks `dreamlabs-client` 1.1.6, whose `python -m dream.check` expects the rate the client paces at (`action_hz`, which `dreamcli robot run` sets to the config's `control_hz`), holds a hand the client's IK drives to what its arm's joints give it, names the joints behind a hand's PROBLEM, names every PROBLEM on its LOOP line and reads `--recording` against the checkpoint before the arms move (2026-11-09). Nothing else changes.
 - `dreamlabs` 1.0.40 requires and locks `dreamlabs-client` 1.1.5, whose `python -m dream.check` loads what it reads the arm with before the arms move (2026-11-06). Nothing else changes.

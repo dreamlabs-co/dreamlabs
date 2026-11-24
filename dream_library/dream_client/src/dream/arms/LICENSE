@@ -22,3 +22,35 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+rebot.glb and rebot.joints.json are converted from Seeed Studio's reBot Arm B601-DM description
+(https://github.com/Seeed-Projects/reBot-DevArm, Rebot_Arm_description/DM, commit
+c16d03eaa31a2a1c0bb38b20423d60818f2a3665): two arms, the visual meshes as upstream, decimated and merged per link
+and colour, placed in the frames of dream's b601_dm.urdf (the base meshes 45 mm lower, link6, the gripper and the
+fingers turned half a turn about x, the fingers about their slide axis). Modified 2026-11-13 by Dream Labs.
+
+Hardware design (c) 2026 Seeed Studio Co., Ltd. (SeeedStudio), licensed under the CERN Open Hardware Licence
+Version 2 - Weakly Reciprocal (CERN-OHL-W-2.0); the full text is LICENSE-CERN-OHL-W-2.0 in this folder.
+
+---
+
+metal.glb and metal.joints.json are converted from MakerMods' Metal arm description
+(https://github.com/makermods-robotics/metal-python-ros, metal_ros2/src/metal_description, commit
+ef4181f1305cbcfc63431d3bcfb96f5fb7f72763): two arms, the meshes as upstream, merged per link and colour, the arm's
+links drawn dark and the gripper in its own colours, placed in the frames of dream's metal.urdf (link6, the gripper and
+the fingers turned so each turns or slides along its node's z). Modified 2026-11-16 by Dream Labs.
+
+The meshes are (c) MakerMods. That repository carries no licence file; they are redistributed here with MakerMods'
+permission.
+
+---
+
+maker.glb and maker.joints.json are converted from MakerMods' Maker Arm description
+(https://github.com/makermods-robotics/maker-arm-sdk, urdf/maker_arm, commit b30d05a23d72e8c155a8e00f807aba8e8c705f68):
+two arms, the meshes decimated and merged per link and colour, the arm's links drawn dark and the two jaws light, placed
+in the frames of dream's maker_arm_ik.urdf (the base under its fixed z-up turn). Modified 2026-11-16 by Dream Labs.
+
+The Maker Arm description is (c) MakerMods, licensed under the Apache License, Version 2.0; the full text is
+LICENSE-Apache-2.0 in this folder.

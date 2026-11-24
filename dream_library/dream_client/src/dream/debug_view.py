@@ -53,12 +53,21 @@ __all__ = ["DebugView", "RoundTrip"]
 KEEP = 20
 
 ## The files the page draws the arms from (DebugView.show_arms()), in the package's `arms` folder: per path, the file
-## and its type. yam.glb and yam.joints.json are I2RT's YAM (MIT License, arms/LICENSE).
+## and its type. yam.glb and yam.joints.json are I2RT's YAM (MIT License); rebot.glb and rebot.joints.json are Seeed
+## Studio's reBot Arm B601-DM (CERN-OHL-W-2.0), drawn for the `seeed_faas` arm; metal.glb and metal.joints.json are
+## MakerMods' Metal arm, drawn for the `metal` arm; maker.glb and maker.joints.json are MakerMods' Maker Arm
+## (Apache-2.0), drawn for the `makers` arm (arms/LICENSE).
 ARMS = importlib.resources.files("dream") / "arms"
 ARM_FILES = {
     "/arms.js": ("arms.js", "text/javascript; charset=utf-8"),
     "/yam.glb": ("yam.glb", "model/gltf-binary"),
     "/yam.joints.json": ("yam.joints.json", "application/json"),
+    "/rebot.glb": ("rebot.glb", "model/gltf-binary"),
+    "/rebot.joints.json": ("rebot.joints.json", "application/json"),
+    "/metal.glb": ("metal.glb", "model/gltf-binary"),
+    "/metal.joints.json": ("metal.joints.json", "application/json"),
+    "/maker.glb": ("maker.glb", "model/gltf-binary"),
+    "/maker.joints.json": ("maker.joints.json", "application/json"),
 }
 
 ## The status codes of a reply that carries an answer, as the client reads them: OK, and OK on a new session.
@@ -177,9 +186,9 @@ class DebugView:
 
         A ghost of each arm moves where the motion commands it, and a solid arm stands at the pose the loop reported at
         its last call, with each hand's commanded path and a dot where each call's pose put the hand; live while the
-        arms move, then replayed. A YAM is drawn whole, another arm the check knows as its chain of joints, and an arm
-        it does not know as its hand's tool point. For this the page loads three.js from cdn.jsdelivr.net; the frames
-        and values still never leave this computer.
+        arms move, then replayed. A YAM, a reBot (`seeed_faas`), a Metal or a Maker arm (`makers`) is drawn whole,
+        another arm the check knows as its chain of joints, and an arm it does not know as its hand's tool point. For
+        this the page loads three.js from cdn.jsdelivr.net; the frames and values still never leave this computer.
 
         @param motion Returns #dream.check_loop.StandIn.arms(): the targets per row, each call's state and the clock;
             None before the loop's first call.

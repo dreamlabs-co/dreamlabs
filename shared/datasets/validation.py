@@ -27,7 +27,9 @@ Two passes, both run by the dream client before a byte is sent:
   (min_episode_frames()), and a shipped `meta/modality.json` read as a modality file (its parts
   need not be the embodiment's: training writes its own from the embodiment config). It answers the summary the
   client's report shows, with a note for each session whose timestamps drift from its videos
-  (`content_checks.timestamp_drift()`), which the data worker re-times rather than refuses.
+  (`content_checks.timestamp_drift()`), which the data worker re-times rather than refuses, and the data-quality
+  warnings of `quality_checks` (a joint that never moves, a jump between two frames, a frozen camera), which refuse
+  nothing.
 
 check_tables() runs the same checks of one session's meta files and parquets on disk, without the body or the videos:
 the data worker's, over an upload that may never have met the dream client.
@@ -40,6 +42,7 @@ line the user sees, naming directories and files as the user named them.
 """
 
 import dataclasses
+import functools
 import json
 import math
 import os
@@ -48,7 +51,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, BinaryIO, Protocol
 
-from shared.datasets import content_checks, embodiments, lerobot_v3, video_formats
+from shared.datasets import content_checks, embodiments, lerobot_v3, quality_checks, video_formats
 
 ## The LeRobot codebase version the recipe's loader reads.
 CODEBASE_VERSION: str = "v2.1"
@@ -336,8 +339,9 @@ def check_dataset(files: list[FileEntry], embodiment: embodiments.Embodiment, re
         directories its video keys.
     @param reader Reads a file by its #FileEntry path.
     @return The summary: `sessions` (how many directories), `episodes`, `frames`, `files`, `bytes`, `state_dim`,
-        `action_dim`, `fps` (as `meta/info.json` records it), `video_keys` (sorted) and `notes` (a line per session
-        whose timestamps processing will re-time, _drift_note()).
+        `action_dim`, `fps` (as `meta/info.json` records it), `video_keys` (sorted), `notes` (a line per session
+        whose timestamps processing will re-time, _drift_note()) and `warnings` (a line per data-quality finding of
+        `quality_checks`, each session's and then the whole dataset's; none of them refuses anything).
     @throws content_checks.DatasetInvalidError For anything the recipe cannot train on, with the one line the user
         sees.
     """
@@ -366,6 +370,10 @@ def check_dataset(files: list[FileEntry], embodiment: embodiments.Embodiment, re
         "fps": first["fps"],
         "video_keys": sorted(embodiment.video.values()),
         "notes": [session["note"] for session in sessions if session["note"] is not None],
+        "warnings": [
+            *(line for session in sessions for line in session["warnings"]),
+            *quality_checks.dataset_lines(episodes),
+        ],
     }
 
 
@@ -628,11 +636,21 @@ def check_tables(name: str, directory: Path) -> None:
     _check_episode_lengths(name, fields["fps"], episodes)
 
 
+def _spans(embodiment: embodiments.Embodiment) -> dict[str, dict[str, tuple[int, int]]]:
+    """The body's parts by the vector column that holds them, as `quality_checks.Tables` names values by."""
+    return {"action": embodiment.action, "observation.state": embodiment.state}
+
+
+def _in_directory(name: str, lines: list[str]) -> list[str]:
+    """A session's data-quality lines, each naming the session as every other line does."""
+    return [f"Directory '{name}': {line}" for line in lines]
+
+
 def _check_session(
     name: str, session: dict[str, FileEntry], embodiment: embodiments.Embodiment, reader: Reader
 ) -> dict[str, Any]:
-    """One directory's facts (`dir`, `episodes`, `frames`, `note` and the #SHARED_FIELDS), after every check of its
-    meta files, data files and the body."""
+    """One directory's facts (`dir`, `episodes`, `frames`, `note`, its data-quality `warnings` and the
+    #SHARED_FIELDS), after every check of its meta files, data files and the body."""
 
     def read(rest: str) -> bytes:
         return reader.read(f"{name}/{rest}")
@@ -643,14 +661,27 @@ def _check_session(
     _check_embodiment(name, fields, embodiment)
     _check_episode_count(name, fields, episodes)
     _check_videos(name, fields, episodes, session, reader)
-    frames, drifted = _check_parquets(name, fields, episodes, session, read, tasks)
+    tables = quality_checks.Tables(fields["fps"], _spans(embodiment))
+    frames, drifted = _check_parquets(name, fields, episodes, session, read, tasks, tables)
     _check_episode_lengths(name, fields["fps"], episodes)
     note = _drift_note(name, fields["fps"], drifted, len(episodes)) if drifted else None
+    videos: list[tuple[str, int, int, Callable[[], BinaryIO]]] = [
+        (key, episode["episode_index"], session[path].size_bytes, functools.partial(reader.open, f"{name}/{path}"))
+        for key in fields["video_keys"]
+        for episode in episodes
+        for path in [_fill_path(fields["video_path"], fields, episode["episode_index"], key)]
+    ]
+
+    def quality() -> list[str]:
+        declared = quality_checks.declared_sizes(json.loads(read(INFO_FILE)))
+        return tables.lines() + quality_checks.video_lines(videos, declared)
+
     return {
         "dir": name,
         "episodes": fields["episodes"],
         "frames": frames,
         "note": note,
+        "warnings": _in_directory(name, quality_checks.never_failing(quality)),
         **{k: fields[k] for k in SHARED_FIELDS},
     }
 
@@ -686,10 +717,12 @@ def _check_v3_session(
     _check_episode_lengths(name, fields["fps"], episodes)
     frames = 0
     task_indices = set(parsed.tasks)
+    tables = quality_checks.Tables(fields["fps"], _spans(embodiment))
     for data_file in parsed.data_files():
         for episode, parquet in lerobot_v3.episode_tables(parsed, data_file, read(data_file)):
             path = parsed.v21_data_path(episode)
             facts = content_checks.check_parquet(name, path, parquet, fields["fps"])
+            tables.add_parquet(episode.index, parquet)
             if facts.episode_indices != {episode.index}:
                 raise content_checks.DatasetInvalidError(
                     f"Directory '{name}': {data_file} has rows of another episode among episode {episode.index}."
@@ -723,6 +756,8 @@ def _check_v3_session(
             f"Directory '{name}': LeRobot {parsed.info['codebase_version']} detected; processing converts it to "
             f"{CODEBASE_VERSION} automatically before training."
         ),
+        # The tables' warnings only: a v3.0 video holds many episodes, which the video warnings do not tell apart.
+        "warnings": _in_directory(name, quality_checks.never_failing(tables.lines)),
         **{key: fields[key] for key in SHARED_FIELDS},
     }
 
@@ -917,11 +952,13 @@ def _check_parquets(
     session: dict[str, FileEntry],
     read: Callable[[str], bytes],
     tasks: set[int],
+    tables: quality_checks.Tables | None = None,
 ) -> tuple[int, list[tuple[str, content_checks.Drift]]]:
     """Every listed episode's parquet against its index line (its rows, and the episode its rows' `episode_index`
     names), the vector widths, and its `task_index` and integer annotation values against `meta/tasks.jsonl`; answers
     the frames the parquets hold, which must be what `meta/info.json` says, and each parquet whose timestamps drift
-    from its videos (`content_checks.timestamp_drift()`) with its drift."""
+    from its videos (`content_checks.timestamp_drift()`) with its drift. Each parquet is also handed to `tables`,
+    when given, for the session's data-quality warnings."""
     frames = 0
     drifted = []
     for episode in episodes:
@@ -929,7 +966,10 @@ def _check_parquets(
         path = _fill_path(fields["data_path"], fields, index)
         if path not in session:
             raise content_checks.DatasetInvalidError(f"Directory '{name}': episode {index} has no parquet at {path}.")
-        facts = content_checks.check_parquet(name, path, read(path), fields["fps"])
+        data = read(path)
+        facts = content_checks.check_parquet(name, path, data, fields["fps"])
+        if tables is not None:
+            tables.add_parquet(index, data)
         if facts.rows != episode["length"]:
             raise content_checks.DatasetInvalidError(
                 f"Directory '{name}': {path} has {facts.rows} frames; {EPISODES_FILE} says episode {index} has "

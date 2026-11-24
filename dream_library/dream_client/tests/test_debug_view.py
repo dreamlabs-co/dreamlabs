@@ -334,7 +334,8 @@ def test_a_loop_on_the_http_api_hands_each_call_to_add() -> None:
 
 def test_the_arms_are_drawn_only_from_a_motion_handed_to_show_arms() -> None:
     """Without show_arms() there is no motion (404), so the page imports nothing; with it, the motion is served as it
-    stands, null before the loop's first call, beside the page's script and the YAM model and joints it draws."""
+    stands, null before the loop's first call, beside the page's script and the YAM, reBot, Metal and Maker models
+    and joints it draws."""
     motion: list[dict[str, Any] | None] = [None]
     with dream.DebugView(None) as view:
         assert _get(view.url + "arms")[0] == 404
@@ -346,6 +347,19 @@ def test_the_arms_are_drawn_only_from_a_motion_handed_to_show_arms() -> None:
         assert status == 200 and model[:4] == b"glTF"
         joints = json.loads(_get(view.url + "yam.joints.json")[1])
         assert [body["id"] for body in joints["bodies"]] == ["yam_st_0", "yam_st_1"]
+        status, model = _get(view.url + "rebot.glb")
+        assert status == 200 and model[:4] == b"glTF"
+        joints = json.loads(_get(view.url + "rebot.joints.json")[1])
+        assert [body["id"] for body in joints["bodies"]] == ["rebot_0", "rebot_1"]
+        status, model = _get(view.url + "metal.glb")
+        assert status == 200 and model[:4] == b"glTF"
+        joints = json.loads(_get(view.url + "metal.joints.json")[1])
+        assert [body["id"] for body in joints["bodies"]] == ["metal_0", "metal_1"]
+        status, model = _get(view.url + "maker.glb")
+        assert status == 200 and model[:4] == b"glTF"
+        joints = json.loads(_get(view.url + "maker.joints.json")[1])
+        assert [body["id"] for body in joints["bodies"]] == ["maker_0", "maker_1"]
         status, script = _get(view.url + "arms.js")
         assert status == 200 and b"export async function start" in script
+        assert b"seeed_faas: 'rebot', metal: 'metal', makers: 'maker'" in script
         assert b"https://cdn.jsdelivr.net/npm/three@0.160.0/" in _get(view.url)[1]

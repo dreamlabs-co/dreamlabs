@@ -135,6 +135,7 @@ def test_every_control_plane_method_forwards_the_key(monkeypatch: pytest.MonkeyP
     assert calls["create"] == (
         ("alice/towels-v1", "nb1"),
         {
+            "purpose": None,
             "steps": None,
             "learning_rate": None,
             "batch_size": 16,

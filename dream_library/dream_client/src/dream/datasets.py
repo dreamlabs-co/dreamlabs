@@ -174,6 +174,12 @@ class Report:
     - notes: What processing will change, and why, one line per directory; nothing to fix. Today: timestamps that
       drift from the videos, which processing re-times as `frame_index / fps` so each frame is paired with its own
       image.
+    - warnings: What looks like a recording mistake, one line per finding, each naming its directory and episodes: a
+      value or a whole vector that never changes, values above 10, a jump between two frames, a first action far from
+      the first state, two episodes with the same actions, a video that is not the size `meta/info.json` says, is not
+      16:9, is black or shows one unchanging picture, one video file on two cameras, fewer than 10 episodes. They are
+      guesses and refuse nothing: `ok` stays True. Read them
+      before uploading; a dataset with such episodes trains, and usually trains worse.
     """
 
     ok: bool
@@ -188,6 +194,7 @@ class Report:
     fps: int = 0
     video_keys: list[str] = dataclasses.field(default_factory=list)
     notes: list[str] = dataclasses.field(default_factory=list)
+    warnings: list[str] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -293,13 +300,16 @@ def validate_dataset(path: str | os.PathLike[str], config: dict[str, Any]) -> Re
 
     These are the checks upload_dataset() runs before it sends anything, so a dataset that passes here passes there.
     They include each video's format, read with FFmpeg: H.264, HEVC, AV1 or VP9 in MP4, without a subtitle track, as
-    the service requires.
+    the service requires. A dataset that passes is also read for recording mistakes the checks cannot refuse (a joint
+    that never moves, a jump between two frames, a frozen or black camera): the #Report `warnings`, which are worth
+    reading before a fine-tune is paid for.
 
     @param path The dataset directory: one LeRobot v2.1 or v3.x dataset per subdirectory, or one such dataset itself;
         `~` is expanded, and hidden files are skipped. A v3.x dataset is checked as the v2.1 episodes the service
         converts it to automatically before training.
     @param config The embodiment config of the body it was recorded on (an #Embodiment's `embodiment_config`).
-    @return The #Report: `ok`, the counts and the `notes` on what processing will change, or `ok=False` and `error`,
+    @return The #Report: `ok`, the counts, the `notes` on what processing will change and the data-quality
+        `warnings`, or `ok=False` and `error`,
         the one line to fix before uploading (a file that cannot be read is such a line too).
     @throws DreamConfigError The directory does not exist or cannot be listed, pyarrow is not installed (the message
         says how to install the library), or the config is not valid.
@@ -321,7 +331,8 @@ def upload_dataset(
     size; the call checks it before writing. A failure after the registration is reported to the service (the dataset
     is `failed` with the same line) before it is raised, and the name may be used again: running the same call again
     reuses the dataset. A name that is `ready_to_process`, `processing` or `processed` is taken for good. Each of the
-    checks' notes (#Report `notes`: what processing will change) is shown as a `UserWarning` before the upload.
+    checks' notes (#Report `notes`: what processing will change) and data-quality warnings (#Report `warnings`) is
+    shown as a `UserWarning` before the upload; neither stops it.
 
     @param path The dataset directory: one LeRobot v2.1 or v3.x dataset per subdirectory, or one such dataset itself.
         The service converts v3.x to v2.1 automatically before training; the upload is unchanged.
@@ -354,7 +365,7 @@ def upload_dataset(
     report = _validate(path, _parse(body.embodiment_config))
     if not report.ok:
         raise DreamDatasetError(report.error)
-    for note in report.notes:
+    for note in [*report.notes, *report.warnings]:
         warnings.warn(note, stacklevel=2)
     root, entries, strays = _local_files(path)
     if strays:
